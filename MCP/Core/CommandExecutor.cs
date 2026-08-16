@@ -2245,11 +2245,9 @@ namespace RevitMCP.Core
             Document doc = _uiApp.ActiveUIDocument.Document;
             
             IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
-            double startX = parameters["startX"]?.Value<double>() ?? 0;
-            double startY = parameters["startY"]?.Value<double>() ?? 0;
-            double endX = parameters["endX"]?.Value<double>() ?? 0;
-            double endY = parameters["endY"]?.Value<double>() ?? 0;
             double offset = parameters["offset"]?.Value<double>() ?? 500;
+            var pointsToken = parameters["points"] as JArray;
+            var gridIdsToken = (parameters["gridIds"] ?? parameters["elementIds"]) as JArray;
 
             View view = doc.GetElement(new ElementId(viewId)) as View;
             if (view == null)
@@ -2261,47 +2259,92 @@ namespace RevitMCP.Core
             {
                 trans.Start();
 
-                // 轉換座標
-                XYZ start = new XYZ(startX / 304.8, startY / 304.8, 0);
-                XYZ end = new XYZ(endX / 304.8, endY / 304.8, 0);
-
-                // 建立參考線
-                Line line = Line.CreateBound(start, end);
-
-                // 建立尺寸標註用的參考陣列
                 ReferenceArray refArray = new ReferenceArray();
+                Line dimLine = null;
 
-                // 使用 DetailCurve 作為參考
-                // 先建立兩個詳圖線作為參考點
-                XYZ perpDir = new XYZ(-(end.Y - start.Y), end.X - start.X, 0).Normalize();
-                double offsetFeet = offset / 304.8;
+                if (gridIdsToken != null && gridIdsToken.Count >= 2)
+                {
+                    double lineStartX = parameters["startX"]?.Value<double>() ?? 0;
+                    double lineStartY = parameters["startY"]?.Value<double>() ?? 0;
+                    double lineEndX = parameters["endX"]?.Value<double>() ?? 0;
+                    double lineEndY = parameters["endY"]?.Value<double>() ?? 0;
 
-                // 偏移後的標註線位置
-                XYZ dimLinePoint = start.Add(perpDir.Multiply(offsetFeet));
-                Line dimLine = Line.CreateBound(
-                    start.Add(perpDir.Multiply(offsetFeet)),
-                    end.Add(perpDir.Multiply(offsetFeet))
-                );
+                    XYZ lStart = new XYZ(lineStartX / 304.8, lineStartY / 304.8, 0);
+                    XYZ lEnd = new XYZ(lineEndX / 304.8, lineEndY / 304.8, 0);
+                    dimLine = Line.CreateBound(lStart, lEnd);
 
-                // 使用 NewDetailCurve 建立參考（建立足夠長的線段）
-                // 詳圖線應垂直於標註方向，作為標註的參考點
-                double lineLength = 1.0; // 1 英尺 = 約 305mm
+                    foreach (var gToken in gridIdsToken)
+                    {
+                        IdType gId = gToken.Value<IdType>();
+                        Element gridElem = doc.GetElement(new ElementId(gId));
+                        if (gridElem != null)
+                        {
+                            refArray.Append(new Reference(gridElem));
+                        }
+                    }
+                }
+                else if (pointsToken != null && pointsToken.Count >= 2)
+                {
+                    var pts = new List<XYZ>();
+                    foreach (var ptToken in pointsToken)
+                    {
+                        double px = (ptToken["x"] ?? ptToken[0])?.Value<double>() ?? 0;
+                        double py = (ptToken["y"] ?? ptToken[1])?.Value<double>() ?? 0;
+                        pts.Add(new XYZ(px / 304.8, py / 304.8, 0));
+                    }
 
-                // 使用 perpDir（垂直方向）來建立詳圖線
-                DetailCurve dc1 = doc.Create.NewDetailCurve(view, Line.CreateBound(
-                    start.Subtract(perpDir.Multiply(lineLength / 2)), 
-                    start.Add(perpDir.Multiply(lineLength / 2))));
-                DetailCurve dc2 = doc.Create.NewDetailCurve(view, Line.CreateBound(
-                    end.Subtract(perpDir.Multiply(lineLength / 2)), 
-                    end.Add(perpDir.Multiply(lineLength / 2))));
+                    XYZ firstPt = pts[0];
+                    XYZ lastPt = pts[pts.Count - 1];
+                    XYZ dir = (lastPt - firstPt).Normalize();
+                    XYZ perpDir = new XYZ(-dir.Y, dir.X, 0).Normalize();
+                    double offsetFeet = offset / 304.8;
 
-                refArray.Append(dc1.GeometryCurve.Reference);
-                refArray.Append(dc2.GeometryCurve.Reference);
+                    dimLine = Line.CreateBound(
+                        firstPt.Add(perpDir.Multiply(offsetFeet)),
+                        lastPt.Add(perpDir.Multiply(offsetFeet))
+                    );
+
+                    double lineLength = 1.0;
+                    foreach (var pt in pts)
+                    {
+                        DetailCurve dc = doc.Create.NewDetailCurve(view, Line.CreateBound(
+                            pt.Subtract(perpDir.Multiply(lineLength / 2)),
+                            pt.Add(perpDir.Multiply(lineLength / 2))));
+                        refArray.Append(dc.GeometryCurve.Reference);
+                    }
+                }
+                else
+                {
+                    double startX = parameters["startX"]?.Value<double>() ?? 0;
+                    double startY = parameters["startY"]?.Value<double>() ?? 0;
+                    double endX = parameters["endX"]?.Value<double>() ?? 0;
+                    double endY = parameters["endY"]?.Value<double>() ?? 0;
+
+                    XYZ start = new XYZ(startX / 304.8, startY / 304.8, 0);
+                    XYZ end = new XYZ(endX / 304.8, endY / 304.8, 0);
+
+                    XYZ perpDir = new XYZ(-(end.Y - start.Y), end.X - start.X, 0).Normalize();
+                    double offsetFeet = offset / 304.8;
+
+                    dimLine = Line.CreateBound(
+                        start.Add(perpDir.Multiply(offsetFeet)),
+                        end.Add(perpDir.Multiply(offsetFeet))
+                    );
+
+                    double lineLength = 1.0;
+                    DetailCurve dc1 = doc.Create.NewDetailCurve(view, Line.CreateBound(
+                        start.Subtract(perpDir.Multiply(lineLength / 2)), 
+                        start.Add(perpDir.Multiply(lineLength / 2))));
+                    DetailCurve dc2 = doc.Create.NewDetailCurve(view, Line.CreateBound(
+                        end.Subtract(perpDir.Multiply(lineLength / 2)), 
+                        end.Add(perpDir.Multiply(lineLength / 2))));
+
+                    refArray.Append(dc1.GeometryCurve.Reference);
+                    refArray.Append(dc2.GeometryCurve.Reference);
+                }
 
                 // 建立尺寸標註
                 Dimension dim = doc.Create.NewDimension(view, dimLine, refArray);
-
-                // 注意：保留詳圖線作為標註參考點（如需刪除請手動處理）
 
                 trans.Commit();
 
@@ -2311,10 +2354,11 @@ namespace RevitMCP.Core
                 {
                     DimensionId = dim.Id.GetIdValue(),
                     Value = Math.Round(dimValue, 2),
+                    SegmentsCount = dim.Segments?.Size ?? 1,
                     Unit = "mm",
                     ViewId = viewId,
                     ViewName = view.Name,
-                    Message = $"成功建立尺寸標註: {Math.Round(dimValue, 0)} mm"
+                    Message = $"成功建立尺寸標註 ({dim.Segments?.Size ?? 1} 個區段)"
                 };
             }
         }

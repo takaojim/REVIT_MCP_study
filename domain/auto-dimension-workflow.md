@@ -1,34 +1,61 @@
 ---
 name: auto-dimension-workflow
-description: "自動標註工作流程：使用射線偵測 (Ray-Casting) 或 BoundingBox 方法標註空間淨尺寸、走廊淨寬、MEP 設備。當使用者提到標註、尺寸、dimension、ray cast、淨寬、auto dimension 時觸發。"
+description: "自動標註工作流程：包含柱間距連續標註 SOP、射線偵測 (Ray-Casting) 與 BoundingBox/Wall-Batch 方法標註空間淨尺寸、走廊淨寬、柱心間距。當使用者提到標註、柱心、柱間距、尺寸、dimension、ray cast、淨寬、auto dimension 時觸發。"
 metadata:
-  version: "1.0"
-  updated: "2026-03-16"
+  version: "2.0"
+  updated: "2026-08-16"
   created: "2026-03-16"
   contributors:
-    - "unknown"
-  references: []  # TODO: 月小聚補法規條號或外部依據
-  related: []  # TODO: 月小聚補相關 domain（檔名）
+    - "RevitMCP Team"
+  references: []
+  related: []
   referenced_by:
     - auto-dimension
-  tags: [標註, 尺寸, dimension, ray cast, 淨寬, 機電]
+  tags: [標註, 柱心, 柱間距, 尺寸, dimension, string dimension, 軸線, ray cast, 淨寬, 機電]
 ---
 
-# 自動標註工作流程 (Ray-Casting)
+# 自動標註與柱心間距標準工作流程
 
 ## 📋 概述
 
-本流程使用「射線偵測技術 (Ray-Casting)」從空間中心向外發射射線，偵測碰到的第一個實體（牆面、柱面），並抓取其幾何參考 (Reference) 來建立關聯性標註。
+本工作流程定義了 Revit 建築平面圖自動標註的兩大核心體系：
+1. **柱間距與柱心連續標註（Grid Column Dimensioning SOP）**：外圍柱列與總長連續標註。
+2. **空間與物件自動標註（Ray-Casting / Wall-Batch）**：房間淨尺寸、走廊寬度與設備淨空檢討。
 
-**核心目標：** 為機電專業 (MEP) 提供精確的空間淨尺寸（Net Clearance）。
+---
 
-## 🎯 適用場景
+## 🏛️ 一、柱間距標註標準作業程序（Grid Column Dimensioning SOP）
 
-- **機電淨空間檢討**：標註設備放置空間的有效長寬。
-- **走廊寬度檢查**：忽略裝飾材，直接標註結構或完成面淨寬。
-- **防火避難分析**：驗證逃生通道的有效寬度。
+### 1. 雙層同一線段連續串接標註（String Dimension）
+- 標註圖元必須為單一連續標註實體（`SegmentsCount >= 2`），點選時為一整條連續線，嚴禁分開。
+- **外層（第 1 層）**：全棟或各翼跨度總長標註。
+- **內層（第 2 層）**：柱心連續間距標註（同一線段串接所有柱心）。
 
-## 🔧 核心邏輯
+### 2. 純原生 Grid 軸線參照（0 條輔助短細線）
+- 必須透過 `gridIds: [ ... ]` 傳入原生 `Grid` 軸線圖元參照。
+- 嚴禁在圖面上建立 DetailLines 輔助線。
+
+### 3. 標註型式（Dimension Type）規範
+- **上方（北側）與 右側（東側）**：採用 **`TABC-DIM_*/ S 2.5-柱心-上右`**
+- **下方（南側）與 左側（西側）**：採用 **`TABC-DIM_*/ S 2.5-柱心-下右`**
+
+### 4. 繪製起訖方向與輔助線延伸指向（100% 朝向建物內側）
+| 方位 | 尺寸基準線起訖方向 | 輔助線延伸指向 | 標註型式 (Dimension Type) |
+|:---|:---:|:---:|:---|
+| **北側 (上方)** | **由右至左**（東向西: A $\to$ G） | ⬇️ **朝下（指向建物）** | `TABC-DIM_*/ S 2.5-柱心-上右` |
+| **東側 (右側)** | **由下至上**（南向北: 5 $\to$ 7） | ⬅️ **朝左（指向建物）** | `TABC-DIM_*/ S 2.5-柱心-上右` |
+| **南側 (下方)** | **由左至右**（西向東: G $\to$ D） | ⬆️ **朝上（指向建物）** | `TABC-DIM_*/ S 2.5-柱心-下右` |
+| **西側 (左側)** | **由上至下**（北向南: 7 $\to$ 1） | ➡️ **朝右（指向建物）** | `TABC-DIM_*/ S 2.5-柱心-下右` |
+
+### 5. 5MM 三等距階梯鎖點規範
+依出圖比例（1:100 時 1mm = 100mm 模型空間）：
+- **外層線（第 1 層）**：距離軸線圓圈底 **`5.0 mm`**（模型空間 $500\text{ mm}$）。
+- **內層線（第 2 層）**：距離外層線 **`5.0 mm`**（符合型式參數 `尺寸線鎖點距離: 5.0000 mm`，模型空間 $500\text{ mm}$）。
+- **端點輔助線（第 3 層）**：向內延伸 **`5.0 mm`**（符合型式參數 `輔助線長度: 5.0000 mm`，模型空間 $500\text{ mm}$）。
+
+---
+
+## 🔧 二、房間與設備射線標註流程 (Ray-Casting)
 
 ```mermaid
 graph TD
@@ -43,46 +70,15 @@ graph TD
 ```
 
 ### 關鍵參數
-*   **Origin**: 射線起點 (通常為 Room Location Point)。
-*   **View**: 目標視圖 (必須是平面圖)。
-*   **TargetCategory**: 偵測目標 (BuiltInCategory.OST_Walls)。
+* **Origin**: 射線起點 (Room Location Point)。
+* **View**: 目標視圖 (必須是平面圖)。
+* **TargetCategory**: 偵測目標 (BuiltInCategory.OST_Walls)。
 
-## 🔄 標準工作流程
-
-### 步驟 1：取得房間資訊
-取得房間的 `LocationPoint` 作為射線起點。
-
-```javascript
-const room = await execute('get_room_info', { roomId: 12345 });
-const center = room.Location;
-```
-
-### 步驟 2：執行射線標註
-分別對水平 (X) 與垂直 (Y) 方向執行標註。
-
-```javascript
-// X 軸向標註 (Horizontal)
-execute('create_dimension_by_ray', {
-    viewId: activeViewId,
-    origin: center,
-    direction: { x: 1, y: 0, z: 0 }, // 向右射線 (偵測右牆)
-    counterDirection: { x: -1, y: 0, z: 0 } // 向左射線 (偵測左牆)
-});
-
-// Y 軸向標註 (Vertical)
-execute('create_dimension_by_ray', {
-    viewId: activeViewId,
-    origin: center,
-    direction: { x: 0, y: 1, z: 0 }, // 向上射線
-    counterDirection: { x: 0, y: -1, z: 0 } // 向下射線
-});
-```
+---
 
 ## ⚠️ 限制與注意事項
-
-1.  **3D 視圖限制**：`ReferenceIntersector` 必須在 3D 視圖環境下運作（C# 內部處理），但尺寸標註必須建立在平面視圖。
-2.  **遮擋問題**：如果房間中間有柱子擋住射線，會標註到柱子而非牆面（這通常也是機電想要的「淨空間」）。
-3.  **邊界盒替代**：如果是 L 型或複雜多邊形房間，中心點射線可能打不到預期的牆，需改用「多點射線」或回退到邊界盒法。
+1. **3D 視圖限制**：嚴禁在 3D 視圖中建立 2D 平面標註。
+2. **柱心標註統一規範**：所有後續柱心/柱間距標註工作必須 100% 依循上述 SOP 執行。
 
 ---
 **維護者：** RevitMCP Team
