@@ -1,0 +1,143 @@
+{
+  "Uuid": "6479f3fc-627b-45d2-abb1-b4c564c644d5",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-尺寸柱列腺",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "74410b40c0e849558c09af6ddc9c6d49",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "在每個視圖的柱列線上下左右標尺寸外圍為總尺寸第二層為細部尺寸",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\n\r\n# --- 妹妹的單位換算 (公分轉英呎) ---\r\ndef cm_to_feet(cm):\r\n    return cm / 30.48\r\n\r\n# --- 建立標註的輔助函式 ---\r\ndef create_dim(doc, view, line, ref_array):\r\n    if ref_array.Size > 1:\r\n        return doc.Create.NewDimension(view, line, ref_array)\r\n    return None\r\n\r\n# --- 1. 獲取當前視圖的網格並分類 ---\r\ngrids = FilteredElementCollector(doc, view.Id).OfCategory(BuiltInCategory.OST_Grids).WhereElementIsNotElementType().ToElements()\r\n\r\nh_grids = [] # 水平網格\r\nv_grids = [] # 垂直網格\r\n\r\nfor g in grids:\r\n    curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view)\r\n    if len(curves) > 0:\r\n        curve = curves[0]\r\n        dir = curve.Direction\r\n        if abs(dir.X) > abs(dir.Y):\r\n            h_grids.append(g)\r\n        else:\r\n            v_grids.append(g)\r\n\r\n# 依照座標排序\r\nif len(h_grids) > 0:\r\n    h_grids.sort(key=lambda g: g.GetCurvesInView(DatumExtentType.ViewSpecific, view)[0].GetEndPoint(0).Y) \r\nif len(v_grids) > 0:\r\n    v_grids.sort(key=lambda g: g.GetCurvesInView(DatumExtentType.ViewSpecific, view)[0].GetEndPoint(0).X)\r\n\r\n# --- 2. 獲取標頭極值與計算向內偏移量 ---\r\nv_endpoints_y = []\r\nfor g in v_grids:\r\n    curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view)\r\n    if len(curves) > 0:\r\n        v_endpoints_y.extend([curves[0].GetEndPoint(0).Y, curves[0].GetEndPoint(1).Y])\r\n    \r\nh_endpoints_x = []\r\nfor g in h_grids:\r\n    curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view)\r\n    if len(curves) > 0:\r\n        h_endpoints_x.extend([curves[0].GetEndPoint(0).X, curves[0].GetEndPoint(1).X])\r\n\r\nmax_y = max(v_endpoints_y) if v_endpoints_y else 0 \r\nmin_y = min(v_endpoints_y) if v_endpoints_y else 0 \r\nmax_x = max(h_endpoints_x) if h_endpoints_x else 0 \r\nmin_x = min(h_endpoints_x) if h_endpoints_x else 0 \r\n\r\n# 自動比例換算\r\nview_scale = view.Scale \r\n\r\n# 哥哥設定的圖紙公分\r\npaper_dist_tier1_cm = 0.5  # 第一層距離 (最外圈)\r\npaper_dist_tier2_cm = 0.65 # 尺寸間距 (內圈距離第一層)\r\n\r\n# 換算成英呎\r\noffset1 = cm_to_feet(paper_dist_tier1_cm * view_scale)\r\noffset2 = offset1 + cm_to_feet(paper_dist_tier2_cm * view_scale)\r\n\r\n# --- 3. 開始執行 Transaction 繪製標註 ---\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\ntry:\r\n    # 準備 Reference Arrays\r\n    v_refs = ReferenceArray() # 細部尺寸\r\n    for g in v_grids: v_refs.Append(Reference(g))\r\n    v_refs_overall = ReferenceArray() # 總尺寸\r\n    if len(v_grids) >= 2:\r\n        v_refs_overall.Append(Reference(v_grids[0]))\r\n        v_refs_overall.Append(Reference(v_grids[-1]))\r\n\r\n    h_refs = ReferenceArray() # 細部尺寸\r\n    for g in h_grids: h_refs.Append(Reference(g))\r\n    h_refs_overall = ReferenceArray() # 總尺寸\r\n    if len(h_grids) >= 2:\r\n        h_refs_overall.Append(Reference(h_grids[0]))\r\n        h_refs_overall.Append(Reference(h_grids[-1]))\r\n\r\n    # 【妹妹最終修正：offset1(外圈)放總尺寸，offset2(內圈)放細部尺寸】\r\n    if v_refs.Size > 0 and h_refs.Size > 0:\r\n        # 頂部 (Top) 標註：Y座標向下減\r\n        top_y_1 = max_y - offset1\r\n        top_y_2 = max_y - offset2\r\n        create_dim(doc, view, Line.CreateBound(XYZ(0, top_y_1, 0), XYZ(10, top_y_1, 0)), v_refs_overall)\r\n        create_dim(doc, view, Line.CreateBound(XYZ(0, top_y_2, 0), XYZ(10, top_y_2, 0)), v_refs)\r\n\r\n        # 底部 (Bottom) 標註：Y座標向上加\r\n        bot_y_1 = min_y + offset1\r\n        bot_y_2 = min_y + offset2\r\n        create_dim(doc, view, Line.CreateBound(XYZ(0, bot_y_1, 0), XYZ(10, bot_y_1, 0)), v_refs_overall)\r\n        create_dim(doc, view, Line.CreateBound(XYZ(0, bot_y_2, 0), XYZ(10, bot_y_2, 0)), v_refs)\r\n\r\n        # 左側 (Left) 標註：X座標向右加\r\n        left_x_1 = min_x + offset1\r\n        left_x_2 = min_x + offset2\r\n        create_dim(doc, view, Line.CreateBound(XYZ(left_x_1, 0, 0), XYZ(left_x_1, 10, 0)), h_refs_overall)\r\n        create_dim(doc, view, Line.CreateBound(XYZ(left_x_2, 0, 0), XYZ(left_x_2, 10, 0)), h_refs)\r\n\r\n        # 右側 (Right) 標註：X座標向左減\r\n        right_x_1 = max_x - offset1\r\n        right_x_2 = max_x - offset2\r\n        create_dim(doc, view, Line.CreateBound(XYZ(right_x_1, 0, 0), XYZ(right_x_1, 10, 0)), h_refs_overall)\r\n        create_dim(doc, view, Line.CreateBound(XYZ(right_x_2, 0, 0), XYZ(right_x_2, 10, 0)), h_refs)\r\n\r\n    OUT = \"內外圈對調完成！總尺寸在外，細部在內，完美符合製圖標準！啾咪！\"\r\n\r\nexcept Exception as e:\r\n    OUT = \"哎呀，出錯了：\" + str(e)\r\n\r\nTransactionManager.Instance.TransactionTaskDone()",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "4ecc2c519a1f455bbfa70c9d9b9d039a",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "089154959be542a5afdd6db8235f7f78",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "74410b40c0e849558c09af6ddc9c6d49",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f38cd1f0588f4d0bad79a8303728ed48",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "在每個視圖的柱列線上下左右標尺寸外圍為總尺寸第二層為細部尺寸"
+    }
+  ],
+  "Connectors": [],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "4ecc2c519a1f455bbfa70c9d9b9d039a",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 555.0,
+        "Y": 298.0
+      },
+      {
+        "Id": "74410b40c0e849558c09af6ddc9c6d49",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 222.0,
+        "Y": 294.0
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}
