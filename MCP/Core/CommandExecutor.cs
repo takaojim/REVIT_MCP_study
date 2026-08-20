@@ -117,6 +117,10 @@ namespace RevitMCP.Core
                     case "modify_element_parameter":
                         result = ModifyElementParameter(parameters);
                         break;
+
+                    case "renumber_rooms_by_level":
+                        result = RenumberRoomsByLevel(parameters);
+                        break;
                     
                     case "create_door":
                         result = CreateDoor(parameters);
@@ -987,7 +991,7 @@ namespace RevitMCP.Core
                 throw new Exception($"找不到元素 ID: {elementId}");
             }
 
-            using (Transaction trans = new Transaction(doc, "修改參數"))
+            using (Transaction trans = TransactionHelper.Begin(doc, "修改參數"))
             {
                 trans.Start();
 

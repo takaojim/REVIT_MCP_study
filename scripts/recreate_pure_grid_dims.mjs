@@ -5,49 +5,63 @@ async function main() {
   client.clientName = 'antigravity-agent';
   await client.connect();
 
-  const typeIdUpRight = 2110318;   // TABC-DIM_*/ S 2.5-柱心-上右
-  const typeIdDownRight = 2110326; // TABC-DIM_*/ S 2.5-柱心-下右
+  // 1. 動態取得標註型式 ID
+  const dimTypesRes = await client.sendCommand('list_dimension_types', {});
+  const dimTypes = dimTypesRes.data?.DimensionTypes || [];
+  
+  const upRightType = dimTypes.find(t => t.DimensionTypeName.includes('柱心-上右'));
+  const downRightType = dimTypes.find(t => t.DimensionTypeName.includes('柱心-下右'));
 
-  // Grid IDs:
-  // North/South (Vertical Grids G to A):
-  const allXGridIds = [786156, 192192, 432845, 432924, 586414, 586421, 586428]; // G, F, E, D, C, B, A
-  const southGridIds = [786156, 192192, 432845, 432924]; // G, F, E, D
-  const northTotalGridIds = [786156, 586428]; // G, A
-  const southTotalGridIds = [786156, 432924]; // G, D
+  const typeIdUpRight = upRightType ? upRightType.DimensionTypeId : 2240793;   // TABC-DIM_*/ S 2.5-柱心-上右
+  const typeIdDownRight = downRightType ? downRightType.DimensionTypeId : 2240801; // TABC-DIM_*/ S 2.5-柱心-下右
 
-  // West/East (Horizontal Grids 1 to 7):
-  const allYGridIds = [192066, 432966, 432630, 586498, 586507, 586516, 1353259]; // 1, 2, 3, 4, 5, 6, 7
-  const eastGridIds = [586507, 586516, 1353259]; // 5, 6, 7
-  const westTotalGridIds = [192066, 1353259]; // 1, 7
-  const eastTotalGridIds = [586507, 1353259]; // 5, 7
+  console.log(`[型式對應] 上右型式 ID: ${typeIdUpRight} (${upRightType?.DimensionTypeName || '未找到'}), 下右型式 ID: ${typeIdDownRight} (${downRightType?.DimensionTypeName || '未找到'})`);
 
+  // Grid IDs & 方位向量定義 (包含 H 軸 2110013 與 8 軸 1353259):
+  // 北側 (由右至左: A -> H, 指向建物朝下 ⬇️)
+  const northGridIdsContinuous = [586428, 586421, 586414, 432924, 432845, 192192, 786156, 2110013]; // A to H
+  const northGridIdsTotal = [586428, 2110013]; // A to H
+
+  // 東側 (由下至上: 5 -> 8, 指向建物朝左 ⬅️)
+  const eastGridIdsContinuous = [586507, 586516, 2109573, 1353259]; // 5, 6, 7, 8
+  const eastGridIdsTotal = [586507, 1353259]; // 5, 8
+
+  // 南側 (由左至右: H -> D, 指向建物朝上 ⬆️)
+  const southGridIdsContinuous = [2110013, 786156, 192192, 432845, 432924]; // H, G, F, E, D
+  const southGridIdsTotal = [2110013, 432924]; // H, D
+
+  // 西側 (由上至下: 8 -> 1, 指向建物朝右 ➡️)
+  const westGridIdsContinuous = [1353259, 2109573, 586516, 586507, 586498, 432630, 432966, 192066]; // 8 to 1
+  const westGridIdsTotal = [1353259, 192066]; // 8 to 1
+
+  // 僅針對 3FL 單一視圖，其餘樓層不處理
   const targetViews = [
-    { name: '1FL', viewId: 312 },
-    { name: '2FL', viewId: 695 },
-    { name: '3FL', viewId: 428158 },
-    { name: '4FL', viewId: 586080 },
-    { name: 'RFL', viewId: 586090 },
-    { name: 'TRFL', viewId: 586100 }
+    { name: '3FL', viewId: 428158 }
   ];
 
-  console.log('=== 使用純原生 Grid 軸線參照重新建立全棟柱心標註 (100% 無輔助細線) ===');
+  console.log('=== 僅針對 3FL 執行精準標註：第1條(圓圈底5mm)=柱心連續，第2條(再下5mm)=總長度 ===');
 
   for (const v of targetViews) {
-    await client.sendCommand('set_active_view', { viewId: v.viewId });
+    console.log(`\n----------------------------------------`);
+    console.log(`正在處理視圖: ${v.name} (ViewId: ${v.viewId})`);
 
-    // 1. 刪除該視圖上我們先前建立的尺寸
+    // 1. 刪除 3FL 上所有既有尺寸標註
     const dimsRes = await client.sendCommand('query_elements', { category: 'Dimensions', viewId: v.viewId });
-    for (const d of dimsRes.data.Elements) {
-      if (d.Name.includes('柱心')) {
-        await client.sendCommand('delete_element', { elementId: d.ElementId });
+    if (dimsRes.data?.Elements) {
+      let deletedCount = 0;
+      for (const d of dimsRes.data.Elements) {
+        try {
+          await client.sendCommand('delete_element', { elementId: d.ElementId });
+          deletedCount++;
+        } catch (e) {}
       }
+      console.log(`[清理既有標註] 已刪除 ${deletedCount} 道舊尺寸標註。`);
     }
 
-    // 2. 刪除該視圖上的所有短詳圖線 (長度約 305mm 的 DetailLines)
+    // 2. 刪除 3FL 上的所有 DetailLines 輔助細線
     const linesRes = await client.sendCommand('query_elements', { category: 'Lines', viewId: v.viewId });
     if (linesRes.data?.Elements) {
       for (const line of linesRes.data.Elements) {
-        // 安全刪除輔助線
         try {
           await client.sendCommand('delete_element', { elementId: line.ElementId });
         } catch (e) {}
@@ -57,91 +71,83 @@ async function main() {
     const upRightIds = [];
     const downRightIds = [];
 
-    // 3. 建立北側 (使用 gridIds)
+    // 3. 北側 (由右至左: A -> H, 指向建物朝下 ⬇️)
+    // 第 1 條線 (貼近圓圈底 Y=38936) ➔ 柱心連續間距標註
     const nContinuous = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: allXGridIds,
-      startX: -1691.74,
-      startY: 34000,
-      endX: 47333.25,
-      endY: 34000
+      gridIds: northGridIdsContinuous,
+      startX: 47333.25, startY: 38936,
+      endX: -3691.74, endY: 38936
     });
     if (nContinuous.success) upRightIds.push(nContinuous.data.DimensionId);
 
+    // 第 2 條線 (第一條線下方 5mm Y=38436) ➔ 總長度標註
     const nTotal = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: northTotalGridIds,
-      startX: -1691.74,
-      startY: 35500,
-      endX: 47333.25,
-      endY: 35500
+      gridIds: northGridIdsTotal,
+      startX: 47333.25, startY: 38436,
+      endX: -3691.74, endY: 38436
     });
     if (nTotal.success) upRightIds.push(nTotal.data.DimensionId);
 
-    // 4. 建立東側 (使用 gridIds)
+    // 4. 東側 (由下至上: 5 -> 8, 指向建物朝左 ⬅️)
+    // 第 1 條線 (貼近圓圈底 X=48500) ➔ 柱心連續間距標註
     const eContinuous = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: eastGridIds,
-      startX: 50500,
-      startY: 11363.73,
-      endX: 50500,
-      endY: 32163.73
+      gridIds: eastGridIdsContinuous,
+      startX: 48500, startY: 11363.73,
+      endX: 48500, endY: 34163.73
     });
     if (eContinuous.success) upRightIds.push(eContinuous.data.DimensionId);
 
+    // 第 2 條線 (第一條線左方 5mm X=48000) ➔ 總長度標註
     const eTotal = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: eastTotalGridIds,
-      startX: 52000,
-      startY: 11363.73,
-      endX: 52000,
-      endY: 32163.73
+      gridIds: eastGridIdsTotal,
+      startX: 48000, startY: 11363.73,
+      endX: 48000, endY: 34163.73
     });
     if (eTotal.success) upRightIds.push(eTotal.data.DimensionId);
 
-    // 5. 建立南側 (使用 gridIds)
+    // 5. 南側 (由左至右: H -> D, 指向建物朝上 ⬆️)
+    // 第 1 條線 (貼近圓圈底 Y=-20500) ➔ 柱心連續間距標註
     const sContinuous = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: southGridIds,
-      startX: -1691.74,
-      startY: -22000,
-      endX: 19608.25,
-      endY: -22000
+      gridIds: southGridIdsContinuous,
+      startX: -3691.74, startY: -20500,
+      endX: 19608.25, endY: -20500
     });
     if (sContinuous.success) downRightIds.push(sContinuous.data.DimensionId);
 
+    // 第 2 條線 (第一條線上條 5mm Y=-20000) ➔ 總長度標註
     const sTotal = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: southTotalGridIds,
-      startX: -1691.74,
-      startY: -23500,
-      endX: 19608.25,
-      endY: -23500
+      gridIds: southGridIdsTotal,
+      startX: -3691.74, startY: -20000,
+      endX: 19608.25, endY: -20000
     });
     if (sTotal.success) downRightIds.push(sTotal.data.DimensionId);
 
-    // 6. 建立西側 (使用 gridIds)
+    // 6. 西側 (由上至下: 8 -> 1, 指向建物朝右 ➡️)
+    // 第 1 條線 (貼近圓圈底 X=-4500) ➔ 柱心連續間距標註
     const wContinuous = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: allYGridIds,
-      startX: -5000,
-      startY: -19836.27,
-      endX: -5000,
-      endY: 32163.73
+      gridIds: westGridIdsContinuous,
+      startX: -4500, startY: 34163.73,
+      endX: -4500, endY: -19836.27
     });
     if (wContinuous.success) downRightIds.push(wContinuous.data.DimensionId);
 
+    // 第 2 條線 (第一條線右方 5mm X=-4000) ➔ 總長度標註
     const wTotal = await client.sendCommand('create_dimension', {
       viewId: v.viewId,
-      gridIds: westTotalGridIds,
-      startX: -6500,
-      startY: -19836.27,
-      endX: -6500,
-      endY: 32163.73
+      gridIds: westGridIdsTotal,
+      startX: -4000, startY: 34163.73,
+      endX: -4000, endY: -19836.27
     });
     if (wTotal.success) downRightIds.push(wTotal.data.DimensionId);
 
-    // 7. 套用專屬柱心標註形式
+    // 7. 套用專屬柱心標註型式 (上右 / 下右)
     if (upRightIds.length > 0) {
       await client.sendCommand('change_element_type', {
         elementIds: upRightIds,
@@ -156,8 +162,12 @@ async function main() {
       });
     }
 
-    console.log(`樓層 ${v.name} 更新完成：純原生軸線標註，0 條輔助細線。`);
+    console.log(`[成功建立標註] 3FL 視圖標註重構完成！`);
   }
+
+  console.log('\n========================================');
+  console.log('🎉 3FL 單一視圖標註精準執行完成！');
+  console.log('========================================');
 
   process.exit(0);
 }

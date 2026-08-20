@@ -1,129 +1,89 @@
 ---
 name: room-numbering-workflow
-description: "Revit 房間重新排序編號 SOP。規範如何依樓層取得 Room、用中心點由上到下再由左到右排序、從使用者指定起始號碼批次寫入房間編號，並避免逐筆 modify_element_parameter 造成速度慢與交易風險。"
+description: "Revit 房間重新排序編號 SOP。規範如何依樓層取得 Room、依動線拓撲主從關係（或純幾何坐標）建立空間順序、從使用者指定起始號碼批次寫入房間編號，並全面使用 SilentFailuresPreprocessor 避免重複編號警示彈窗。"
 metadata:
-  version: "1.1"
-  updated: "2026-06-09"
+  version: "1.2"
+  updated: "2026-08-20"
   created: "2026-04-02"
   contributors:
     - "Codex"
+    - "Antigravity"
   references: []
   related:
     - lessons.md
     - session-context-guard.md
   referenced_by:
     - "room-numbering"
-  tags: [room-numbering, renumber, rooms, Revit, batch, dry-run, 房間編號, 重新排序]
+  tags: [room-numbering, renumber, rooms, Revit, batch, dry-run, topology, suite-hierarchy, 房間編號, 重新排序, 動線主從]
 ---
 
-# 房間重新排序編號工作流
+# 房間重新排序編號工作流 SOP
 
-## 目的
+## 1. 目的
 
-此 SOP 用於將指定樓層的 Revit Rooms 依圖面位置重新排序並批次寫入房間編號。典型需求包含：
-
-- 「房間重新排序編號，只排 B1F，從 B134 開始」
-- 「把 2F 房間重新編號」
+將指定樓層之 Revit Rooms 依建築動線主從邏輯（或平面圖坐標位置）重新排序，並批次指派連續房間編號。
+適用於：
+- 「將 2FL 房間依動線主從關係重新編號，從 F201 開始」
+- 「把 3FL 房間重新編號」
 - 「room numbering / renumber rooms」
 - 「先 dry-run 看順序，再正式寫入」
 
-## 核心原則
+---
 
-- 使用 `renumber_rooms_by_level` 作為標準工具。此工具在 Revit add-in 端一次查詢、排序、交易寫入，避免 MCP 層逐筆 `modify_element_parameter` 往返造成速度慢。
-- 使用者指定的樓層、起始號碼、容差都屬於 runtime parameter，不得寫死在 Skill 或 Domain。
-- 寫入前先 dry-run，寫入後再查詢驗證。
-- 不直接呼叫 WebSocket 腳本，不自行組 `{ CommandName, Parameters, RequestId }` payload。
+## 2. 雙模式架構
 
-## 輸入參數
+### 2.1 模式一：【動線拓撲主從模式】（預設模式）
+- **空間從屬原則**：
+  凡經由特定房間才能進入之內部空間（如：主寢室內的專屬衛浴、女浴前室內之女浴室、辦公室內之檔案庫），判定為該單元之子空間。
+- **編號連號原則**：
+  父空間（主）與子空間（從）必須**連續成組編號**（例如：`F239 女浴前室 ➔ F240 女浴室`），嚴禁被其他橫排空間拆散跳號。
+- **動線判定鏈**：
+  1. **門拓撲（Door Adjacency）**：分析門的 `FromRoom` 與 `ToRoom` 建立連通樹（Corridor Depth 0 $\rightarrow$ Parent Depth 1 $\rightarrow$ Child Depth 2）。
+  2. **開間包絡（Bay Envelope Fallback）**：若門無 Room 關聯，以同一個垂直/水平結構開間為單位，由進門外側往內側連號。
+
+### 2.2 模式二：【純幾何坐標模式】（手動指定）
+- 依平面圖幾何坐標 $X, Y$ 進行機械式橫向或縱向掃描。僅在使用者明確指定「純幾何」或「不考慮動線」時啟用。
+
+---
+
+## 3. 輸入參數
 
 | 參數 | 來源 | 說明 |
-|------|------|------|
-| `level` | 使用者指定或本 turn 工具查詢 | 目標樓層，可為 `B1F`、`C-B1F` 等可唯一解析名稱 |
-| `startNumber` | 使用者指定 | 起始房號，必須以數字結尾，例如 `B134` |
-| `dryRun` | Agent 控制 | 預設先 `true` 預覽，再 `false` 寫入 |
-| `yToleranceMm` | 使用者指定或預設 | Y 軸列分組容差，預設 `3000` |
-| `includeUnnamed` | 使用者指定或預設 | 是否包含未命名但已放置房間，預設 `true` |
+| :--- | :--- | :--- |
+| `level` | 使用者指定或工具查詢 | 目標樓層（如 `2FL`、`B1F`） |
+| `startNumber` | 使用者指定 | 起始房號（必須以數字結尾，如 `F201`、`B101`） |
+| `mode` | 使用者指定或預設 | `"topology"`（動線主從，預設）或 `"geometric"`（純幾何） |
+| `dryRun` | Agent 控制 | 預設先 `true` 預覽，確認後再 `false` 寫入 |
+| `includeUnnamed` | 使用者指定或預設 | 是否包含未命名但已放置之房間（預設 `true`） |
 
-## 排序規則
+---
 
-1. 收集目標樓層所有已放置且 `Area > 0` 的 Rooms。
-2. 取得房間中心點：
-   - 優先使用 `LocationPoint`
-   - 若無點位，使用 BoundingBox 中心點
-   - 無中心點或未放置房間列入 skipped，不寫入
-3. 依 `CenterY` 由大到小排序，代表由圖面上方往下。
-4. 以 `yToleranceMm` 將相近 Y 值分為同一列。
-5. 同一列內依 `CenterX` 由小到大排序，代表由左到右。
-6. 從 `startNumber` 的文字前綴與數字尾碼開始連續遞增。例如 `B134` 產生 `B134`、`B135`、`B136`。
+## 4. 標準作業步驟
 
-## 標準操作
+### 4.1 狀態錨定（Re-anchor）
+執行任何寫入前，先呼叫 `get_active_view()` 確認目前模型連線與目標樓層。
 
-### 1. Re-anchor
+### 4.2 未放置房間編號釋放（Conflict Isolation）
+若專案中存在未放置（Unplaced / `Area = 0`）且已佔用目標號碼區間之房間，先將其房號改為暫存格式（如 `_UNP_F201_...`），避免與已放置房間產生重複編號衝突。
 
-在任何會修改 Revit 的動作前，先呼叫：
+### 4.3 安全預覽（Dry-Run）
+呼叫 `renumber_rooms_by_level({ level, startNumber, dryRun: true })` 產出預覽清單，檢查：
+- 樓層與已放置房間數量
+- 起始與結束號碼
+- 主從單元是否連號（如前室與內室相鄰）
 
-```text
-get_active_view()
-```
+### 4.4 正式寫入（Batch Write）
+確認無誤後執行寫入：
+- 使用 `TransactionHelper.Begin(doc, "批次房間重新編號")`。
+- 內部註冊 `SilentFailuresPreprocessor`，自動過濾並吸收 Warning 提示框。
+- 採單一 Transaction 或兩階段暫存唯一號碼，確保 100% 靜默且若失敗即自動 Rollback。
 
-用途是確認目前文件與視圖狀態。若使用者已明確指定樓層，仍以使用者指定樓層作為 `renumber_rooms_by_level.level`。
+### 4.5 驗證（Verify）
+呼叫 `get_rooms_by_level({ level })` 驗證全樓層房間編號清單與筆數一致性。
 
-### 2. Dry-run
+---
 
-```text
-renumber_rooms_by_level({
-  level: "{level}",
-  startNumber: "{startNumber}",
-  dryRun: true,
-  yToleranceMm: 3000
-})
-```
-
-檢查：
-
-- `Level` 是否為預期實際樓層，例如使用者輸入 `B1F`，工具解析為 `C-B1F`
-- `Count` 是否合理
-- `StartNumber` 與 `EndNumber` 是否合理
-- `Rooms` 的順序是否符合由上到下、由左到右
-- `SkippedRooms` 是否可接受
-- `Conflicts` 是否為空
-
-### 3. 正式寫入
-
-dry-run 合理後才執行：
-
-```text
-renumber_rooms_by_level({
-  level: "{level}",
-  startNumber: "{startNumber}",
-  dryRun: false,
-  yToleranceMm: 3000
-})
-```
-
-工具會在單一 Revit Transaction 中批次寫入。若任一房間無法寫入，工具應 rollback 並回報失敗原因。
-
-### 4. 驗證
-
-寫入後呼叫：
-
-```text
-get_rooms_by_level({
-  level: "{level}",
-  includeUnnamed: true
-})
-```
-
-回覆時列出實際套用樓層、房間數、編號範圍與是否全部成功。不要列出未在本 turn 工具回傳中出現的房間 ID、名稱或數量。
-
-## 風險與 fallback
-
-- 若 `renumber_rooms_by_level` 不存在，先確認 Revit add-in DLL 與 MCP Server 是否都已更新並重啟。
-- 若批次工具暫時不可用，才考慮逐筆 `modify_element_parameter`，但必須告知會較慢，且仍需使用本 SOP 排序與驗證。
-- 若樓層名稱解析出多個候選，停止並請使用者指定完整樓層名稱。
-- 若候選編號已存在於其他樓層，停止並回報衝突；除非使用者明確允許，否則不覆蓋。
-
-## 相關文件
+## 5. 相關規範
 
 - `domain/lessons.md`
 - `domain/session-context-guard.md`

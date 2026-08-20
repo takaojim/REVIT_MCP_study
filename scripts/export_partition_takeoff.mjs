@@ -1,9 +1,11 @@
-const fs = require('fs');
-const path = require('path');
-const WebSocket = require('ws');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { RevitSocketClient } from '../MCP-Server/build/socket.js';
 
-const WS_URL = process.env.REVIT_MCP_WS || 'ws://localhost:8964/?client=antigravity-agent';
-const ROOT = path.resolve(__dirname, '..', '..');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, '..');
 const OUTPUT = process.env.PARTITION_OUTPUT || path.join(ROOT, '物流中心_ALL_輕隔間數量計算.csv');
 const ROOM_ASSIGN_PADDING_MM = 1000;
 const USE_WALL_AREA_FOR_EFFECTIVE_HEIGHT = process.env.USE_WALL_AREA_FOR_EFFECTIVE_HEIGHT !== '0';
@@ -11,65 +13,6 @@ const USE_WALL_AREA_FOR_EFFECTIVE_HEIGHT = process.env.USE_WALL_AREA_FOR_EFFECTI
 const WALL_FIELDS = ['空間編號', '空間名稱', '底部約束', '長度', '不連續高度', '面積', '房間邊界', '有無開口(Y/N)'];
 const DOOR_FIELDS = ['樓層', '寬度', '高度', '粗略寬度', '粗略高度', '窗頂高度', '框總寬度'];
 const WINDOW_FIELDS = ['樓層', '寬度', '高度', '粗略寬度', '粗略高度', '窗台高度', '窗頂高度'];
-
-const ws = new WebSocket(WS_URL);
-ws.setMaxListeners(0);
-
-const pending = new Map();
-let sequence = 0;
-
-ws.on('message', (data) => {
-  let msg;
-  try {
-    msg = JSON.parse(data.toString());
-  } catch (err) {
-    return;
-  }
-
-  const id = msg.RequestId || msg.id;
-  const slot = pending.get(id);
-  if (!slot) return;
-
-  clearTimeout(slot.timer);
-  pending.delete(id);
-
-  if (msg.Error || msg.Success === false) {
-    slot.reject(new Error(String(msg.Error || msg.Message || 'Command failed')));
-    return;
-  }
-
-  slot.resolve(msg.Data !== undefined ? msg.Data : msg);
-});
-
-function sendCommand(commandName, parameters = {}, timeoutMs = 60000) {
-  return new Promise((resolve, reject) => {
-    const requestId = `req_${Date.now()}_${++sequence}`;
-    const timer = setTimeout(() => {
-      pending.delete(requestId);
-      reject(new Error(`Timeout calling ${commandName}`));
-    }, timeoutMs);
-
-    pending.set(requestId, { resolve, reject, timer });
-    const payload = {
-      CommandName: commandName,
-      Parameters: parameters,
-      RequestId: requestId,
-    };
-    ws.send(JSON.stringify(payload));
-  });
-}
-
-function queryElements(category, returnFields, extra = {}) {
-  return sendCommand('query_elements', {
-    category,
-    maxCount: 10000,
-    returnFields,
-    ...extra,
-  }).then((data) => {
-    const body = data && data.Elements ? data : data && data.Data ? data.Data : data;
-    return Array.isArray(body && body.Elements) ? body.Elements : [];
-  });
-}
 
 async function mapLimit(items, limit, fn) {
   const results = new Array(items.length);
@@ -548,29 +491,46 @@ function summarize(rows, wallTypeCols) {
 }
 
 async function main() {
-  await new Promise((resolve, reject) => {
-    ws.once('open', resolve);
-    ws.once('error', reject);
-  });
+  const client = new RevitSocketClient('localhost', 8964);
+  client.clientName = 'antigravity-agent';
+  await client.connect();
 
-  console.log('[1/7] Querying levels and placed rooms...');
-  const levelsRes = await queryElements('Levels', ['Name']);
-  const allPlacedRooms = [];
-  for (const lvl of levelsRes) {
-    try {
-      const res = await sendCommand('get_rooms_by_level', { level: lvl.Name });
-      if (res && res.Rooms) {
-        for (const r of res.Rooms) allPlacedRooms.push(r);
-      }
-    } catch (e) {}
+  async function queryElements(category, returnFields, extra = {}) {
+    const res = await client.sendCommand('query_elements', {
+      category,
+      maxCount: 10000,
+      returnFields,
+      ...extra,
+    });
+    const body = res && res.data ? res.data : res;
+    return Array.isArray(body && body.Elements) ? body.Elements : [];
   }
 
-  console.log(`      Found ${allPlacedRooms.length} placed rooms.`);
+  console.log('[1/7] Querying levels and placed rooms...');
+  const levelsRes = await client.sendCommand('query_elements', { category: 'Levels' });
+  const levels = levelsRes.data?.Elements || [];
+
+  const allPlacedRooms = [];
+  for (const lvl of levels) {
+    try {
+      const res = await client.sendCommand('get_rooms_by_level', { level: lvl.Name });
+      if (res.data && res.data.Rooms) {
+        for (const r of res.data.Rooms) {
+          allPlacedRooms.push(r);
+        }
+      }
+    } catch (e) {
+      console.log(`Level ${lvl.Name} room query fallback:`, e.message);
+    }
+  }
+
+  console.log(`      Found ${allPlacedRooms.length} placed rooms across ${levels.length} levels.`);
 
   console.log('[2/7] Fetching detailed room boundary boxes...');
   const roomInfos = await mapLimit(allPlacedRooms, 5, async (room) => {
     try {
-      return await sendCommand('get_room_info', { roomId: Number(room.RoomId || room.ElementId) }, 60000);
+      const res = await client.sendCommand('get_room_info', { roomId: Number(room.RoomId || room.ElementId) }, 60000);
+      return res.data;
     } catch (err) {
       return null;
     }
@@ -586,10 +546,16 @@ async function main() {
   const wallRows = await queryElements('Walls', WALL_FIELDS);
   const doorRows = await queryElements('Doors', DOOR_FIELDS);
   const windowRows = await queryElements('Windows', WINDOW_FIELDS);
+  
   let wallTypesData = {};
   try {
-    wallTypesData = await sendCommand('get_wall_types', {});
-  } catch (e) {}
+    const wtRes = await client.sendCommand('get_wall_types', {});
+    wallTypesData = wtRes.data || {};
+  } catch (e) {
+    console.log('Wall types info fallback:', e.message);
+  }
+
+  console.log(`      Walls=${wallRows.length}, doors=${doorRows.length}, windows=${windowRows.length}`);
 
   const rawPartitionWalls = wallRows.filter((wall) => isPartitionType(wall.Name));
   console.log(`[4/7] Partition wall instances=${rawPartitionWalls.length}`);
@@ -597,7 +563,8 @@ async function main() {
   console.log('[5/7] Fetching partition wall geometry...');
   const wallInfos = await mapLimit(rawPartitionWalls, 5, async (wall) => {
     try {
-      return await sendCommand('get_wall_info', { wallId: Number(wall.ElementId) }, 60000);
+      const res = await client.sendCommand('get_wall_info', { wallId: Number(wall.ElementId) }, 60000);
+      return res.data;
     } catch (err) {
       return null;
     }
@@ -611,7 +578,8 @@ async function main() {
   const openings = [...doorRows, ...windowRows];
   const openingInfos = await mapLimit(openings, 5, async (opening) => {
     try {
-      return await sendCommand('get_element_info', { elementId: Number(opening.ElementId) }, 60000);
+      const res = await client.sendCommand('get_element_info', { elementId: Number(opening.ElementId) }, 60000);
+      return res.data;
     } catch (err) {
       return null;
     }
@@ -629,7 +597,10 @@ async function main() {
 
   for (const wall of partitionWalls) {
     const room = assignWallToRoom(wall, rooms, roomsByNumber);
-    if (!room) continue;
+    if (!room) {
+      console.log(`Warning: Wall ${wall.elementId} (${wall.typeName}) could not be assigned to any room`);
+      continue;
+    }
     if (!groupedByRoom.has(room.number)) groupedByRoom.set(room.number, []);
     groupedByRoom.get(room.number).push(wall);
     assignedWalls++;
@@ -645,7 +616,7 @@ async function main() {
   writeCsv(rows, wallTypeCols);
 
   const typeSummary = summarize(rows, wallTypeCols);
-  console.log(JSON.stringify({
+  console.log('RESULT_JSON:' + JSON.stringify({
     output: OUTPUT,
     rooms: rooms.length,
     partitionWalls: partitionWalls.length,
@@ -656,11 +627,11 @@ async function main() {
     typeSummary,
   }, null, 2));
 
-  ws.close();
+  client.disconnect();
+  process.exit(0);
 }
 
 main().catch((err) => {
   console.error(err && err.stack ? err.stack : err);
-  try { ws.close(); } catch {}
-  process.exitCode = 1;
+  process.exit(1);
 });
