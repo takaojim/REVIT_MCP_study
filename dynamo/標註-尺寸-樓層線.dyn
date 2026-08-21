@@ -1,0 +1,191 @@
+{
+  "Uuid": "8c8d6816-6c3b-43ab-a970-8084a2f08e92",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-尺寸-樓層線",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "c03be7706a2c472985d3cf6f782bd227",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "在每個視圖的樓層線左右標尺寸",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Revit 服務與事務管理器\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 載入 Dynamo 的 Revit 節點擴充\r\nclr.AddReference(\"RevitNodes\")\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\n# 取得當前文件與視圖\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\n\r\n# 設定 3mm 的圖紙偏移量，轉換為 Revit 內部單位 (英呎)\r\noffset_mm = 3.0\r\nview_scale = view.Scale\r\noffset_ft = offset_mm * view_scale * 0.00328084\r\n\r\n# 收集當前視圖中可見的樓層\r\ncollector = FilteredElementCollector(doc, view.Id).OfClass(Level).WhereElementIsNotElementType()\r\nlevels = [l for l in collector]\r\n\r\n# 依照高程 (Elevation) 排序樓層，確保由下往上標註\r\nlevels.sort(key=lambda x: x.Elevation)\r\n\r\n# 開啟事務，準備寫入 Revit\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\ntry:\r\n    if len(levels) < 2:\r\n        raise ValueError(\"視圖中的樓層數量不足 (至少需要2個) 才能建立標註喔！\")\r\n\r\n    # 🌟 關鍵修改 1：建立一個大籃子，把所有樓層的參考面都放進去 🌟\r\n    refArray = ReferenceArray()\r\n    for l in levels:\r\n        refArray.Append(l.GetPlaneReference())\r\n    \r\n    # 🌟 關鍵修改 2：我們只需要用「最底層」的樓層來判斷左右泡泡的位置就好 🌟\r\n    l_base = levels[0]\r\n    curves = l_base.GetCurvesInView(DatumExtentType.ViewSpecific, view)\r\n    if not curves:\r\n        raise ValueError(\"無法取得最底層樓層的線段，請確認樓層線在視圖中是否可見。\")\r\n        \r\n    curve = curves[0]\r\n    end0 = curve.GetEndPoint(0)\r\n    end1 = curve.GetEndPoint(1)\r\n    \r\n    # 檢查最底層標示圈狀態 (不修改視圖)\r\n    has_bubble_0 = l_base.IsBubbleVisibleInView(DatumEnds.End0, view)\r\n    has_bubble_1 = l_base.IsBubbleVisibleInView(DatumEnds.End1, view)\r\n    \r\n    bubble_pt = None\r\n    other_pt = None\r\n    \r\n    # 邏輯判斷：根據唯一的泡泡位置決定標註參考點\r\n    if has_bubble_0 and not has_bubble_1:\r\n        bubble_pt = end0\r\n        other_pt = end1\r\n    elif not has_bubble_0 and has_bubble_1:\r\n        bubble_pt = end1\r\n        other_pt = end0\r\n    else:\r\n        status_msg = \"腳本妹妹抓到錯誤了：無法在最底層 '{}' 上確定唯一的標示圈位置。請確保該樓層線只有一側顯示泡泡。\".format(l_base.Name)\r\n        raise ValueError(status_msg)\r\n\r\n    # 判斷左右並計算標註線的 X 座標\r\n    is_bubble_on_left = bubble_pt.X < other_pt.X\r\n    \r\n    if is_bubble_on_left:\r\n        dim_x = bubble_pt.X + offset_ft\r\n    else:\r\n        dim_x = bubble_pt.X - offset_ft\r\n        \r\n    # 🌟 關鍵修改 3：建立一條從「最底層」貫穿到「最頂層」的垂直線 🌟\r\n    p1 = XYZ(dim_x, bubble_pt.Y, levels[0].Elevation)\r\n    p2 = XYZ(dim_x, bubble_pt.Y, levels[-1].Elevation)\r\n    dim_line = Line.CreateBound(p1, p2)\r\n    \r\n    # 產生「單一個」連續尺寸標註\r\n    new_dim = doc.Create.NewDimension(view, dim_line, refArray)\r\n\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    # 輸出這個連續標註物件\r\n    OUT = new_dim.ToDSType(False)\r\n\r\nexcept ValueError as ve:\r\n    TransactionManager.Instance.ForceCloseTransaction()\r\n    OUT = str(ve)\r\nexcept Exception as e:\r\n    TransactionManager.Instance.ForceCloseTransaction()\r\n    OUT = \"腳本妹妹抓到錯誤了哥哥看看：\" + str(e)",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "d4d317de92ee490fbbcc26b3e141cf98",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "97b0ff42c7a34d7abcbf801d1dec575a",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "c03be7706a2c472985d3cf6f782bd227",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "40293b1873a540159e8dfecb84caed95",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "在每個視圖的樓層線左右標尺寸"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 88.0,
+      "WatchHeight": 200.0,
+      "Id": "0d6cb8da88bd43939b83b49cafca2f18",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "10d0ee4229624b6b99d383ccef1fd92a",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "65afa3732992484d9f64e2933114ce26",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "97b0ff42c7a34d7abcbf801d1dec575a",
+      "End": "10d0ee4229624b6b99d383ccef1fd92a",
+      "Id": "64e18f226ebb464ba0f85fcf60854abb",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "d4d317de92ee490fbbcc26b3e141cf98",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 555.0,
+        "Y": 298.0
+      },
+      {
+        "Id": "c03be7706a2c472985d3cf6f782bd227",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 222.0,
+        "Y": 294.0
+      },
+      {
+        "Id": "0d6cb8da88bd43939b83b49cafca2f18",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1037.0,
+        "Y": 174.0
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

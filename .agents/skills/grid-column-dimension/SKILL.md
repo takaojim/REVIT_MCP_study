@@ -82,4 +82,14 @@ await client.sendCommand('change_element_type', {
 ```
 
 ---
+
+## 🏛️ 立面圖專屬工具快速指引 (Elevation Dimensioning)
+
+- **立面圖頂部柱心雙層標註**：呼叫 `auto_dimension_elevation_grids`
+  - 尺寸線向量**由右至左**，5mm 短輔助線全數朝下 $\downarrow$（指向建築物），套用 `TABC-DIM_*/ S 2.5-柱心-上右`。
+- **立面圖側邊樓層雙層標註**：呼叫 `auto_dimension_elevation_levels`
+  - 尺寸線向量**由頂至底**，5mm 短輔助線全數朝右 $\rightarrow$（指向建築物），套用 `TABC-DIM_*/ S 2.5-柱心-下右`。
+  - 外層總高程退縮 **30mm (圖紙)**，避開 `TRFL ▼ FL 2680` 等標示圈文字。
+
+---
 **維護者：** RevitMCP Customization Team

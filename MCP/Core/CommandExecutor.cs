@@ -547,6 +547,12 @@ namespace RevitMCP.Core
                     case "auto_dimension_walls":
                         result = AutoDimensionWalls(parameters);
                         break;
+                    case "auto_dimension_elevation_grids":
+                        result = AutoDimensionElevationGrids(parameters);
+                        break;
+                    case "auto_dimension_elevation_levels":
+                        result = AutoDimensionElevationLevels(parameters);
+                        break;
 
                     // === 從屬視圖模組 ===
                     case "calculate_grid_bounds":
@@ -2270,11 +2276,13 @@ namespace RevitMCP.Core
                 {
                     double lineStartX = parameters["startX"]?.Value<double>() ?? 0;
                     double lineStartY = parameters["startY"]?.Value<double>() ?? 0;
+                    double lineStartZ = parameters["startZ"]?.Value<double>() ?? 0;
                     double lineEndX = parameters["endX"]?.Value<double>() ?? 0;
                     double lineEndY = parameters["endY"]?.Value<double>() ?? 0;
+                    double lineEndZ = parameters["endZ"]?.Value<double>() ?? 0;
 
-                    XYZ lStart = new XYZ(lineStartX / 304.8, lineStartY / 304.8, 0);
-                    XYZ lEnd = new XYZ(lineEndX / 304.8, lineEndY / 304.8, 0);
+                    XYZ lStart = new XYZ(lineStartX / 304.8, lineStartY / 304.8, lineStartZ / 304.8);
+                    XYZ lEnd = new XYZ(lineEndX / 304.8, lineEndY / 304.8, lineEndZ / 304.8);
                     dimLine = Line.CreateBound(lStart, lEnd);
 
                     foreach (var gToken in gridIdsToken)
@@ -2294,7 +2302,8 @@ namespace RevitMCP.Core
                     {
                         double px = (ptToken["x"] ?? ptToken[0])?.Value<double>() ?? 0;
                         double py = (ptToken["y"] ?? ptToken[1])?.Value<double>() ?? 0;
-                        pts.Add(new XYZ(px / 304.8, py / 304.8, 0));
+                        double pz = (ptToken["z"] ?? ptToken[2])?.Value<double>() ?? 0;
+                        pts.Add(new XYZ(px / 304.8, py / 304.8, pz / 304.8));
                     }
 
                     XYZ firstPt = pts[0];
@@ -2321,11 +2330,13 @@ namespace RevitMCP.Core
                 {
                     double startX = parameters["startX"]?.Value<double>() ?? 0;
                     double startY = parameters["startY"]?.Value<double>() ?? 0;
+                    double startZ = parameters["startZ"]?.Value<double>() ?? 0;
                     double endX = parameters["endX"]?.Value<double>() ?? 0;
                     double endY = parameters["endY"]?.Value<double>() ?? 0;
+                    double endZ = parameters["endZ"]?.Value<double>() ?? 0;
 
-                    XYZ start = new XYZ(startX / 304.8, startY / 304.8, 0);
-                    XYZ end = new XYZ(endX / 304.8, endY / 304.8, 0);
+                    XYZ start = new XYZ(startX / 304.8, startY / 304.8, startZ / 304.8);
+                    XYZ end = new XYZ(endX / 304.8, endY / 304.8, endZ / 304.8);
 
                     XYZ perpDir = new XYZ(-(end.Y - start.Y), end.X - start.X, 0).Normalize();
                     double offsetFeet = offset / 304.8;

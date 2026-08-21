@@ -590,6 +590,295 @@ namespace RevitMCP.Core
             return groups.Select(g => g.Items).ToList();
         }
 
+        /// <summary>
+        /// 自動標註立面圖/剖面圖頂部柱列線尺寸（外圈總跨度 + 內圈連續柱間距細部標註）。
+        /// 自適應讀取視圖中所有 Grid 的 GetCurvesInView 頂部端點極值，在軸號圓圈下方依圖紙比例退縮放置。
+        /// </summary>
+        private object AutoDimensionElevationGrids(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
+            IdType typeId = parameters["typeId"]?.Value<IdType>() ?? 0;
+            double paperOffsetTier1Mm = parameters["offsetTier1Mm"]?.Value<double>() ?? 5.0; // 圖紙 5mm
+            double paperOffsetTier2StepMm = parameters["stepTier2Mm"]?.Value<double>() ?? 6.5; // 內圈距離第1層圖紙 6.5mm
+
+            View view = doc.GetElement(viewId.ToElementId()) as View;
+            if (view == null)
+                throw new Exception($"找不到視圖 ID: {viewId}");
+
+            // 取得視圖中可見的 Grids
+            var grids = new FilteredElementCollector(doc, view.Id)
+                .OfCategory(BuiltInCategory.OST_Grids)
+                .WhereElementIsNotElementType()
+                .Cast<Grid>()
+                .ToList();
+
+            if (grids.Count < 2)
+                throw new Exception($"視圖 {view.Name} 中的柱列線數量不足（至少需要 2 條）");
+
+            // 收集每個 Grid 在該視圖的 Curve 端點
+            var gridInfos = new List<(Grid grid, Curve curve, XYZ topPt, XYZ botPt, double uProj)>();
+            XYZ vRight = view.RightDirection.Normalize();
+            XYZ vUp = view.UpDirection.Normalize();
+
+            foreach (var g in grids)
+            {
+                IList<Curve> curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view);
+                if (curves == null || curves.Count == 0) continue;
+
+                Curve c = curves[0];
+                XYZ ep0 = c.GetEndPoint(0);
+                XYZ ep1 = c.GetEndPoint(1);
+
+                // 以 view.UpDirection 投影判斷頂端與底端
+                double dot0 = ep0.DotProduct(vUp);
+                double dot1 = ep1.DotProduct(vUp);
+                XYZ top = dot0 >= dot1 ? ep0 : ep1;
+                XYZ bot = dot0 < dot1 ? ep0 : ep1;
+
+                // 沿 view.RightDirection 的水平投影位置
+                double u = top.DotProduct(vRight);
+
+                gridInfos.Add((g, c, top, bot, u));
+            }
+
+            if (gridInfos.Count < 2)
+                throw new Exception("無法從視圖取得足夠的軸線可見曲線端點");
+
+            // 依照視圖水平方向（從左到右）排序 Grids
+            gridInfos.Sort((a, b) => a.uProj.CompareTo(b.uProj));
+
+            // 取得頂部氣泡最高點（以 vUp 投影最大值）
+            double maxUpDot = gridInfos.Max(info => info.topPt.DotProduct(vUp));
+
+            // 出圖比例換算（圖紙 mm -> 英呎）
+            double scale = view.Scale;
+            double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+            double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+
+            // 基準線定位點
+            var firstInfo = gridInfos[0];
+            var lastInfo = gridInfos[gridInfos.Count - 1];
+
+            // 頂部端點向內側退縮 offset1Ft (Tier 1) 與 offset2Ft (Tier 2)
+            double targetUp1 = maxUpDot - offset1Ft;
+            double targetUp2 = maxUpDot - offset2Ft;
+
+            // 改由右至左 (lastInfo -> firstInfo)，使 5mm 固定短輔助線一律向下（朝向建築物內側）
+            XYZ p1_start = lastInfo.topPt.Add(vUp.Multiply(targetUp1 - lastInfo.topPt.DotProduct(vUp)));
+            XYZ p1_end = firstInfo.topPt.Add(vUp.Multiply(targetUp1 - firstInfo.topPt.DotProduct(vUp)));
+
+            XYZ p2_start = lastInfo.topPt.Add(vUp.Multiply(targetUp2 - lastInfo.topPt.DotProduct(vUp)));
+            XYZ p2_end = firstInfo.topPt.Add(vUp.Multiply(targetUp2 - firstInfo.topPt.DotProduct(vUp)));
+
+            Line dimLine1 = Line.CreateBound(p1_start, p1_end);
+            Line dimLine2 = Line.CreateBound(p2_start, p2_end);
+
+            // 建立 ReferenceArray (由右至左排序)
+            ReferenceArray refOverall = new ReferenceArray();
+            refOverall.Append(new Reference(lastInfo.grid));
+            refOverall.Append(new Reference(firstInfo.grid));
+
+            ReferenceArray refContinuous = new ReferenceArray();
+            for (int i = gridInfos.Count - 1; i >= 0; i--)
+            {
+                refContinuous.Append(new Reference(gridInfos[i].grid));
+            }
+
+            Dimension dimTotal = null;
+            Dimension dimContinuous = null;
+
+            DimensionType targetDimType = null;
+            if (typeId != 0)
+            {
+                targetDimType = doc.GetElement(typeId.ToElementId()) as DimensionType;
+            }
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "立面圖頂部柱間距標註"))
+            {
+                trans.Start();
+
+                dimTotal = doc.Create.NewDimension(view, dimLine1, refOverall);
+                dimContinuous = doc.Create.NewDimension(view, dimLine2, refContinuous);
+
+                if (targetDimType != null)
+                {
+                    if (dimTotal != null) dimTotal.ChangeTypeId(targetDimType.Id);
+                    if (dimContinuous != null) dimContinuous.ChangeTypeId(targetDimType.Id);
+                }
+
+                trans.Commit();
+            }
+
+            double totalVal = dimTotal?.Value.HasValue == true ? Math.Round(dimTotal.Value.Value * 304.8, 2) : 0;
+
+            return new
+            {
+                Success = true,
+                ViewId = viewId,
+                ViewName = view.Name,
+                TotalDimensionId = dimTotal?.Id.GetIdValue(),
+                TotalValueMm = totalVal,
+                ContinuousDimensionId = dimContinuous?.Id.GetIdValue(),
+                SegmentsCount = dimContinuous?.Segments.Size > 0 ? dimContinuous.Segments.Size : gridInfos.Count - 1,
+                GridCount = gridInfos.Count,
+                Grids = gridInfos.Select(g => g.grid.Name).ToList(),
+                DimensionTypeName = targetDimType?.Name
+            };
+        }
+
+        /// <summary>
+        /// 自動標註立面圖/剖面圖樓層高程線尺寸（外層總高程 + 內層各樓層細部連續標註）。
+        /// 自適應讀取視圖中可見的 Level 的 GetCurvesInView 端點與標示圈位置，在標示圈內側依圖紙比例退縮放置。
+        /// </summary>
+        private object AutoDimensionElevationLevels(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
+            IdType typeId = parameters["typeId"]?.Value<IdType>() ?? 0;
+            double paperOffsetTier1Mm = parameters["offsetTier1Mm"]?.Value<double>() ?? 5.0; // 圖紙 5mm (外層總高程)
+            double paperOffsetTier2StepMm = parameters["stepTier2Mm"]?.Value<double>() ?? 6.5; // 內層距離第1層圖紙 6.5mm (各樓層高)
+
+            View view = doc.GetElement(viewId.ToElementId()) as View;
+            if (view == null)
+                throw new Exception($"找不到視圖 ID: {viewId}");
+
+            // 收集視圖中可見的 Levels
+            var levels = new FilteredElementCollector(doc, view.Id)
+                .OfClass(typeof(Level))
+                .WhereElementIsNotElementType()
+                .Cast<Level>()
+                .ToList();
+
+            if (levels.Count < 2)
+                throw new Exception($"視圖 {view.Name} 中的樓層數量不足（至少需要 2 個樓層）");
+
+            // 依照 Elevation 高程由低到高排序
+            levels.Sort((a, b) => a.Elevation.CompareTo(b.Elevation));
+
+            // 以最底層判斷標示圈 (Bubble) 位置
+            Level baseLevel = levels[0];
+            IList<Curve> curves = baseLevel.GetCurvesInView(DatumExtentType.ViewSpecific, view);
+            if (curves == null || curves.Count == 0)
+                throw new Exception("無法取得樓層線在視圖中的可見曲線");
+
+            Curve baseCurve = curves[0];
+            XYZ ep0 = baseCurve.GetEndPoint(0);
+            XYZ ep1 = baseCurve.GetEndPoint(1);
+
+            bool hasBubble0 = baseLevel.IsBubbleVisibleInView(DatumEnds.End0, view);
+            bool hasBubble1 = baseLevel.IsBubbleVisibleInView(DatumEnds.End1, view);
+
+            XYZ bubblePt = null;
+            XYZ otherPt = null;
+
+            if (hasBubble0 && !hasBubble1)
+            {
+                bubblePt = ep0;
+                otherPt = ep1;
+            }
+            else if (!hasBubble0 && hasBubble1)
+            {
+                bubblePt = ep1;
+                otherPt = ep0;
+            }
+            else
+            {
+                // 若兩端都有或都沒有，預設取左側 (沿 RightDirection 較小者)
+                XYZ vRight = view.RightDirection.Normalize();
+                if (ep0.DotProduct(vRight) <= ep1.DotProduct(vRight))
+                {
+                    bubblePt = ep0;
+                    otherPt = ep1;
+                }
+                else
+                {
+                    bubblePt = ep1;
+                    otherPt = ep0;
+                }
+            }
+
+            XYZ vRightDir = view.RightDirection.Normalize();
+            XYZ vUpDir = view.UpDirection.Normalize();
+
+            // 判斷氣泡在左側還是右側，計算朝向建築內側的方向
+            bool isBubbleOnLeft = bubblePt.DotProduct(vRightDir) < otherPt.DotProduct(vRightDir);
+            XYZ inwardDir = isBubbleOnLeft ? vRightDir : vRightDir.Negate();
+
+            // 出圖比例換算（圖紙 mm -> 英呎）
+            double scale = view.Scale;
+            double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+            double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+
+            // 基準垂直線起迄點 (由頂部貫穿到底部，確保固定長度輔助線一律朝向建築物內側)
+            double baseElev = levels[0].Elevation;
+            double topElev = levels[levels.Count - 1].Elevation;
+
+            // Tier 1 (外層總尺寸) - 由頂至底
+            XYZ p1_base = bubblePt.Add(inwardDir.Multiply(offset1Ft));
+            XYZ p1_start = p1_base.Add(vUpDir.Multiply(topElev - p1_base.DotProduct(vUpDir)));
+            XYZ p1_end = p1_base.Add(vUpDir.Multiply(baseElev - p1_base.DotProduct(vUpDir)));
+            Line dimLine1 = Line.CreateBound(p1_start, p1_end);
+
+            // Tier 2 (內層各樓層連續尺寸) - 由頂至底
+            XYZ p2_base = bubblePt.Add(inwardDir.Multiply(offset2Ft));
+            XYZ p2_start = p2_base.Add(vUpDir.Multiply(topElev - p2_base.DotProduct(vUpDir)));
+            XYZ p2_end = p2_base.Add(vUpDir.Multiply(baseElev - p2_base.DotProduct(vUpDir)));
+            Line dimLine2 = Line.CreateBound(p2_start, p2_end);
+
+            // 建立 ReferenceArray (由頂至底排序，使用 l.GetPlaneReference())
+            ReferenceArray refOverall = new ReferenceArray();
+            refOverall.Append(levels[levels.Count - 1].GetPlaneReference());
+            refOverall.Append(levels[0].GetPlaneReference());
+
+            ReferenceArray refContinuous = new ReferenceArray();
+            for (int i = levels.Count - 1; i >= 0; i--)
+            {
+                refContinuous.Append(levels[i].GetPlaneReference());
+            }
+
+            Dimension dimTotal = null;
+            Dimension dimContinuous = null;
+
+            DimensionType targetDimType = null;
+            if (typeId != 0)
+            {
+                targetDimType = doc.GetElement(typeId.ToElementId()) as DimensionType;
+            }
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "立面圖樓層高程雙層標註"))
+            {
+                trans.Start();
+
+                dimTotal = doc.Create.NewDimension(view, dimLine1, refOverall);
+                dimContinuous = doc.Create.NewDimension(view, dimLine2, refContinuous);
+
+                if (targetDimType != null)
+                {
+                    if (dimTotal != null) dimTotal.ChangeTypeId(targetDimType.Id);
+                    if (dimContinuous != null) dimContinuous.ChangeTypeId(targetDimType.Id);
+                }
+
+                trans.Commit();
+            }
+
+            double totalVal = dimTotal?.Value.HasValue == true ? Math.Round(dimTotal.Value.Value * 304.8, 2) : 0;
+
+            return new
+            {
+                Success = true,
+                ViewId = viewId,
+                ViewName = view.Name,
+                TotalDimensionId = dimTotal?.Id.GetIdValue(),
+                TotalValueMm = totalVal,
+                ContinuousDimensionId = dimContinuous?.Id.GetIdValue(),
+                SegmentsCount = dimContinuous?.Segments.Size > 0 ? dimContinuous.Segments.Size : levels.Count - 1,
+                LevelCount = levels.Count,
+                Levels = levels.Select(l => l.Name).ToList(),
+                DimensionTypeName = targetDimType?.Name
+            };
+        }
+
         #endregion
     }
 }

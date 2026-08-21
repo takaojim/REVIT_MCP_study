@@ -75,6 +75,59 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
 
 ---
 
+## 📐 立面圖頂部柱列線標註工作流 (Elevation/Section Grids)
+
+工具：`auto_dimension_elevation_grids`
+
+1. **原理**：直接呼叫 `grid.GetCurvesInView(DatumExtentType.ViewSpecific, view)` 讀取軸線在該立面中的真實可見 3D 端點。
+2. **參考基準點與位置計算**：
+   - **基準點**：沿 `view.UpDirection` 取得所有軸線頂部氣泡最高點極值 `maxUp`（即軸號圓圈所在水平基準線）。
+   - **Tier 1（外層總跨度）**：$Y = \text{maxUp} - 5.0\text{mm} \times \text{view.Scale}$（圖紙退縮 5.0mm）。
+   - **Tier 2（內層各柱心連續標註）**：$Y = \text{maxUp} - 11.5\text{mm} \times \text{view.Scale}$（圖紙總計退縮 11.5mm，距 Tier 1 為 6.5mm）。
+3. **幾何向量與輔助線朝向**：
+   - **尺寸線向量必須「由右至左 (Right to Left)」**：利用 Revit 2D 法向翻轉，確保 `固定尺寸線`（5.0mm 短輔助線）**100% 統一朝下指向建築物（$\downarrow$）**。
+   - `ReferenceArray` 必須同步由右至左（`lastInfo` $\to$ `firstInfo`）依序加入。
+4. **標準型式**：
+   - 頂部柱心套用 **`TABC-DIM_*/ S 2.5-柱心-上右`**（TypeId: `2240793`）。
+
+---
+
+## 📐 立面圖側邊樓層線高程標註工作流 (Elevation/Section Levels)
+
+工具：`auto_dimension_elevation_levels`
+
+1. **原理**：收集視圖中可見的 `Level` 並以高程排序，透過 `level.GetPlaneReference()` 綁定樓層基準面，並透過 `baseLevel.GetCurvesInView(DatumExtentType.ViewSpecific, view)` 與 `IsBubbleVisibleInView` 取得標示圈位置。
+2. **參考基準點與位置計算（30mm 避讓關鍵）**：
+   - **基準點**：樓層標示圈位置（`bubblePt`，即 `TRFL ▼ FL 2680` 等文字與圓圈所在端點）。
+   - **Tier 1（外層總高程）**：$X = \text{bubblePt} \pm 30.0\text{mm} \times \text{view.Scale}$（自標示圈向建築物內側退縮 **圖紙 30.0mm**，經實測能完全避開標示圈文字重疊）。
+   - **Tier 2（內層各樓層細部高程）**：$X = \text{bubblePt} \pm 36.5\text{mm} \times \text{view.Scale}$（自 Tier 1 向建築物內側再退縮 **圖紙 6.5mm**）。
+3. **幾何向量與輔助線朝向**：
+   - **尺寸線向量必須「由頂至底 (Top to Bottom)」**：利用 Revit 2D 法向翻轉，確保 `固定尺寸線`（5.0mm 短輔助線）**100% 統一朝右指向建築物（$\rightarrow$）**，徹底消除各樓層線端點微小差異造成的左右交錯。
+   - `ReferenceArray` 必須同步由頂至底（`topElev` $\to$ `baseElev`）依序加入。
+4. **標準型式**：
+   - 側邊樓層套用 **`TABC-DIM_*/ S 2.5-柱心-下右`**（TypeId: `2240801`）。
+5. **西立面等特殊視圖自適應實踐**：
+   - 若立面圖有附屬結構或手動拉動樓層線端點，程式自動讀取該視圖中的 2D Datum Extent，動態計算正確的避讓基準。
+
+---
+
+## 🧠 Revit 尺寸標註向量與輔助線（Witness Lines）朝向控制原理 (關鍵核心知識)
+
+在 Revit API 中建立 `Dimension`（尤其使用固定長度短輔助線如 `固定尺寸線 5.0mm`）時，輔助線的朝向完全受**「尺寸線幾何線段向量」**決定：
+
+| 標註位置 | 尺寸線幾何方向 (`Line.CreateBound`) | 參照陣列順序 (`ReferenceArray`) | 5mm 短輔助線延伸方向 | 適用標準型式 |
+|:---|:---|:---|:---|:---|
+| **立面頂部柱間距** | **由右至左** (`p_end` $\to$ `p_start`) | 由右至左 (`lastInfo` $\to$ `firstInfo`) | **朝下 $\downarrow$ 指向建築物** | `TABC-DIM_*/ S 2.5-柱心-上右` |
+| **立面側邊樓層高** | **由頂至底** (`p_top` $\to$ `p_base`) | 由頂至底 (`topLevel` $\to$ `baseLevel`) | **朝右 $\rightarrow$ 指向建築物** | `TABC-DIM_*/ S 2.5-柱心-下右` |
+| **立面底部柱間距** | 由左至右 (`p_start` $\to$ `p_end`) | 由左至右 (`firstInfo` $\to$ `lastInfo`) | 朝上 $\uparrow$ 指向建築物 | `TABC-DIM_*/ S 2.5-柱心-下右` |
+| **立面右側樓層高** | 由底至頂 (`p_base` $\to$ `p_top`) | 由底至頂 (`baseLevel` $\to$ `topLevel`) | 朝左 $\leftarrow$ 指向建築物 | `TABC-DIM_*/ S 2.5-柱心-上右` |
+
+> ⚠️ **核心避坑指南**：
+> 1. 切勿隨機設定尺寸線起迄點，若起迄方向顛倒，Revit 會將 5mm 短刻度線指到建築外側或標示圈文字上。
+> 2. 樓層標註外層 Tier 1 必須設定至少 **30mm 圖紙避讓距離**，否則會與樓層名稱/標高數字重疊。
+
+---
+
 ## Ray-Casting Workflow
 
 1. 取得房間中心：`get_room_info` → 提取 `Location` 座標
@@ -87,5 +140,8 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
 
 - **嚴禁**在 3D 視圖中建立 2D 標註 — 必須先確認 `ActiveView` 類型。
 - 柱間距標註一律使用同一線段連續標註（String Dimension）並套用 `TABC-DIM_*/ S 2.5-柱心-上右` / `下右`。
-- 柱間距外層線距離圓圈底 5MM，尺寸線間距 5MM，輔助線 5MM 指向建物。
+- 柱間距外層線距離圓圈底 5MM，尺寸線間距 5MM（或 6.5MM），輔助線 5MM 指向建物。
+- 立面圖柱心標註優先使用 `auto_dimension_elevation_grids`。
+- 立面圖樓層標註優先使用 `auto_dimension_elevation_levels`。
 - 詳見 `domain/auto-dimension-workflow.md`。
+

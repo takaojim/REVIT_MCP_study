@@ -68,4 +68,34 @@ export const dimensionTools: Tool[] = [
             required: ["viewId"],
         },
     },
+    {
+        name: "auto_dimension_elevation_grids",
+        description: "自動標註立面圖或剖面圖頂部柱列線（雙層尺寸：外圈總跨度 + 內圈細部連續柱間距）。自適應讀取視圖中所有軸線端點極值與視圖方向向量，在頂部軸號圓圈下方依圖紙比例（5mm/11.5mm）精確退縮定位。",
+        inputSchema: {
+            type: "object",
+            properties: {
+                viewId: { type: "number", description: "目標立面或剖面視圖 ID" },
+                typeId: { type: "number", description: "標註型式 DimensionTypeId（選填）" },
+                offsetTier1Mm: { type: "number", description: "Tier 1 外圈距軸號圓圈之圖紙退縮距離 (mm)，預設 5.0", default: 5.0 },
+                stepTier2Mm: { type: "number", description: "Tier 2 內圈距離 Tier 1 之圖紙間距 (mm)，預設 6.5", default: 6.5 },
+            },
+            required: ["viewId"],
+        },
+    },
+    {
+        name: "auto_dimension_elevation_levels",
+        description: "自動標註立面圖或剖面圖側邊樓層線高程（雙層尺寸：外層建築總高程 + 內層各樓層細部連續高程）。自適應讀取視圖中可見的樓層線端點與標示圈位置，在標示圈內側（朝向建築物）依圖紙比例（5mm/11.5mm）精確退縮定位。",
+        inputSchema: {
+            type: "object",
+            properties: {
+                viewId: { type: "number", description: "目標立面或剖面視圖 ID" },
+                typeId: { type: "number", description: "標註型式 DimensionTypeId（選填）" },
+                offsetTier1Mm: { type: "number", description: "Tier 1 外層總高程距樓層標示圈之圖紙退縮距離 (mm)，預設 5.0", default: 5.0 },
+                stepTier2Mm: { type: "number", description: "Tier 2 內層各樓層高度距離 Tier 1 之圖紙間距 (mm)，預設 6.5", default: 6.5 },
+            },
+            required: ["viewId"],
+        },
+    },
 ];
+
+
