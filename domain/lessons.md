@@ -245,3 +245,12 @@ metadata:
 - **避坑經驗**：`setup.ps1` 半年來對 8 個 native 呼叫點都用了 `2>&1` + 全域 EAP Stop，`dotnet build` 明明 0 error 卻被腳本誤報「編譯例外」。issue #89 由首次貢獻者 @ray92chiu-png 在乾淨 Windows + stock PowerShell 5.1 環境上首度踩到並精準定位根因，修法是新增 `Invoke-ExternalCommand` helper，在呼叫 native 指令前後暫時把 EAP 切回 Continue，事後仍靠 `$LASTEXITCODE` 判斷成敗（commit `1b5a71e`）。橫向掃描後發現 `scripts/release-port.ps1` 的 `net stop`/`net start http` 同款地雷，一併修正（commit `33f1a44`）。
 - **根因（為何半年沒事）**：CI 一律用 `-SkipBuild -SkipDeploy` 跑 `verify-qaqc.ps1`，setup.ps1 的 native 呼叫路徑從未被實際執行過；早期部署者剛好用 PowerShell 7（無此行為）或工具鏈已預裝、繞過了 native 安裝分支。**「半年沒事」是倖存者偏差，不是腳本沒問題**——CI 覆蓋率的空洞，會被下一個踩線的使用者（而非測試）發現。
 - **實踐**：任何跨版本執行環境（PS 5.1 vs PS 7、cmd vs bash）的腳本，涉及 native 指令 stderr 重導向時，一律用 exit code 判斷成敗，不要讓 stderr 存在與否影響控制流；CI gate 若刻意 skip 某段路徑（如 `-SkipBuild -SkipDeploy`），必須在文件或 log 中明確標記「此路徑未被 CI 覆蓋」，避免長期零覆蓋卻被誤認為已驗證。
+
+## [L-031] 建築設計模型圖元量級與 MCP 查詢上限（maxCount 10,000）原則
+
+- **規則**：在建築設計專案（LOD 200 ~ LOD 350）中，單一品類（如視圖、房間、牆體、門窗、尺寸）的數量級通常在 30 ~ 3,000 筆以內，絕不會達到數萬筆（數萬筆僅見於機電 MEP 灑水頭/管件或鋼構深化螺栓）。MCP 的 `query_elements` 預設查詢上限應設定為 **`10,000` 筆**（或 <= 0 不設上限），嚴禁使用 Web API 常見的 100 筆保守預設值。
+- **避坑經驗**：在批次執行「建地平面圖 (防火區劃)」標註時，專案實際共有 179 個視圖（包含 1FL~5FL 籌設防火區劃圖），但因 C# 核心 `query_elements` 預設 `maxCount = 100`，查詢被無聲截斷在第 100 筆，導致排在後面的 3FL、4FL、5FL 未被列出，誤判為「專案只有 2 個防火區劃視圖」。
+- **實踐**：
+  1. C# 核心 `QueryElements` 預設 `maxCount` 提升為 `10000`，且傳入 `<= 0` 時自動切換為 `int.MaxValue`。
+  2. 在現代本機環境中，傳輸 1,000 ~ 10,000 筆圖元 JSON 僅需約 20ms，效能與記憶體負擔極低。
+  3. AI 執行批次視圖或圖元處理前，必須確保查詢無上限，絕不可基於截斷的 partial list 作出「專案不存在該圖元」的錯誤推論。

@@ -2894,7 +2894,8 @@ namespace RevitMCP.Core
             {
                 string categoryName = parameters["category"]?.Value<string>();
                 IdType? viewId = parameters["viewId"]?.Value<IdType>();
-                int maxCount = parameters["maxCount"]?.Value<int>() ?? 100;
+                int maxCount = parameters["maxCount"]?.Value<int>() ?? 10000;
+                if (maxCount <= 0) maxCount = int.MaxValue;
                 JArray filters = parameters["filters"] as JArray;
                 JArray returnFields = parameters["returnFields"] as JArray;
 

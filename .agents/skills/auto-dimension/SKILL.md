@@ -7,6 +7,7 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
 
 ## Lessons Reference
 - **L-002**：標註必須匹配正確的視圖 ID，嚴禁在 3D 視圖建立平面標註。位置線用 BoundingBox 中心 `(max+min)/2`。詳見 `domain/lessons.md`。
+- **L-031**：建築模型圖元查詢原則，`query_elements` 預設上限為 10,000 筆，批次查詢視圖/圖元時嚴禁受預設截斷影響。詳見 `domain/lessons.md`。
 
 ---
 
