@@ -8,6 +8,27 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
 ## Lessons Reference
 - **L-002**：標註必須匹配正確的視圖 ID，嚴禁在 3D 視圖建立平面標註。位置線用 BoundingBox 中心 `(max+min)/2`。詳見 `domain/lessons.md`。
 - **L-031**：建築模型圖元查詢原則，`query_elements` 預設上限為 10,000 筆，批次查詢視圖/圖元時嚴禁受預設截斷影響。詳見 `domain/lessons.md`。
+- **L-032**：標註型式前置動態查詢與降級防呆原則。嚴禁寫死 TypeId，執行標註前必須先查詢專案既有 DimensionTypes。詳見 `domain/lessons.md`。
+
+---
+
+## 🔍 Step 0：標註型式前置動態查詢與防呆機制 (Preflight DimensionType Check - 必做)
+
+執行任何平面或立面標註前，**絕對嚴禁在程式碼中寫死 (Hardcode) 任何靜態 TypeId**（如 `2240793`、`2240801`、`2110318` 等）！若專案未載入 TABC 樣板，寫死 ID 會導致型式無效、標註失敗或尺寸線完全無法顯示。
+
+### 標準前置查詢與降級處理 SOP：
+1. **查詢現有型式**：先呼叫 `query_elements({ category: "DimensionTypes" })` 或 `list_dimension_types` 取得專案清單。
+2. **多階優先順序匹配**：
+   - **第一優先（專屬標準型式）**：
+     - 上方 / 右側：尋找名稱包含 `柱心-上右` 或 `TABC-DIM_*/ S 2.5-柱心-上右`
+     - 下方 / 左側：尋找名稱包含 `柱心-下右` 或 `TABC-DIM_*/ S 2.5-柱心-下右`
+   - **第二優先（模糊相容匹配）**：
+     - 若無專屬型式，尋找包含 `柱心`、`對齊` (Aligned)、`Linear`、`標準`、`2.5mm`、`3.0mm` 等線性標註型式。
+   - **第三優先（安全降級 Fallback）**：
+     - 若完全無匹配，使用專案內第一支有效線性標註型式 ID，或在建立時不指定 `typeId`（直接採用 Revit 預設型式）。
+3. **透明提示**：
+   - 成功匹配時日誌輸出：`[型式確認] 成功套用專屬型式: [型式名稱] (ID: [ID])`
+   - 降級時明確警示：`⚠️ 警告：當前專案未載入 TABC 專屬柱心標註型式，已自動採用既有型式 [型式名稱] (ID: [ID]) 進行標註。若需特定出圖字體/箭頭，請先從樣板載入 TABC 標註型式。`
 
 ---
 
@@ -34,10 +55,10 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
 ### 2. 四方位雙層連續標註定位矩陣
 | 方位 | 外圈總尺寸線位置 (Tier 1) | 內圈細部尺寸線位置 (Tier 2) | 參照軸線 (References) | 標註型式 (Dimension Type) |
 |:---|:---|:---|:---|:---|
-| **頂部 (Top / 北側)** | $Y = \text{max\_y} - 500\text{ mm}$ | $Y = \text{max\_y} - 1,150\text{ mm}$ | 垂直網格 `v_grids` (A $\to$ H) | `TABC-DIM_*/ S 2.5-柱心-上右` |
-| **底部 (Bottom / 南側)** | $Y = \text{min\_y} + 500\text{ mm}$ | $Y = \text{min\_y} + 1,150\text{ mm}$ | 垂直網格 `v_grids` (H $\to$ D) | `TABC-DIM_*/ S 2.5-柱心-下右` |
-| **左側 (Left / 西側)** | $X = \text{min\_x} + 500\text{ mm}$ | $X = \text{min\_x} + 1,150\text{ mm}$ | 水平網格 `h_grids` (8 $\to$ 1) | `TABC-DIM_*/ S 2.5-柱心-下右` |
-| **右側 (Right / 東側)** | $X = \text{max\_x} - 500\text{ mm}$ | $X = \text{max\_x} - 1,150\text{ mm}$ | 水平網格 `h_grids` (5 $\to$ 8) | `TABC-DIM_*/ S 2.5-柱心-上右` |
+| **頂部 (Top / 北側)** | $Y = \text{max\_y} - 500\text{ mm}$ | $Y = \text{max\_y} - 1,150\text{ mm}$ | 垂直網格 `v_grids` (A $\to$ H) | `TABC-DIM_*/ S 2.5-柱心-上右`（動態查詢 ID） |
+| **底部 (Bottom / 南側)** | $Y = \text{min\_y} + 500\text{ mm}$ | $Y = \text{min\_y} + 1,150\text{ mm}$ | 垂直網格 `v_grids` (H $\to$ D) | `TABC-DIM_*/ S 2.5-柱心-下右`（動態查詢 ID） |
+| **左側 (Left / 西側)** | $X = \text{min\_x} + 500\text{ mm}$ | $X = \text{min\_x} + 1,150\text{ mm}$ | 水平網格 `h_grids` (8 $\to$ 1) | `TABC-DIM_*/ S 2.5-柱心-下右`（動態查詢 ID） |
+| **右側 (Right / 東側)** | $X = \text{max\_x} - 500\text{ mm}$ | $X = \text{max\_x} - 1,150\text{ mm}$ | 水平網格 `h_grids` (5 $\to$ 8) | `TABC-DIM_*/ S 2.5-柱心-上右`（動態查詢 ID） |
 
 ### 3. 純原生 Grid 參照與單一連續線段
 - **外圈**：由首尾兩條軸線組成（`[grids[0], grids[-1]]`）總長跨度。
@@ -89,7 +110,7 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
    - **尺寸線向量必須「由右至左 (Right to Left)」**：利用 Revit 2D 法向翻轉，確保 `固定尺寸線`（5.0mm 短輔助線）**100% 統一朝下指向建築物（$\downarrow$）**。
    - `ReferenceArray` 必須同步由右至左（`lastInfo` $\to$ `firstInfo`）依序加入。
 4. **標準型式**：
-   - 頂部柱心套用 **`TABC-DIM_*/ S 2.5-柱心-上右`**（TypeId: `2240793`）。
+   - 頂部柱心優先套用 **`TABC-DIM_*/ S 2.5-柱心-上右`**（動態查詢 ID，不存在則降級使用既有型式）。
 
 ---
 
@@ -106,7 +127,7 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
    - **尺寸線向量必須「由頂至底 (Top to Bottom)」**：利用 Revit 2D 法向翻轉，確保 `固定尺寸線`（5.0mm 短輔助線）**100% 統一朝右指向建築物（$\rightarrow$）**，徹底消除各樓層線端點微小差異造成的左右交錯。
    - `ReferenceArray` 必須同步由頂至底（`topElev` $\to$ `baseElev`）依序加入。
 4. **標準型式**：
-   - 側邊樓層套用 **`TABC-DIM_*/ S 2.5-柱心-下右`**（TypeId: `2240801`）。
+   - 側邊樓層優先套用 **`TABC-DIM_*/ S 2.5-柱心-下右`**（動態查詢 ID，不存在則降級使用既有型式）。
 5. **西立面等特殊視圖自適應實踐**：
    - 若立面圖有附屬結構或手動拉動樓層線端點，程式自動讀取該視圖中的 2D Datum Extent，動態計算正確的避讓基準。
 
@@ -126,6 +147,7 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
 > ⚠️ **核心避坑指南**：
 > 1. 切勿隨機設定尺寸線起迄點，若起迄方向顛倒，Revit 會將 5mm 短刻度線指到建築外側或標示圈文字上。
 > 2. 樓層標註外層 Tier 1 必須設定至少 **30mm 圖紙避讓距離**，否則會與樓層名稱/標高數字重疊。
+> 3. 建立標註或變更型式前，務必先以 Step 0 動態查詢確認 TypeId，嚴禁寫死靜態數字。
 
 ---
 
@@ -140,9 +162,14 @@ description: "自動標註尺寸：包含『柱間距/柱心連續標註標準�
 ## Key Rules
 
 - **嚴禁**在 3D 視圖中建立 2D 標註 — 必須先確認 `ActiveView` 類型。
-- 柱間距標註一律使用同一線段連續標註（String Dimension）並套用 `TABC-DIM_*/ S 2.5-柱心-上右` / `下右`。
+- **嚴禁寫死 TypeId**：必須先執行 Step 0 查詢專案 DimensionTypes，若有 `TABC-DIM_*/ S 2.5-柱心-上右` / `下右` 優先套用，否則降級使用既有型式並提示。
+- 柱間距標註一律使用同一線段連續標註（String Dimension）。
 - 柱間距外層線距離圓圈底 5MM，尺寸線間距 5MM（或 6.5MM），輔助線 5MM 指向建物。
-- 立面圖柱心標註優先使用 `auto_dimension_elevation_grids`。
-- 立面圖樓層標註優先使用 `auto_dimension_elevation_levels`。
-- 詳見 `domain/auto-dimension-workflow.md`。
+- 立面圖柱心標註優先使用 `auto_dimension_elevation_grids`（`viewId`, `typeId`, `offsetTier1Mm: 5.0`, `stepTier2Mm: 6.5`）。
+- 立面圖樓層標註優先使用 `auto_dimension_elevation_levels`（`viewId`, `typeId`, `offsetTier1Mm: 30.0`, `stepTier2Mm: 6.5`）。
+- 目標運行環境為 Revit 2026 時，編譯組態為 `Release.R26`（.NET 8.0）。
+- 完整自動化執行腳本：[`scripts/batch_auto_dimension_all_elevation_master.mjs`](file:///c:/Users/User/Documents/REVIT_MCP_study/scripts/batch_auto_dimension_all_elevation_master.mjs)。
+- 詳見 `domain/auto-dimension-workflow.md` 與 `domain/lessons.md` [L-032]、[L-033]。
+
+
 

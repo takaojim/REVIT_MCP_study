@@ -23,6 +23,17 @@ metadata:
 
 ---
 
+## 🔍 標註型式前置查詢與防呆規範 (Preflight DimensionType Check - 必做)
+
+1. **嚴禁寫死 TypeId**：任何標註指令執行前，禁止寫死靜態 ElementId（如 `2240793` / `2240801`）。
+2. **動態查詢**：先呼叫 `query_elements` (`category: "DimensionTypes"`) 讀取專案可用清單。
+3. **多階匹配原則**：
+   - 優先尋找名稱包含 `柱心-上右`（頂部/東側）或 `柱心-下右`（底部/西側）之專屬型式。
+   - 若專案未包含 TABC 樣板，模糊匹配包含 `柱心`、`對齊` (Aligned)、`Linear` 等線性型式。
+   - 若仍無，回退至專案第一支可用線性型式或不傳 typeId，並明確警示使用者。
+
+---
+
 ## 🏛️ Dynamo 幾何自適應定位核心規範
 
 本 SOP 正式依據 **`dynamo/標註-尺寸-柱列線.dyn`** 定位架構實作：
@@ -38,15 +49,15 @@ metadata:
   - **右側基準線 (`max_x`)**：水平軸線右側端點最大 $X$ 座標（**右側氣泡圓圈所在之垂直線**）。
 - **依視圖比例動態向建築物方向退縮計算**：
   - **外圈總尺寸（Tier 1）**：距離氣泡基準線 **`0.5 cm * view.Scale`**（圖紙 5mm $\rightarrow$ 1:100 時為 $500\text{ mm}$）。
-  - **內圈細部尺寸（Tier 2）**：距離氣泡基準線 **`0.5 cm + 0.65 cm = 1.15 cm * view.Scale`**（圖紙 11.5mm $\rightarrow$ 1:100 時為 $1,150\text{ mm}$）。
+  - **內圈細部尺寸（Tier 2）**：距離氣泡基準線 **`0.5 cm + 0.65 cm = 1.15 cm * view.Scale`**（圖紙 11.5mm $\rightarrow$ 1:100 為 $1,150\text{ mm}$）。
 
 ### 2. 四方位雙層連續標註定位矩陣
 | 方位 | 外圈總尺寸線位置 (Tier 1) | 內圈細部尺寸線位置 (Tier 2) | 參照軸線 | 標註型式 (Dimension Type) |
 |:---|:---|:---|:---|:---|
-| **頂部 (Top / 北側)** | $Y = \text{max\_y} - 500\text{ mm}$ | $Y = \text{max\_y} - 1,150\text{ mm}$ | 垂直網格 `v_grids` (A $\to$ H) | `TABC-DIM_*/ S 2.5-柱心-上右` |
-| **底部 (Bottom / 南側)** | $Y = \text{min\_y} + 500\text{ mm}$ | $Y = \text{min\_y} + 1,150\text{ mm}$ | 垂直網格 `v_grids` (H $\to$ D) | `TABC-DIM_*/ S 2.5-柱心-下右` |
-| **左側 (Left / 西側)** | $X = \text{min\_x} + 500\text{ mm}$ | $X = \text{min\_x} + 1,150\text{ mm}$ | 水平網格 `h_grids` (8 $\to$ 1) | `TABC-DIM_*/ S 2.5-柱心-下右` |
-| **右側 (Right / 東側)** | $X = \text{max\_x} - 500\text{ mm}$ | $X = \text{max\_x} - 1,150\text{ mm}$ | 水平網格 `h_grids` (5 $\to$ 8) | `TABC-DIM_*/ S 2.5-柱心-上右` |
+| **頂部 (Top / 北側)** | $Y = \text{max\_y} - 500\text{ mm}$ | $Y = \text{max\_y} - 1,150\text{ mm}$ | 垂直網格 `v_grids` (A $\to$ H) | `TABC-DIM_*/ S 2.5-柱心-上右`（動態 ID） |
+| **底部 (Bottom / 南側)** | $Y = \text{min\_y} + 500\text{ mm}$ | $Y = \text{min\_y} + 1,150\text{ mm}$ | 垂直網格 `v_grids` (H $\to$ D) | `TABC-DIM_*/ S 2.5-柱心-下右`（動態 ID） |
+| **左側 (Left / 西側)** | $X = \text{min\_x} + 500\text{ mm}$ | $X = \text{min\_x} + 1,150\text{ mm}$ | 水平網格 `h_grids` (8 $\to$ 1) | `TABC-DIM_*/ S 2.5-柱心-下右`（動態 ID） |
+| **右側 (Right / 東側)** | $X = \text{max\_x} - 500\text{ mm}$ | $X = \text{max\_x} - 1,150\text{ mm}$ | 水平網格 `h_grids` (5 $\to$ 8) | `TABC-DIM_*/ S 2.5-柱心-上右`（動態 ID） |
 
 ### 3. 純原生 Grid 參照與單一連續線段
 - **外圈**：由首尾兩條軸線組成（`[grids[0], grids[-1]]`）總長跨度。
@@ -55,3 +66,4 @@ metadata:
 
 ---
 **維護者：** RevitMCP Customization Team
+

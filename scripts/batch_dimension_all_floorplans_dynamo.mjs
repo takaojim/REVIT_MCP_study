@@ -19,15 +19,30 @@ async function main() {
     { name: 'TRFL', viewId: 586100 }
   ];
 
-  // 2. 解析專屬標註型式 ID (TABC-DIM_*/ S 2.5-柱心-上右 / 下右)
+  // 2. 解析標註型式 ID（多階動態匹配與防呆降級）
   const typesRes = await client.sendCommand('list_dimension_types', {});
   const dimTypes = typesRes.data?.DimensionTypes || [];
-  const typeUpRight = dimTypes.find(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5-柱心-上右');
-  const typeDownRight = dimTypes.find(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5-柱心-下右');
 
-  const typeIdUpRight = typeUpRight?.DimensionTypeId || 2240793;
-  const typeIdDownRight = typeDownRight?.DimensionTypeId || 2240801;
-  console.log(`標註型式確認 -> 上右: ${typeIdUpRight}, 下右: ${typeIdDownRight}\n`);
+  const typeUpRight = dimTypes.find(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5-柱心-上右') ||
+                      dimTypes.find(t => t.DimensionTypeName?.includes('柱心-上右')) ||
+                      dimTypes.find(t => t.DimensionTypeName?.includes('上右')) ||
+                      dimTypes.find(t => t.DimensionTypeName?.includes('柱心'));
+
+  const typeDownRight = dimTypes.find(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5-柱心-下右') ||
+                        dimTypes.find(t => t.DimensionTypeName?.includes('柱心-下右')) ||
+                        dimTypes.find(t => t.DimensionTypeName?.includes('下右')) ||
+                        dimTypes.find(t => t.DimensionTypeName?.includes('柱心'));
+
+  const typeIdUpRight = typeUpRight?.DimensionTypeId || dimTypes[0]?.DimensionTypeId;
+  const typeIdDownRight = typeDownRight?.DimensionTypeId || dimTypes[0]?.DimensionTypeId;
+
+  if (!dimTypes.some(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5-柱心-上右')) {
+    console.warn(`⚠️ 提示：專案中未找到標準 'TABC-DIM_*/ S 2.5-柱心-上右'，動態降級使用: ${typeUpRight?.DimensionTypeName || dimTypes[0]?.DimensionTypeName} (ID: ${typeIdUpRight})`);
+  }
+  if (!dimTypes.some(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5-柱心-下右')) {
+    console.warn(`⚠️ 提示：專案中未找到標準 'TABC-DIM_*/ S 2.5-柱心-下右'，動態降級使用: ${typeDownRight?.DimensionTypeName || dimTypes[0]?.DimensionTypeName} (ID: ${typeIdDownRight})`);
+  }
+  console.log(`標註型式確認 -> 上右: ${typeIdUpRight} (${typeUpRight?.DimensionTypeName}), 下右: ${typeIdDownRight} (${typeDownRight?.DimensionTypeName})\n`);
 
   // 3. Dynamo 四方極值紅線基準座標（模型座標 mm）
   const maxY = 38067.05;   // 頂部垂直軸線氣泡中心基準線

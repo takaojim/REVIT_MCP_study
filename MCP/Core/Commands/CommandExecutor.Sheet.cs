@@ -1178,6 +1178,145 @@ namespace RevitMCP.Core
             };
         }
 
+        /// <summary>
+        /// 批次將視圖加入圖紙（建立 Viewport）
+        /// </summary>
+        private object AddViewsToSheet(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType sheetId = parameters?["sheetId"]?.Value<IdType>() ?? 0;
+            var viewIdsArray = parameters?["viewIds"] as JArray;
+            var viewNamesArray = parameters?["viewNames"] as JArray;
+            double defaultXMm = parameters?["x_mm"]?.Value<double>() ?? 100;
+            double defaultYMm = parameters?["y_mm"]?.Value<double>() ?? 100;
+
+            ViewSheet sheet;
+            if (sheetId != 0)
+            {
+                sheet = doc.GetElement(sheetId.ToElementId()) as ViewSheet;
+                if (sheet == null)
+                    throw new Exception($"找不到圖紙 ID: {sheetId}");
+            }
+            else
+            {
+                sheet = doc.ActiveView as ViewSheet;
+                if (sheet == null)
+                    throw new Exception("請指定 sheetId 或切換至圖紙視圖");
+            }
+
+            var targetViews = new List<View>();
+            if (viewIdsArray != null && viewIdsArray.Count > 0)
+            {
+                foreach (var token in viewIdsArray)
+                {
+                    IdType vId = token.Value<IdType>();
+                    var v = doc.GetElement(vId.ToElementId()) as View;
+                    if (v != null && !v.IsTemplate)
+                        targetViews.Add(v);
+                }
+            }
+            else if (viewNamesArray != null && viewNamesArray.Count > 0)
+            {
+                var allViews = new FilteredElementCollector(doc)
+                    .OfClass(typeof(View))
+                    .Cast<View>()
+                    .Where(v => !v.IsTemplate)
+                    .ToList();
+                foreach (var token in viewNamesArray)
+                {
+                    string name = token.Value<string>();
+                    var matched = allViews.FirstOrDefault(v => v.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                    if (matched != null)
+                        targetViews.Add(matched);
+                }
+            }
+
+            if (targetViews.Count == 0)
+                throw new Exception("未找到任何符合且非樣板的目標視圖");
+
+            var placed = new List<object>();
+            var skipped = new List<object>();
+            var failed = new List<object>();
+
+            var existingVpIds = sheet.GetAllViewports();
+            var existingViewIds = new HashSet<ElementId>(existingVpIds.Select(vpId => (doc.GetElement(vpId) as Viewport)?.ViewId).Where(id => id != null));
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "加入視圖至圖紙"))
+            {
+                trans.Start();
+                XYZ center = new XYZ(defaultXMm / 304.8, defaultYMm / 304.8, 0);
+                foreach (var v in targetViews)
+                {
+                    if (existingViewIds.Contains(v.Id))
+                    {
+                        var vpId = existingVpIds.FirstOrDefault(id => (doc.GetElement(id) as Viewport)?.ViewId == v.Id);
+                        skipped.Add(new { ViewId = v.Id.GetIdValue(), ViewName = v.Name, Reason = "視圖已在該圖紙上", ViewportId = vpId?.GetIdValue() });
+                        continue;
+                    }
+
+                    if (!Viewport.CanAddViewToSheet(doc, sheet.Id, v.Id))
+                    {
+                        skipped.Add(new { ViewId = v.Id.GetIdValue(), ViewName = v.Name, Reason = "無法將此視圖加入圖紙（可能已在其他圖紙上或視圖類型不支援）" });
+                        continue;
+                    }
+
+                    try
+                    {
+                        Viewport vp = Viewport.Create(doc, sheet.Id, v.Id, center);
+                        placed.Add(new
+                        {
+                            ViewId = v.Id.GetIdValue(),
+                            ViewName = v.Name,
+                            ViewportId = vp.Id.GetIdValue(),
+                            SheetNumber = sheet.SheetNumber
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        failed.Add(new { ViewId = v.Id.GetIdValue(), ViewName = v.Name, Error = ex.Message });
+                    }
+                }
+                trans.Commit();
+            }
+
+            return new
+            {
+                SheetId = sheet.Id.GetIdValue(),
+                SheetNumber = sheet.SheetNumber,
+                Placed = placed,
+                Skipped = skipped,
+                Failed = failed
+            };
+        }
+
+        /// <summary>
+        /// 設定視埠在圖紙上的位置 (X, Y in sheet mm)
+        /// </summary>
+        private object SetViewportPosition(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType vpId = parameters["viewportId"]?.Value<IdType>() ?? 0;
+            double xMm = parameters["x_mm"]?.Value<double>() ?? 0;
+            double yMm = parameters["y_mm"]?.Value<double>() ?? 0;
+
+            var vp = doc.GetElement(vpId.ToElementId()) as Viewport;
+            if (vp == null)
+                throw new Exception($"找不到視埠 ID: {vpId}");
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "設定視埠位置"))
+            {
+                trans.Start();
+                vp.SetBoxCenter(new XYZ(xMm / 304.8, yMm / 304.8, 0));
+                trans.Commit();
+            }
+
+            XYZ newCenter = vp.GetBoxCenter();
+            return new
+            {
+                ViewportId = vpId,
+                Center_mm = new { X = newCenter.X * 304.8, Y = newCenter.Y * 304.8 }
+            };
+        }
 
         #endregion
     }

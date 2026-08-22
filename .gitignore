@@ -55,6 +55,8 @@ npm-debug.log*
 
 # 開發暫存腳本（非穩定，不該共享）
 MCP-Server/scratch/
+scripts/scratch/
+REVIT_MCP_study/
 
 # Private User Guide (Excluded from Push)
 PRIVATE_INSTRUCTIONS.md

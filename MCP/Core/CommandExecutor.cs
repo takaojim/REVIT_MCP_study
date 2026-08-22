@@ -524,6 +524,15 @@ namespace RevitMCP.Core
                     case "shift_view_cropbox":
                         result = ShiftViewCropBox(parameters);
                         break;
+                    case "set_view_cropbox":
+                        result = SetViewCropBox(parameters);
+                        break;
+                    case "add_views_to_sheet":
+                        result = AddViewsToSheet(parameters);
+                        break;
+                    case "set_viewport_position":
+                        result = SetViewportPosition(parameters);
+                        break;
                     case "move_text_notes_in_views":
                         result = MoveTextNotesInViews(parameters);
                         break;

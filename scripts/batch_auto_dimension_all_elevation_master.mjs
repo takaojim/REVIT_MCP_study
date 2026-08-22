@@ -1,4 +1,4 @@
-import { RevitSocketClient } from '../MCP-Server/build/socket.js';
+import { RevitSocketClient } from '../REVIT_MCP_study/MCP-Server/build/socket.js';
 
 async function main() {
   const client = new RevitSocketClient('localhost', 8964);
@@ -12,10 +12,25 @@ async function main() {
     { name: '西', viewId: 8237 }
   ];
 
-  const gridTypeId = 2240793;  // TABC-DIM_*/ S 2.5-柱心-上右 (頂部柱列線)
-  const levelTypeId = 2240801; // TABC-DIM_*/ S 2.5-柱心-下右 (側邊樓層線)
+  // 動態查詢專案中的標準標註型式 (落實 [L-032])
+  let gridTypeId = 689724;  // 預設 TABC-DIM_*/ S 2.5-柱心-上右
+  let levelTypeId = 689732; // 預設 TABC-DIM_*/ S 2.5-柱心-下右
 
-  console.log('=== 開始執行立面圖(建築立面)全套雙層標準標註（頂部柱間距 + 側邊樓層高程）===\n');
+  try {
+    const dtRes = await client.sendCommand('query_elements', { category: 'Dimensions', maxCount: 200 });
+    const allDims = dtRes.data?.Elements || [];
+    for (const d of allDims) {
+      const dInfo = await client.sendCommand('get_element_info', { elementId: d.ElementId });
+      const tName = dInfo.data?.Type;
+      const tId = dInfo.data?.Parameters?.find(p => p.Name === '類型 ID' || p.Name === 'Type Id')?.Value;
+      if (tName === 'TABC-DIM_*/ S 2.5-柱心-上右' && tId) gridTypeId = parseInt(tId, 10);
+      if (tName === 'TABC-DIM_*/ S 2.5-柱心-下右' && tId) levelTypeId = parseInt(tId, 10);
+    }
+  } catch (err) {
+    console.warn('動態查詢標註型式提示:', err.message);
+  }
+
+  console.log(`\n使用標註型式 -> 頂部柱間距: ${gridTypeId} (上右), 側邊樓層線: ${levelTypeId} (下右)\n`);
 
   for (const ev of elevationViews) {
     console.log(`------------------------------------------------------------`);

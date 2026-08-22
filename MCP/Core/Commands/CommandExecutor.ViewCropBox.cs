@@ -151,6 +151,66 @@ namespace RevitMCP.Core
             };
         }
 
+        /// <summary>
+        /// 設定指定視圖的 CropBox 絕對範圍（mm 單位）
+        /// </summary>
+        private object SetViewCropBox(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+
+            IdType viewIdParam = parameters["viewId"]?.Value<IdType>() ?? 0;
+            View view = viewIdParam == 0
+                ? doc.ActiveView
+                : doc.GetElement(viewIdParam.ToElementId()) as View;
+            if (view == null)
+                throw new Exception($"找不到視圖 ID={viewIdParam}");
+
+            double minXMm = parameters["minX_mm"]?.Value<double>() ?? double.NaN;
+            double maxXMm = parameters["maxX_mm"]?.Value<double>() ?? double.NaN;
+            double minYMm = parameters["minY_mm"]?.Value<double>() ?? double.NaN;
+            double maxYMm = parameters["maxY_mm"]?.Value<double>() ?? double.NaN;
+            bool active = parameters["active"]?.Value<bool>() ?? true;
+            bool visible = parameters["visible"]?.Value<bool>() ?? true;
+
+            BoundingBoxXYZ oldCropBox = view.CropBox;
+            double minXFeet = double.IsNaN(minXMm) ? oldCropBox.Min.X : minXMm / 304.8;
+            double maxXFeet = double.IsNaN(maxXMm) ? oldCropBox.Max.X : maxXMm / 304.8;
+            double minYFeet = double.IsNaN(minYMm) ? oldCropBox.Min.Y : minYMm / 304.8;
+            double maxYFeet = double.IsNaN(maxYMm) ? oldCropBox.Max.Y : maxYMm / 304.8;
+
+            BoundingBoxXYZ newCropBox = new BoundingBoxXYZ
+            {
+                Min = new XYZ(minXFeet, minYFeet, oldCropBox.Min.Z),
+                Max = new XYZ(maxXFeet, maxYFeet, oldCropBox.Max.Z),
+                Transform = oldCropBox.Transform
+            };
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "設定視圖裁剪框範圍"))
+            {
+                trans.Start();
+                view.CropBoxActive = active;
+                view.CropBoxVisible = visible;
+                view.CropBox = newCropBox;
+                trans.Commit();
+            }
+
+            return new
+            {
+                ViewId = view.Id.GetIdValue(),
+                ViewName = view.Name,
+                CropBoxActive = view.CropBoxActive,
+                CropBoxVisible = view.CropBoxVisible,
+                NewCropBox_mm = new
+                {
+                    Min = new { x = minXFeet * 304.8, y = minYFeet * 304.8 },
+                    Max = new { x = maxXFeet * 304.8, y = maxYFeet * 304.8 },
+                    Width = (maxXFeet - minXFeet) * 304.8,
+                    Height = (maxYFeet - minYFeet) * 304.8
+                }
+            };
+        }
+
         #endregion
     }
 }
+

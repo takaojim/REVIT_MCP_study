@@ -116,18 +116,85 @@ namespace RevitMCP.Core
                             continue;
                         }
 
-                        double minX = cropBox.Min.X * 304.8;
-                        double maxX = cropBox.Max.X * 304.8;
-                        double minY = cropBox.Min.Y * 304.8;
-                        double maxY = cropBox.Max.Y * 304.8;
+                        Transform viewTrans = GetViewTransform(view);
+                        Transform invTrans = viewTrans.Inverse;
 
-                        // 里程碑 3：調整網格線 (Grids) 的 2D 範圍與氣泡
-                        AdjustGridsInView(doc, view, cropBox, GetViewTransform(view));
+                        // 找出視圖內所有實體建築構件（牆、樓板、結構柱、結構梁、屋頂）的邊界
+                        var modelElements = new FilteredElementCollector(doc, view.Id)
+                            .WhereElementIsNotElementType()
+                            .WherePasses(new ElementMulticategoryFilter(new List<BuiltInCategory>
+                            {
+                                BuiltInCategory.OST_Walls,
+                                BuiltInCategory.OST_Floors,
+                                BuiltInCategory.OST_Roofs,
+                                BuiltInCategory.OST_StructuralColumns,
+                                BuiltInCategory.OST_StructuralFraming
+                            }))
+                            .ToList();
 
-                        // 里程碑 4：調整樓層線 (Levels) 的 2D 範圍（動態長度適應）與氣泡
-                        AdjustLevelsInView(doc, view, cropBox, GetViewTransform(view));
+                        double minX_building = double.MaxValue;
+                        double maxX_building = double.MinValue;
+                        double minY_building = double.MaxValue;
+                        double maxY_building = double.MinValue;
 
-                        processedViews.Add($"{view.Name} (Crop Box X: {minX:F0} ~ {maxX:F0}, Y: {minY:F0} ~ {maxY:F0} mm)");
+                        foreach (var modelElem in modelElements)
+                        {
+                            BoundingBoxXYZ bbox = modelElem.get_BoundingBox(view);
+                            if (bbox == null) continue;
+                            XYZ pMin = invTrans.OfPoint(bbox.Min);
+                            XYZ pMax = invTrans.OfPoint(bbox.Max);
+                            minX_building = Math.Min(minX_building, Math.Min(pMin.X, pMax.X));
+                            maxX_building = Math.Max(maxX_building, Math.Max(pMin.X, pMax.X));
+                            minY_building = Math.Min(minY_building, Math.Min(pMin.Y, pMax.Y));
+                            maxY_building = Math.Max(maxY_building, Math.Max(pMin.Y, pMax.Y));
+                        }
+
+                        // 備援：若無實體幾何，以網格線與樓層線為基準
+                        if (minX_building == double.MaxValue)
+                        {
+                            var allGrids = new FilteredElementCollector(doc, view.Id).OfClass(typeof(Grid)).Cast<Grid>().ToList();
+                            if (allGrids.Count > 0)
+                            {
+                                minX_building = allGrids.Min(g => Math.Min(invTrans.OfPoint(g.Curve.GetEndPoint(0)).X, invTrans.OfPoint(g.Curve.GetEndPoint(1)).X));
+                                maxX_building = allGrids.Max(g => Math.Max(invTrans.OfPoint(g.Curve.GetEndPoint(0)).X, invTrans.OfPoint(g.Curve.GetEndPoint(1)).X));
+                            }
+                            else
+                            {
+                                minX_building = cropBox.Min.X;
+                                maxX_building = cropBox.Max.X;
+                            }
+                            minY_building = cropBox.Min.Y;
+                            maxY_building = cropBox.Max.Y;
+                        }
+
+                        // 偏移量：樓層線左側 1000mm（有氣泡側）、右側 500mm（無氣泡側）；柱軸線頂端 500mm（有氣泡側）、底端 500mm（無氣泡側）
+                        double levelLeftOffsetFt = 1000.0 / 304.8;
+                        double levelRightOffsetFt = 500.0 / 304.8;
+                        double gridTopOffsetFt = 500.0 / 304.8;
+                        double gridBottomOffsetFt = 500.0 / 304.8;
+
+                        double leftXFt = minX_building - levelLeftOffsetFt;
+                        double rightXFt = maxX_building + levelRightOffsetFt;
+                        double topYFt = maxY_building + gridTopOffsetFt;
+                        double bottomYFt = minY_building - gridBottomOffsetFt;
+
+                        // 里程碑 3：調整網格線 (Grids) 的 2D 範圍與氣泡（頂端 500mm 齊頭顯示氣泡，底端隱藏氣泡）
+                        AdjustGridsInView(doc, view, bottomYFt, topYFt, viewTrans);
+
+                        // 里程碑 4：調整樓層線 (Levels) 的 2D 範圍與氣泡（左側 1000mm 顯示氣泡，右側 500mm 隱藏氣泡）
+                        AdjustLevelsInView(doc, view, leftXFt, rightXFt, viewTrans);
+
+                        // 里程碑 5：更新 CropBox 完美包覆且上下左右預留 200mm 緩衝
+                        double padFt = 200.0 / 304.8;
+                        BoundingBoxXYZ newCropBox = new BoundingBoxXYZ
+                        {
+                            Min = new XYZ(leftXFt - padFt, bottomYFt - padFt, cropBox.Min.Z),
+                            Max = new XYZ(rightXFt + padFt, topYFt + padFt, cropBox.Max.Z),
+                            Transform = cropBox.Transform
+                        };
+                        view.CropBox = newCropBox;
+
+                        processedViews.Add($"{view.Name} (Building X: {minX_building * 304.8:F0} ~ {maxX_building * 304.8:F0} mm, Y: {minY_building * 304.8:F0} ~ {maxY_building * 304.8:F0} mm)");
                     }
                     catch (Exception ex)
                     {
@@ -179,14 +246,13 @@ namespace RevitMCP.Core
         /// <summary>
         /// 調整剖面視圖內 Grids 的 2D 範圍與氣泡顯示
         /// </summary>
-        private void AdjustGridsInView(Document doc, View view, BoundingBoxXYZ cropBox, Transform transform)
+        private void AdjustGridsInView(Document doc, View view, double bottomYFt, double topYFt, Transform transform)
         {
             var grids = new FilteredElementCollector(doc, view.Id)
                 .OfClass(typeof(Grid))
                 .Cast<Grid>()
                 .ToList();
 
-            double offsetFeet = 150.0 / 304.8; // 150 mm 轉為英尺
             Transform invTrans = transform.Inverse;
 
             foreach (var grid in grids)
@@ -208,16 +274,14 @@ namespace RevitMCP.Core
                     XYZ gP0_local = invTrans.OfPoint(gP0_world);
                     XYZ gP1_local = invTrans.OfPoint(gP1_world);
 
-                    bool p0IsTop = gP0_local.Y > gP1_local.Y;
-                    XYZ top_local = p0IsTop ? gP0_local : gP1_local;
-                    XYZ bottom_local = p0IsTop ? gP1_local : gP0_local;
+                    double xLocal = (gP0_local.X + gP1_local.X) / 2.0;
 
-                    // 上下端點垂直對齊 Crop Box 並延伸 150mm
-                    XYZ newTop_local = new XYZ(top_local.X, cropBox.Max.Y + offsetFeet, top_local.Z);
-                    XYZ newBottom_local = new XYZ(bottom_local.X, cropBox.Min.Y - offsetFeet, bottom_local.Z);
+                    // 上下端點垂直對齊: 底端 bottomYFt, 頂端 topYFt
+                    XYZ newBottom_local = new XYZ(xLocal, bottomYFt, gP0_local.Z);
+                    XYZ newTop_local = new XYZ(xLocal, topYFt, gP0_local.Z);
 
-                    XYZ newTop_world = transform.OfPoint(newTop_local);
                     XYZ newBottom_world = transform.OfPoint(newBottom_local);
+                    XYZ newTop_world = transform.OfPoint(newTop_local);
 
                     // 重新指派 2D 線段，起點設為下方，終點設為上方
                     Line newCurve = Line.CreateBound(newBottom_world, newTop_world);
@@ -235,9 +299,9 @@ namespace RevitMCP.Core
         }
 
         /// <summary>
-        /// 調整剖面視圖內 Levels 的 2D 範圍（基於字串長度動態適應）與氣泡顯示
+        /// 調整剖面視圖內 Levels 的 2D 範圍與氣泡顯示
         /// </summary>
-        private void AdjustLevelsInView(Document doc, View view, BoundingBoxXYZ cropBox, Transform transform)
+        private void AdjustLevelsInView(Document doc, View view, double leftXFt, double rightXFt, Transform transform)
         {
             var levels = new FilteredElementCollector(doc, view.Id)
                 .OfClass(typeof(Level))
@@ -245,11 +309,6 @@ namespace RevitMCP.Core
                 .ToList();
 
             Transform invTrans = transform.Inverse;
-            double viewScale = view.Scale;
-
-            // 基礎字元長度估算參數（公釐）
-            double basePaperWidth = 10.0; // 氣泡本身的基本物理寬度
-            double charPaperWidth = 2.2;  // 每個字元的平均估估物理寬度
 
             foreach (var level in levels)
             {
@@ -266,24 +325,14 @@ namespace RevitMCP.Core
                     XYZ lP0_world = curve.GetEndPoint(0);
                     XYZ lP1_world = curve.GetEndPoint(1);
 
-                    // 轉為視圖局部座標進行左右判定
                     XYZ lP0_local = invTrans.OfPoint(lP0_world);
                     XYZ lP1_local = invTrans.OfPoint(lP1_world);
 
-                    bool p0IsLeft = lP0_local.X < lP1_local.X;
-                    XYZ left_local = p0IsLeft ? lP0_local : lP1_local;
-                    XYZ right_local = p0IsLeft ? lP1_local : lP0_local;
+                    double yLocal = (lP0_local.Y + lP1_local.Y) / 2.0;
 
-                    // 依樓層名稱長度動態計算模型偏移量（英尺）
-                    string levelName = level.Name ?? "";
-                    // 估算此樓層名稱與高度文字加總長度（Revit 預設可能顯示: 名稱 + 高度值）
-                    // 這裡取 levelName 長度，並多給予安全緩衝
-                    double paperWidth = basePaperWidth + (levelName.Length * charPaperWidth);
-                    double offsetFeet = (paperWidth * viewScale) / 304.8;
-
-                    // 左右端點水平對齊 Crop Box 並向外延伸動態計算後的 offset
-                    XYZ newLeft_local = new XYZ(cropBox.Min.X - offsetFeet, left_local.Y, left_local.Z);
-                    XYZ newRight_local = new XYZ(cropBox.Max.X + offsetFeet, right_local.Y, right_local.Z);
+                    // 左右端點水平對齊: 左端 leftXFt, 右端 rightXFt
+                    XYZ newLeft_local = new XYZ(leftXFt, yLocal, lP0_local.Z);
+                    XYZ newRight_local = new XYZ(rightXFt, yLocal, lP0_local.Z);
 
                     XYZ newLeft_world = transform.OfPoint(newLeft_local);
                     XYZ newRight_world = transform.OfPoint(newRight_local);
@@ -292,9 +341,9 @@ namespace RevitMCP.Core
                     Line newCurve = Line.CreateBound(newLeft_world, newRight_world);
                     level.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
 
-                    // 雙側均顯示氣泡
+                    // 左側（起點 End0）顯示氣泡，右側（終點 End1）強制隱藏氣泡！
                     level.ShowBubbleInView(DatumEnds.End0, view);
-                    level.ShowBubbleInView(DatumEnds.End1, view);
+                    level.HideBubbleInView(DatumEnds.End1, view);
                 }
                 catch (Exception)
                 {
