@@ -553,6 +553,9 @@ namespace RevitMCP.Core
                     case "auto_dimension_elevation_levels":
                         result = AutoDimensionElevationLevels(parameters);
                         break;
+                    case "auto_dimension_plan_grids":
+                        result = AutoDimensionPlanGrids(parameters);
+                        break;
 
                     // === 從屬視圖模組 ===
                     case "calculate_grid_bounds":
@@ -640,6 +643,9 @@ namespace RevitMCP.Core
                     // === 視圖與基準線調整模組 ===
                     case "adjust_section_datums":
                         result = AdjustSectionDatums(parameters);
+                        break;
+                    case "align_plan_grids":
+                        result = AlignPlanGrids(parameters);
                         break;
 
                     // === 樓板坡度分析（Issue #45, 原作者 yunchen-kt）===

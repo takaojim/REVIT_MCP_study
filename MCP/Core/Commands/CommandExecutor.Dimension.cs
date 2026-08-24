@@ -879,6 +879,220 @@ namespace RevitMCP.Core
             };
         }
 
+        /// <summary>
+        /// 自動為平面視圖建立四向雙層柱心連續標註（自適應讀取視圖中所有 Grids 的真實幾何端點）
+        /// </summary>
+        private object AutoDimensionPlanGrids(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
+            double paperOffsetTier1Mm = parameters["offsetTier1Mm"]?.Value<double>() ?? 5.0; // 圖紙 5mm
+            double paperOffsetTier2StepMm = parameters["stepTier2Mm"]?.Value<double>() ?? 6.5; // 圖紙 6.5mm (總計 11.5mm)
+
+            View view = doc.GetElement(viewId.ToElementId()) as View;
+            if (view == null)
+                throw new Exception($"找不到視圖 ID: {viewId}");
+
+            // 取得視圖中可見的 Grids
+            var grids = new FilteredElementCollector(doc, view.Id)
+                .OfCategory(BuiltInCategory.OST_Grids)
+                .WhereElementIsNotElementType()
+                .Cast<Grid>()
+                .ToList();
+
+            if (grids.Count < 2)
+                throw new Exception($"視圖 {view.Name} 中的軸線數量不足（至少需要 2 條）");
+
+            XYZ vRight = view.RightDirection.Normalize();
+            XYZ vUp = view.UpDirection.Normalize();
+
+            var vertGrids = new List<(Grid grid, Curve curve, XYZ topPt, XYZ botPt, double uProj)>();
+            var horizGrids = new List<(Grid grid, Curve curve, XYZ leftPt, XYZ rightPt, double vProj)>();
+
+            foreach (var g in grids)
+            {
+                IList<Curve> curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view);
+                if (curves == null || curves.Count == 0) continue;
+
+                Curve c = curves[0];
+                XYZ ep0 = c.GetEndPoint(0);
+                XYZ ep1 = c.GetEndPoint(1);
+                XYZ dir = (ep1 - ep0).Normalize();
+
+                double dotUp = Math.Abs(dir.DotProduct(vUp));
+                double dotRight = Math.Abs(dir.DotProduct(vRight));
+
+                if (dotUp >= dotRight)
+                {
+                    // 垂直軸線 (例如 1, 2, 3, 4)
+                    XYZ top = ep0.DotProduct(vUp) >= ep1.DotProduct(vUp) ? ep0 : ep1;
+                    XYZ bot = ep0.DotProduct(vUp) < ep1.DotProduct(vUp) ? ep0 : ep1;
+                    double u = top.DotProduct(vRight);
+                    vertGrids.Add((g, c, top, bot, u));
+                }
+                else
+                {
+                    // 水平軸線 (例如 A, B, C, D)
+                    XYZ right = ep0.DotProduct(vRight) >= ep1.DotProduct(vRight) ? ep0 : ep1;
+                    XYZ left = ep0.DotProduct(vRight) < ep1.DotProduct(vRight) ? ep0 : ep1;
+                    double v = left.DotProduct(vUp);
+                    horizGrids.Add((g, c, left, right, v));
+                }
+            }
+
+            // 排序
+            vertGrids.Sort((a, b) => a.uProj.CompareTo(b.uProj)); // 左到右
+            horizGrids.Sort((a, b) => b.vProj.CompareTo(a.vProj)); // 頂到底 (上到下)
+
+            double scale = view.Scale;
+            double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+            double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+
+            // 尋找型式
+            DimensionType typeUpRight = null;
+            DimensionType typeDownRight = null;
+            var allDimTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(DimensionType))
+                .Cast<DimensionType>()
+                .ToList();
+
+            foreach (var dt in allDimTypes)
+            {
+                if (dt.Name.Contains("上右") || dt.Name.Contains("柱心-上右")) typeUpRight = dt;
+                if (dt.Name.Contains("下右") || dt.Name.Contains("柱心-下右")) typeDownRight = dt;
+            }
+            if (typeUpRight == null) typeUpRight = allDimTypes.FirstOrDefault(dt => dt.Name.Contains("TABC-DIM") || dt.Name == "DIMing");
+            if (typeDownRight == null) typeDownRight = typeUpRight;
+
+            var createdDimIds = new List<long>();
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "自動建立平面四向雙層柱心標註"))
+            {
+                trans.Start();
+
+                // 1. 北側 (頂部: 垂直軸線，由右至左建立使輔助線朝下指向建物)
+                if (vertGrids.Count >= 2)
+                {
+                    double maxUp = vertGrids.Max(g => g.topPt.DotProduct(vUp));
+                    XYZ rightTop = vertGrids.Last().topPt;
+                    XYZ leftTop = vertGrids.First().topPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = rightTop + vUp * (maxUp - rightTop.DotProduct(vUp) - offset1Ft);
+                    XYZ pEnd1 = leftTop + vUp * (maxUp - leftTop.DotProduct(vUp) - offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(vertGrids.Last().grid));
+                    ref1.Append(new Reference(vertGrids.First().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeUpRight != null) d1.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = rightTop + vUp * (maxUp - rightTop.DotProduct(vUp) - offset2Ft);
+                    XYZ pEnd2 = leftTop + vUp * (maxUp - leftTop.DotProduct(vUp) - offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = vertGrids.Count - 1; i >= 0; i--) ref2.Append(new Reference(vertGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeUpRight != null) d2.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                // 2. 南側 (底部: 垂直軸線，由左至右建立使輔助線朝上指向建物)
+                if (vertGrids.Count >= 2)
+                {
+                    double minUp = vertGrids.Min(g => g.botPt.DotProduct(vUp));
+                    XYZ leftBot = vertGrids.First().botPt;
+                    XYZ rightBot = vertGrids.Last().botPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = leftBot + vUp * (minUp - leftBot.DotProduct(vUp) + offset1Ft);
+                    XYZ pEnd1 = rightBot + vUp * (minUp - rightBot.DotProduct(vUp) + offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(vertGrids.First().grid));
+                    ref1.Append(new Reference(vertGrids.Last().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeDownRight != null) d1.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = leftBot + vUp * (minUp - leftBot.DotProduct(vUp) + offset2Ft);
+                    XYZ pEnd2 = rightBot + vUp * (minUp - rightBot.DotProduct(vUp) + offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = 0; i < vertGrids.Count; i++) ref2.Append(new Reference(vertGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeDownRight != null) d2.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                // 3. 西側 (左側: 水平軸線，由頂至底建立使輔助線朝右指向建物)
+                if (horizGrids.Count >= 2)
+                {
+                    double minRight = horizGrids.Min(g => g.leftPt.DotProduct(vRight));
+                    XYZ topHoriz = horizGrids.First().leftPt;
+                    XYZ botHoriz = horizGrids.Last().leftPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = topHoriz + vRight * (minRight - topHoriz.DotProduct(vRight) + offset1Ft);
+                    XYZ pEnd1 = botHoriz + vRight * (minRight - botHoriz.DotProduct(vRight) + offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(horizGrids.First().grid));
+                    ref1.Append(new Reference(horizGrids.Last().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeDownRight != null) d1.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = topHoriz + vRight * (minRight - topHoriz.DotProduct(vRight) + offset2Ft);
+                    XYZ pEnd2 = botHoriz + vRight * (minRight - botHoriz.DotProduct(vRight) + offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = 0; i < horizGrids.Count; i++) ref2.Append(new Reference(horizGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeDownRight != null) d2.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                // 4. 東側 (右側: 水平軸線，由底至頂建立使輔助線朝左指向建物)
+                if (horizGrids.Count >= 2)
+                {
+                    double maxRight = horizGrids.Max(g => g.rightPt.DotProduct(vRight));
+                    XYZ botHoriz = horizGrids.Last().rightPt;
+                    XYZ topHoriz = horizGrids.First().rightPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = botHoriz + vRight * (maxRight - botHoriz.DotProduct(vRight) - offset1Ft);
+                    XYZ pEnd1 = topHoriz + vRight * (maxRight - topHoriz.DotProduct(vRight) - offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(horizGrids.Last().grid));
+                    ref1.Append(new Reference(horizGrids.First().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeUpRight != null) d1.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = botHoriz + vRight * (maxRight - botHoriz.DotProduct(vRight) - offset2Ft);
+                    XYZ pEnd2 = topHoriz + vRight * (maxRight - topHoriz.DotProduct(vRight) - offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = horizGrids.Count - 1; i >= 0; i--) ref2.Append(new Reference(horizGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeUpRight != null) d2.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                trans.Commit();
+            }
+
+            return new
+            {
+                Success = true,
+                ViewId = viewId,
+                ViewName = view.Name,
+                CreatedDimensionsCount = createdDimIds.Count,
+                DimensionIds = createdDimIds,
+                VerticalGrids = vertGrids.Select(g => g.grid.Name).ToList(),
+                HorizontalGrids = horizGrids.Select(g => g.grid.Name).ToList()
+            };
+        }
+
         #endregion
     }
 }

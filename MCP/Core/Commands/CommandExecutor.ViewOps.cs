@@ -302,5 +302,151 @@ namespace RevitMCP.Core
                 }
             }
         }
+
+        /// <summary>
+        /// 平面視圖軸線四向齊頭整列 (Plan Grid Alignment)
+        /// </summary>
+        private object AlignPlanGrids(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
+            double offsetMm = parameters["offsetMm"]?.Value<double>() ?? 5200.0; // 預設 8 * 650 = 5200 mm
+            bool showAllBubbles = parameters["showAllBubbles"]?.Value<bool>() ?? true;
+
+            View view = doc.GetElement(viewId.ToElementId()) as View;
+            if (view == null)
+                throw new Exception($"找不到視圖 ID: {viewId}");
+
+            var grids = new FilteredElementCollector(doc, view.Id)
+                .OfClass(typeof(Grid))
+                .Cast<Grid>()
+                .ToList();
+
+            if (grids.Count < 2)
+                throw new Exception($"視圖 {view.Name} 中的軸線數量不足");
+
+            XYZ vRight = view.RightDirection.Normalize();
+            XYZ vUp = view.UpDirection.Normalize();
+
+            var vertGrids = new List<(Grid grid, double uProj)>();
+            var horizGrids = new List<(Grid grid, double vProj)>();
+
+            foreach (var g in grids)
+            {
+                Curve c = g.Curve;
+                XYZ ep0 = c.GetEndPoint(0);
+                XYZ ep1 = c.GetEndPoint(1);
+                XYZ dir = (ep1 - ep0).Normalize();
+
+                double dotUp = Math.Abs(dir.DotProduct(vUp));
+                double dotRight = Math.Abs(dir.DotProduct(vRight));
+
+                if (dotUp >= dotRight)
+                {
+                    double u = ((ep0 + ep1) / 2.0).DotProduct(vRight);
+                    vertGrids.Add((g, u));
+                }
+                else
+                {
+                    double v = ((ep0 + ep1) / 2.0).DotProduct(vUp);
+                    horizGrids.Add((g, v));
+                }
+            }
+
+            if (vertGrids.Count == 0 || horizGrids.Count == 0)
+                throw new Exception($"視圖 {view.Name} 需同時具備垂直與水平軸線");
+
+            vertGrids.Sort((a, b) => a.uProj.CompareTo(b.uProj));
+            horizGrids.Sort((a, b) => b.vProj.CompareTo(a.vProj));
+
+            double minGridX = vertGrids.First().uProj;
+            double maxGridX = vertGrids.Last().uProj;
+            double minGridY = horizGrids.Last().vProj;
+            double maxGridY = horizGrids.First().vProj;
+
+            double offsetFeet = offsetMm / 304.8;
+            double alignTop = maxGridY + offsetFeet;
+            double alignBottom = minGridY - offsetFeet;
+            double alignLeft = minGridX - offsetFeet;
+            double alignRight = maxGridX + offsetFeet;
+
+            int alignedCount = 0;
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "平面軸線四向齊頭整列"))
+            {
+                trans.Start();
+
+                // 調整垂直軸線 (南北向)
+                foreach (var item in vertGrids)
+                {
+                    var g = item.grid;
+                    try
+                    {
+                        g.SetDatumExtentType(DatumEnds.End0, view, DatumExtentType.ViewSpecific);
+                        g.SetDatumExtentType(DatumEnds.End1, view, DatumExtentType.ViewSpecific);
+
+                        XYZ pBot = vRight * item.uProj + vUp * alignBottom;
+                        XYZ pTop = vRight * item.uProj + vUp * alignTop;
+
+                        Line newCurve = Line.CreateBound(pBot, pTop);
+                        g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+
+                        g.ShowBubbleInView(DatumEnds.End1, view);
+                        if (showAllBubbles)
+                            g.ShowBubbleInView(DatumEnds.End0, view);
+                        else
+                            g.HideBubbleInView(DatumEnds.End0, view);
+
+                        alignedCount++;
+                    }
+                    catch (Exception) { }
+                }
+
+                // 調整水平軸線 (東西向)
+                foreach (var item in horizGrids)
+                {
+                    var g = item.grid;
+                    try
+                    {
+                        g.SetDatumExtentType(DatumEnds.End0, view, DatumExtentType.ViewSpecific);
+                        g.SetDatumExtentType(DatumEnds.End1, view, DatumExtentType.ViewSpecific);
+
+                        XYZ pLeft = vRight * alignLeft + vUp * item.vProj;
+                        XYZ pRight = vRight * alignRight + vUp * item.vProj;
+
+                        Line newCurve = Line.CreateBound(pLeft, pRight);
+                        g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+
+                        g.ShowBubbleInView(DatumEnds.End1, view);
+                        if (showAllBubbles)
+                            g.ShowBubbleInView(DatumEnds.End0, view);
+                        else
+                            g.HideBubbleInView(DatumEnds.End0, view);
+
+                        alignedCount++;
+                    }
+                    catch (Exception) { }
+                }
+
+                trans.Commit();
+            }
+
+            return new
+            {
+                Success = true,
+                ViewId = viewId,
+                ViewName = view.Name,
+                AlignedGridsCount = alignedCount,
+                OffsetMm = offsetMm,
+                AlignmentBounds = new
+                {
+                    TopY = alignTop * 304.8,
+                    BottomY = alignBottom * 304.8,
+                    LeftX = alignLeft * 304.8,
+                    RightX = alignRight * 304.8
+                },
+                Message = $"成功將視圖 {view.Name} 內的 {alignedCount} 條軸線四向齊頭整列（外緣延伸 {offsetMm} mm）"
+            };
+        }
     }
 }
