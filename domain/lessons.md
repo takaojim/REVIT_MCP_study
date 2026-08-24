@@ -254,3 +254,20 @@ metadata:
   1. C# 核心 `QueryElements` 預設 `maxCount` 提升為 `10000`，且傳入 `<= 0` 時自動切換為 `int.MaxValue`。
   2. 在現代本機環境中，傳輸 1,000 ~ 10,000 筆圖元 JSON 僅需約 20ms，效能與記憶體負擔極低。
   3. AI 執行批次視圖或圖元處理前，必須確保查詢無上限，絕不可基於截斷的 partial list 作出「專案不存在該圖元」的錯誤推論。
+
+## [L-034] 平面圖實體外框抓取、2D 軸線嚴格共線與配置 A 規範
+
+- **規則**：
+  1. **實體外框自適應包絡**：平面軸線四向齊頭整列（`align_plan_grids`）必須跨品類收集實體構件（外牆 `Walls`、陽台地坪 `Floors`、雨遮/挑簷 `Roofs`、結構柱 `Columns`、欄杆 `Railings`、遮陽板 `GenericModels`），計算建物最外緣幾何極值，再向外等距延伸（如 9 個模矩 $5,850\text{ mm}$）。
+  2. **2D 軸線嚴格共線（Collinear）**：在 Revit API 中調用 `grid.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve)` 時，新線段必須與原軸線基準面 100% 共線。最佳實踐為採用 `view.CropBox.Transform` 局部座標系模式，僅修改端點沿軸向之分量，再轉回世界座標，徹底避免 Revit 拋出 `The curve is unbound or not coincident with the original one of the datum plane` 異常。
+  3. **出圖標準「配置 A」**：上方（北側）與右側（東側）開啟氣泡圓圈（承載柱心總尺寸與柱間距標註）；下方（南側）與左側（西側）關閉氣泡圓圈（留白給外牆主要房間跨度與細部開口標註）。
+  4. **退縮屋頂與屋突層基準繼承**：屋頂層（`RFL`）與屋突層（`TRFL`）等局部內縮之頂層視圖，不可依局部建物收縮軸線，必須透過 `referenceViewId` 強制繼承直屬下層主要樓層（如 `5FL`）之最外側實體外牆極值進行 9 間距齊頭放樣，確保全案 16 條主結構軸線完整顯現，維持整本圖冊 Viewport 排版一致性與柱心相對定位。
+  5. **開發輔助線生命週期**：實體包絡檢驗線（紅色實體框、藍色齊頭框）在現況開發階段保留於視圖中供人工檢視；後續正式交付或由使用者指示時再進行批次刪除。
+
+## [L-035] 柱心尺寸標註型式強制綁定與 Transaction 原生切換機制
+
+- **規則**：
+  1. **禁止依賴 Revit 預設標註型式**：當呼叫 `create_dimension` 建立尺寸時，Revit 原生 API `doc.Create.NewDimension` 會套用專案當前的「預設線性尺寸型式」（例如通用 `線性尺寸標註型式` 或 `DIMing`）。AI 與工作流腳本**嚴禁依賴預設型式**，必須明確指定專屬標準標註型式（上右：`TABC-DIM_*/ S 2.5-柱心-上右`，下右：`TABC-DIM_*/ S 2.5-柱心-下右`）。
+  2. **品類查詢工具邊界**：查詢標註型式時應使用專屬指令 `list_dimension_types`，不可使用 `query_elements(category: 'DimensionTypes')`（Revit `BuiltInCategory` 中無直接的 `DimensionTypes` 列舉，會導致查詢失敗）。
+  3. **動態模糊解析與即時切換**：在跨專案執行時，標註型式名稱可能有微幅字串變體（例如 `TABC-DIM_*/ S 2.5-柱心-上右`、`TABC-DIM_尺度標註/ S 2.5-柱心-上右` 等）。工作流應先以 `list_dimension_types` 進行名稱包含比對（如 `Name.Contains("柱心-上右")`）獲取確切 Type ID，並在建立尺寸後或於同一個 API Transaction 內立即執行 `change_element_type`，完成型式綁定斷言。
+

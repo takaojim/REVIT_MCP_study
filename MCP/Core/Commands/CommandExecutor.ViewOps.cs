@@ -304,18 +304,26 @@ namespace RevitMCP.Core
         }
 
         /// <summary>
-        /// 平面視圖軸線四向齊頭整列 (Plan Grid Alignment)
+        /// 平面視圖軸線四向齊頭整列 (Plan Grid Alignment) - 支援實體模型包絡 (外牆/陽台/雨遮/柱/欄杆)
         /// </summary>
         private object AlignPlanGrids(JObject parameters)
         {
             Document doc = _uiApp.ActiveUIDocument.Document;
-            IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
-            double offsetMm = parameters["offsetMm"]?.Value<double>() ?? 5200.0; // 預設 8 * 650 = 5200 mm
-            bool showAllBubbles = parameters["showAllBubbles"]?.Value<bool>() ?? true;
-
-            View view = doc.GetElement(viewId.ToElementId()) as View;
+            IdType viewIdParam = parameters["viewId"]?.Value<IdType>() ?? 0;
+            View view = viewIdParam == 0
+                ? doc.ActiveView
+                : doc.GetElement(viewIdParam.ToElementId()) as View;
             if (view == null)
-                throw new Exception($"找不到視圖 ID: {viewId}");
+                throw new Exception($"找不到視圖 ID: {viewIdParam}");
+
+            double stepCount = parameters["stepCount"]?.Value<double>() ?? 9.0;
+            double stepMm = parameters["stepMm"]?.Value<double>() ?? 650.0;
+            double scaleRatio = view.Scale > 0 ? (view.Scale / 100.0) : 1.0;
+            double defaultOffsetMm = stepCount * stepMm * scaleRatio;
+
+            double offsetMm = parameters["offsetMm"]?.Value<double>() ?? defaultOffsetMm;
+            bool showAllBubbles = parameters["showAllBubbles"]?.Value<bool>() ?? false;
+            bool usePhysicalEnvelope = parameters["usePhysicalEnvelope"]?.Value<bool>() ?? true;
 
             var grids = new FilteredElementCollector(doc, view.Id)
                 .OfClass(typeof(Grid))
@@ -325,8 +333,16 @@ namespace RevitMCP.Core
             if (grids.Count < 2)
                 throw new Exception($"視圖 {view.Name} 中的軸線數量不足");
 
-            XYZ vRight = view.RightDirection.Normalize();
-            XYZ vUp = view.UpDirection.Normalize();
+            Transform transform = view.CropBox?.Transform;
+            if (transform == null)
+            {
+                transform = Transform.Identity;
+                transform.BasisX = view.RightDirection.Normalize();
+                transform.BasisY = view.UpDirection.Normalize();
+                transform.BasisZ = view.ViewDirection.Normalize();
+                transform.Origin = view.Origin;
+            }
+            Transform invTrans = transform.Inverse;
 
             var vertGrids = new List<(Grid grid, double uProj)>();
             var horizGrids = new List<(Grid grid, double vProj)>();
@@ -334,21 +350,21 @@ namespace RevitMCP.Core
             foreach (var g in grids)
             {
                 Curve c = g.Curve;
-                XYZ ep0 = c.GetEndPoint(0);
-                XYZ ep1 = c.GetEndPoint(1);
+                XYZ ep0 = invTrans.OfPoint(c.GetEndPoint(0));
+                XYZ ep1 = invTrans.OfPoint(c.GetEndPoint(1));
                 XYZ dir = (ep1 - ep0).Normalize();
 
-                double dotUp = Math.Abs(dir.DotProduct(vUp));
-                double dotRight = Math.Abs(dir.DotProduct(vRight));
+                double dotUp = Math.Abs(dir.Y);
+                double dotRight = Math.Abs(dir.X);
 
                 if (dotUp >= dotRight)
                 {
-                    double u = ((ep0 + ep1) / 2.0).DotProduct(vRight);
+                    double u = (ep0.X + ep1.X) / 2.0;
                     vertGrids.Add((g, u));
                 }
                 else
                 {
-                    double v = ((ep0 + ep1) / 2.0).DotProduct(vUp);
+                    double v = (ep0.Y + ep1.Y) / 2.0;
                     horizGrids.Add((g, v));
                 }
             }
@@ -364,12 +380,116 @@ namespace RevitMCP.Core
             double minGridY = horizGrids.Last().vProj;
             double maxGridY = horizGrids.First().vProj;
 
-            double offsetFeet = offsetMm / 304.8;
-            double alignTop = maxGridY + offsetFeet;
-            double alignBottom = minGridY - offsetFeet;
-            double alignLeft = minGridX - offsetFeet;
-            double alignRight = maxGridX + offsetFeet;
+            IdType? refViewIdVal = parameters["referenceViewId"]?.Value<IdType>();
+            View envelopeSourceView = view;
+            if (refViewIdVal.HasValue && refViewIdVal.Value != 0)
+            {
+                var customRef = doc.GetElement(refViewIdVal.Value.ToElementId()) as View;
+                if (customRef != null)
+                {
+                    envelopeSourceView = customRef;
+                }
+            }
 
+            // 計算實體模型外框包絡 (外牆、陽台、雨遮、結構柱、欄杆、屋頂等)
+            double envMinX = double.MaxValue, envMaxX = double.MinValue;
+            double envMinY = double.MaxValue, envMaxY = double.MinValue;
+            bool foundPhysical = false;
+            int physicalElementCount = 0;
+
+            if (parameters["customEnvelope"] is JObject customEnv)
+            {
+                double? cMinX = customEnv["minX"]?.Value<double>();
+                double? cMaxX = customEnv["maxX"]?.Value<double>();
+                double? cMinY = customEnv["minY"]?.Value<double>();
+                double? cMaxY = customEnv["maxY"]?.Value<double>();
+                if (cMinX.HasValue && cMaxX.HasValue && cMinY.HasValue && cMaxY.HasValue)
+                {
+                    envMinX = cMinX.Value / 304.8;
+                    envMaxX = cMaxX.Value / 304.8;
+                    envMinY = cMinY.Value / 304.8;
+                    envMaxY = cMaxY.Value / 304.8;
+                    foundPhysical = true;
+                }
+            }
+            else if (usePhysicalEnvelope)
+            {
+                var modelCategories = new BuiltInCategory[]
+                {
+                    BuiltInCategory.OST_Walls,
+                    BuiltInCategory.OST_Floors,
+                    BuiltInCategory.OST_Roofs,
+                    BuiltInCategory.OST_StructuralColumns,
+                    BuiltInCategory.OST_Columns,
+                    BuiltInCategory.OST_GenericModel,
+                    BuiltInCategory.OST_Stairs,
+                    BuiltInCategory.OST_Railings,
+                    BuiltInCategory.OST_CurtainWallPanels,
+                    BuiltInCategory.OST_CurtainWallMullions,
+                    BuiltInCategory.OST_Fascia,
+                    BuiltInCategory.OST_EdgeSlab
+                };
+
+                var catFilter = new ElementMulticategoryFilter(modelCategories);
+                var modelElements = new FilteredElementCollector(doc, envelopeSourceView.Id)
+                    .WherePasses(catFilter)
+                    .WhereElementIsNotElementType()
+                    .ToElements();
+
+                foreach (var elem in modelElements)
+                {
+                    BoundingBoxXYZ bbox = elem.get_BoundingBox(envelopeSourceView);
+                    if (bbox == null)
+                    {
+                        bbox = elem.get_BoundingBox(null);
+                    }
+                    if (bbox == null || bbox.Min == null || bbox.Max == null) continue;
+
+                    XYZ[] corners = new XYZ[]
+                    {
+                        new XYZ(bbox.Min.X, bbox.Min.Y, bbox.Min.Z),
+                        new XYZ(bbox.Min.X, bbox.Max.Y, bbox.Min.Z),
+                        new XYZ(bbox.Max.X, bbox.Min.Y, bbox.Min.Z),
+                        new XYZ(bbox.Max.X, bbox.Max.Y, bbox.Min.Z),
+                        new XYZ(bbox.Min.X, bbox.Min.Y, bbox.Max.Z),
+                        new XYZ(bbox.Min.X, bbox.Max.Y, bbox.Max.Z),
+                        new XYZ(bbox.Max.X, bbox.Min.Y, bbox.Max.Z),
+                        new XYZ(bbox.Max.X, bbox.Max.Y, bbox.Max.Z)
+                    };
+
+                    bool elemValid = false;
+                    foreach (var pt in corners)
+                    {
+                        XYZ localPt = invTrans.OfPoint(pt);
+
+                        // 排除異常極端座標 (如超過 1000m)
+                        if (Math.Abs(localPt.X) < 32808 && Math.Abs(localPt.Y) < 32808)
+                        {
+                            envMinX = Math.Min(envMinX, localPt.X);
+                            envMaxX = Math.Max(envMaxX, localPt.X);
+                            envMinY = Math.Min(envMinY, localPt.Y);
+                            envMaxY = Math.Max(envMaxY, localPt.Y);
+                            elemValid = true;
+                            foundPhysical = true;
+                        }
+                    }
+                    if (elemValid) physicalElementCount++;
+                }
+            }
+
+            // 若有實體包絡，以實體包絡為基準；否則以軸線範圍為基準
+            double baseMinX = foundPhysical ? envMinX : minGridX;
+            double baseMaxX = foundPhysical ? envMaxX : maxGridX;
+            double baseMinY = foundPhysical ? envMinY : minGridY;
+            double baseMaxY = foundPhysical ? envMaxY : maxGridY;
+
+            double offsetFeet = offsetMm / 304.8;
+            double alignTop = baseMaxY + offsetFeet;
+            double alignBottom = baseMinY - offsetFeet;
+            double alignLeft = baseMinX - offsetFeet;
+            double alignRight = baseMaxX + offsetFeet;
+
+            var errors = new List<string>();
             int alignedCount = 0;
 
             using (Transaction trans = TransactionHelper.Begin(doc, "平面軸線四向齊頭整列"))
@@ -385,21 +505,45 @@ namespace RevitMCP.Core
                         g.SetDatumExtentType(DatumEnds.End0, view, DatumExtentType.ViewSpecific);
                         g.SetDatumExtentType(DatumEnds.End1, view, DatumExtentType.ViewSpecific);
 
-                        XYZ pBot = vRight * item.uProj + vUp * alignBottom;
-                        XYZ pTop = vRight * item.uProj + vUp * alignTop;
+                        IList<Curve> curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view);
+                        Curve c = (curves != null && curves.Count > 0) ? curves[0] : g.Curve;
 
-                        Line newCurve = Line.CreateBound(pBot, pTop);
-                        g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+                        XYZ p0_local = invTrans.OfPoint(c.GetEndPoint(0));
+                        XYZ p1_local = invTrans.OfPoint(c.GetEndPoint(1));
 
-                        g.ShowBubbleInView(DatumEnds.End1, view);
-                        if (showAllBubbles)
-                            g.ShowBubbleInView(DatumEnds.End0, view);
+                        bool p0IsBot = p0_local.Y < p1_local.Y;
+                        XYZ bot_local = p0IsBot ? p0_local : p1_local;
+                        XYZ top_local = p0IsBot ? p1_local : p0_local;
+
+                        XYZ newBot_local = new XYZ(bot_local.X, alignBottom, bot_local.Z);
+                        XYZ newTop_local = new XYZ(top_local.X, alignTop, top_local.Z);
+
+                        XYZ newBot_world = transform.OfPoint(newBot_local);
+                        XYZ newTop_world = transform.OfPoint(newTop_local);
+
+                        if (p0IsBot)
+                        {
+                            Line newCurve = Line.CreateBound(newBot_world, newTop_world);
+                            g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+                            g.ShowBubbleInView(DatumEnds.End1, view);
+                            if (showAllBubbles) g.ShowBubbleInView(DatumEnds.End0, view);
+                            else g.HideBubbleInView(DatumEnds.End0, view);
+                        }
                         else
-                            g.HideBubbleInView(DatumEnds.End0, view);
+                        {
+                            Line newCurve = Line.CreateBound(newTop_world, newBot_world);
+                            g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+                            g.ShowBubbleInView(DatumEnds.End0, view);
+                            if (showAllBubbles) g.ShowBubbleInView(DatumEnds.End1, view);
+                            else g.HideBubbleInView(DatumEnds.End1, view);
+                        }
 
                         alignedCount++;
                     }
-                    catch (Exception) { }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Vert Grid {g.Name}: {ex.Message}");
+                    }
                 }
 
                 // 調整水平軸線 (東西向)
@@ -411,21 +555,45 @@ namespace RevitMCP.Core
                         g.SetDatumExtentType(DatumEnds.End0, view, DatumExtentType.ViewSpecific);
                         g.SetDatumExtentType(DatumEnds.End1, view, DatumExtentType.ViewSpecific);
 
-                        XYZ pLeft = vRight * alignLeft + vUp * item.vProj;
-                        XYZ pRight = vRight * alignRight + vUp * item.vProj;
+                        IList<Curve> curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view);
+                        Curve c = (curves != null && curves.Count > 0) ? curves[0] : g.Curve;
 
-                        Line newCurve = Line.CreateBound(pLeft, pRight);
-                        g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+                        XYZ p0_local = invTrans.OfPoint(c.GetEndPoint(0));
+                        XYZ p1_local = invTrans.OfPoint(c.GetEndPoint(1));
 
-                        g.ShowBubbleInView(DatumEnds.End1, view);
-                        if (showAllBubbles)
-                            g.ShowBubbleInView(DatumEnds.End0, view);
+                        bool p0IsLeft = p0_local.X < p1_local.X;
+                        XYZ left_local = p0IsLeft ? p0_local : p1_local;
+                        XYZ right_local = p0IsLeft ? p1_local : p0_local;
+
+                        XYZ newLeft_local = new XYZ(alignLeft, left_local.Y, left_local.Z);
+                        XYZ newRight_local = new XYZ(alignRight, right_local.Y, right_local.Z);
+
+                        XYZ newLeft_world = transform.OfPoint(newLeft_local);
+                        XYZ newRight_world = transform.OfPoint(newRight_local);
+
+                        if (p0IsLeft)
+                        {
+                            Line newCurve = Line.CreateBound(newLeft_world, newRight_world);
+                            g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+                            g.ShowBubbleInView(DatumEnds.End1, view);
+                            if (showAllBubbles) g.ShowBubbleInView(DatumEnds.End0, view);
+                            else g.HideBubbleInView(DatumEnds.End0, view);
+                        }
                         else
-                            g.HideBubbleInView(DatumEnds.End0, view);
+                        {
+                            Line newCurve = Line.CreateBound(newRight_world, newLeft_world);
+                            g.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve);
+                            g.ShowBubbleInView(DatumEnds.End0, view);
+                            if (showAllBubbles) g.ShowBubbleInView(DatumEnds.End1, view);
+                            else g.HideBubbleInView(DatumEnds.End1, view);
+                        }
 
                         alignedCount++;
                     }
-                    catch (Exception) { }
+                    catch (Exception ex)
+                    {
+                        errors.Add($"Horiz Grid {g.Name}: {ex.Message}");
+                    }
                 }
 
                 trans.Commit();
@@ -434,18 +602,34 @@ namespace RevitMCP.Core
             return new
             {
                 Success = true,
-                ViewId = viewId,
+                ViewId = view.Id.GetIdValue(),
                 ViewName = view.Name,
+                ReferenceViewId = envelopeSourceView.Id.GetIdValue(),
+                ReferenceViewName = envelopeSourceView.Name,
                 AlignedGridsCount = alignedCount,
+                StepCount = stepCount,
+                StepMm = stepMm,
                 OffsetMm = offsetMm,
-                AlignmentBounds = new
+                UsePhysicalEnvelope = foundPhysical,
+                PhysicalElementsEvaluated = physicalElementCount,
+                PhysicalEnvelopeMm = foundPhysical ? new
+                {
+                    MinX = envMinX * 304.8,
+                    MaxX = envMaxX * 304.8,
+                    MinY = envMinY * 304.8,
+                    MaxY = envMaxY * 304.8,
+                    Width = (envMaxX - envMinX) * 304.8,
+                    Depth = (envMaxY - envMinY) * 304.8
+                } : null,
+                AlignmentBoundsMm = new
                 {
                     TopY = alignTop * 304.8,
                     BottomY = alignBottom * 304.8,
                     LeftX = alignLeft * 304.8,
                     RightX = alignRight * 304.8
                 },
-                Message = $"成功將視圖 {view.Name} 內的 {alignedCount} 條軸線四向齊頭整列（外緣延伸 {offsetMm} mm）"
+                Errors = errors,
+                Message = $"成功將視圖 {view.Name} 內的 {alignedCount} 條軸線四向齊頭整列（{(foundPhysical ? "依實體外框" : "依軸線外框")} 延伸 {stepCount} 個間距 = {offsetMm:F1} mm）"
             };
         }
     }
