@@ -547,6 +547,9 @@ namespace RevitMCP.Core
                     case "auto_dimension_walls":
                         result = AutoDimensionWalls(parameters);
                         break;
+                    case "auto_dimension_wall_centerlines":
+                        result = AutoDimensionWallCenterlines(parameters);
+                        break;
                     case "auto_dimension_elevation_grids":
                         result = AutoDimensionElevationGrids(parameters);
                         break;
