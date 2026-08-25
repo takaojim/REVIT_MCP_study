@@ -1517,24 +1517,33 @@ namespace RevitMCP.Core
                 .OfClass(typeof(ElementType))
                 .ToList();
 
-            var arrowheads = allElements
-                .Where(e => {
-                    try {
-                        return e.Category != null && (
-                            e.Category.Id.GetIdValue() == -2000263 || 
-                            e.Category.Name.Contains("箭頭") || 
-                            e.Category.Name.Contains("Arrowhead") || 
-                            e.Category.Name.Contains("標記")
-                        );
-                    } catch { return false; }
-                })
-                .ToList();
+            Element hollowDot = allElements.FirstOrDefault(a => a.Name.Contains("空心點") || a.Name.Contains("Hollow"))
+                             ?? allElements.FirstOrDefault(a => a.Name.Contains("對角線 1.5") || a.Name.Contains("對角線"));
 
-            Element hollowDot = arrowheads.FirstOrDefault(a => a.Name.Contains("空心點") || a.Name.Contains("Hollow"))
-                             ?? arrowheads.FirstOrDefault(a => a.Name.Contains("對角線 1.5") || a.Name.Contains("對角線"));
+            if (hollowDot == null && baseType != null)
+            {
+                var pBaseTick = baseType.get_Parameter((BuiltInParameter)(-1006323));
+                if (pBaseTick != null && pBaseTick.AsElementId() != ElementId.InvalidElementId)
+                {
+                    hollowDot = doc.GetElement(pBaseTick.AsElementId());
+                }
+            }
 
-            Element solidDot = arrowheads.FirstOrDefault(a => a.Name.Contains("實圓點") || a.Name.Contains("實體圓點") || a.Name.Contains("Dot") || a.Name.Contains("圓點 1.5") || a.Name.Contains("圓點"))
-                            ?? arrowheads.FirstOrDefault(a => a.Name.Contains("點"));
+            Element solidDot = allElements.FirstOrDefault(a => a.Name.Contains("實圓點") || a.Name.Contains("實體圓點") || a.Name.Contains("Dot") || a.Name.Contains("圓點 1.5") || a.Name.Contains("圓點"))
+                            ?? allElements.FirstOrDefault(a => a.Name.Contains("點"));
+
+            if (solidDot == null)
+            {
+                var dotBase = allTypes.FirstOrDefault(dt => dt.Name.Contains("dot"));
+                if (dotBase != null)
+                {
+                    var pDotTick = dotBase.get_Parameter((BuiltInParameter)(-1006323));
+                    if (pDotTick != null && pDotTick.AsElementId() != ElementId.InvalidElementId)
+                    {
+                        solidDot = doc.GetElement(pDotTick.AsElementId());
+                    }
+                }
+            }
 
             // 4. 依權威規格庫寫入參數 (使用 BuiltInParameter 數值 ID，精確跨專案跨語言保證)
             try
