@@ -756,6 +756,33 @@ namespace RevitMCP.Core
             // 依照 Elevation 高程由低到高排序
             levels.Sort((a, b) => a.Elevation.CompareTo(b.Elevation));
 
+            // 支援過濾底層基準線（例如立面圖以 GL 為底，剖面圖包含地下層/筏基）
+            string baseLevelName = parameters["baseLevelName"]?.Value<string>();
+            bool? includeBasementParam = parameters["includeBasement"]?.Value<bool>();
+            bool includeBasement = includeBasementParam.HasValue ? includeBasementParam.Value : (view.ViewType == ViewType.Section);
+
+            if (!string.IsNullOrEmpty(baseLevelName))
+            {
+                var baseLv = levels.FirstOrDefault(l => l.Name.Equals(baseLevelName, StringComparison.OrdinalIgnoreCase));
+                if (baseLv != null)
+                {
+                    levels = levels.Where(l => l.Elevation >= baseLv.Elevation - 1e-4).ToList();
+                }
+            }
+            else if (!includeBasement && (view.ViewType == ViewType.Elevation || view.ViewType == ViewType.ThreeD))
+            {
+                // 立面圖預設以 GL 或 0 標高以上為基準紅線
+                var glLevel = levels.FirstOrDefault(l => l.Name.Equals("GL", StringComparison.OrdinalIgnoreCase))
+                           ?? levels.FirstOrDefault(l => l.Elevation >= -1e-4);
+                if (glLevel != null)
+                {
+                    levels = levels.Where(l => l.Elevation >= glLevel.Elevation - 1e-4).ToList();
+                }
+            }
+
+            if (levels.Count < 2)
+                throw new Exception($"過濾後的樓層數量不足 2 個（無法建立尺寸標註）");
+
             // 以最底層判斷標示圈 (Bubble) 位置
             Level baseLevel = levels[0];
             IList<Curve> curves = baseLevel.GetCurvesInView(DatumExtentType.ViewSpecific, view);
@@ -1517,33 +1544,55 @@ namespace RevitMCP.Core
                 .OfClass(typeof(ElementType))
                 .ToList();
 
-            Element hollowDot = allElements.FirstOrDefault(a => a.Name.Contains("空心點") || a.Name.Contains("Hollow"))
-                             ?? allElements.FirstOrDefault(a => a.Name.Contains("對角線 1.5") || a.Name.Contains("對角線"));
+            Element hollowDot = allElements.FirstOrDefault(a => a.Name.Equals("TABC-空心點 1.5mm", StringComparison.OrdinalIgnoreCase))
+                             ?? allElements.FirstOrDefault(a => a.Name.Contains("空心點") || a.Name.Contains("空心圓") || a.Name.Contains("Hollow"))
+                             ?? allElements.FirstOrDefault(a => a.Name.Contains("圓點 1.5") || a.Name.Contains("Dot"));
 
-            if (hollowDot == null && baseType != null)
+            if (hollowDot == null)
             {
-                var pBaseTick = baseType.get_Parameter((BuiltInParameter)(-1006323));
-                if (pBaseTick != null && pBaseTick.AsElementId() != ElementId.InvalidElementId)
+                foreach (var dt in allTypes)
                 {
-                    hollowDot = doc.GetElement(pBaseTick.AsElementId());
+                    var p1 = dt.get_Parameter((BuiltInParameter)(-1006323));
+                    if (p1 != null && p1.AsElementId() != ElementId.InvalidElementId)
+                    {
+                        var el = doc.GetElement(p1.AsElementId());
+                        if (el != null && (el.Name.Contains("空心點") || el.Name.Contains("空心"))) { hollowDot = el; break; }
+                    }
+                    var p2 = dt.get_Parameter((BuiltInParameter)(-1006445));
+                    if (p2 != null && p2.AsElementId() != ElementId.InvalidElementId)
+                    {
+                        var el = doc.GetElement(p2.AsElementId());
+                        if (el != null && (el.Name.Contains("空心點") || el.Name.Contains("空心"))) { hollowDot = el; break; }
+                    }
                 }
             }
 
-            Element solidDot = allElements.FirstOrDefault(a => a.Name.Contains("實圓點") || a.Name.Contains("實體圓點") || a.Name.Contains("Dot") || a.Name.Contains("圓點 1.5") || a.Name.Contains("圓點"))
+            Element solidDot = allElements.FirstOrDefault(a => a.Name.Equals("TABC-實圓點 1.5mm", StringComparison.OrdinalIgnoreCase))
+                            ?? allElements.FirstOrDefault(a => a.Name.Contains("實圓點") || a.Name.Contains("實體圓點") || a.Name.Contains("Dot") || a.Name.Contains("圓點 1.5") || a.Name.Contains("圓點"))
                             ?? allElements.FirstOrDefault(a => a.Name.Contains("點"));
 
             if (solidDot == null)
             {
-                var dotBase = allTypes.FirstOrDefault(dt => dt.Name.Contains("dot"));
-                if (dotBase != null)
+                foreach (var dt in allTypes)
                 {
-                    var pDotTick = dotBase.get_Parameter((BuiltInParameter)(-1006323));
-                    if (pDotTick != null && pDotTick.AsElementId() != ElementId.InvalidElementId)
+                    var p1 = dt.get_Parameter((BuiltInParameter)(-1006323));
+                    if (p1 != null && p1.AsElementId() != ElementId.InvalidElementId)
                     {
-                        solidDot = doc.GetElement(pDotTick.AsElementId());
+                        var el = doc.GetElement(p1.AsElementId());
+                        if (el != null && (el.Name.Contains("實圓點") || el.Name.Contains("dot"))) { solidDot = el; break; }
+                    }
+                    var p2 = dt.get_Parameter((BuiltInParameter)(-1006445));
+                    if (p2 != null && p2.AsElementId() != ElementId.InvalidElementId)
+                    {
+                        var el = doc.GetElement(p2.AsElementId());
+                        if (el != null && (el.Name.Contains("實圓點") || el.Name.Contains("dot"))) { solidDot = el; break; }
                     }
                 }
             }
+
+            Element diag3mm = allElements.FirstOrDefault(a => a.Name.Equals("對角線 3mm", StringComparison.OrdinalIgnoreCase))
+                           ?? allElements.FirstOrDefault(a => a.Name.Contains("對角線 3") || a.Name.Contains("3mm") && a.Name.Contains("對角線"))
+                           ?? allElements.FirstOrDefault(a => a.Name.Contains("對角線"));
 
             // 4. 依權威規格庫寫入參數 (使用 BuiltInParameter 數值 ID，精確跨專案跨語言保證)
             try
@@ -1551,16 +1600,26 @@ namespace RevitMCP.Core
                 bool isWall = targetTypeName.Contains("dot") || targetTypeName.Contains("牆心");
                 bool isDownRight = targetTypeName.Contains("下右") || targetTypeName.Contains("下左");
 
+                // --- 顏色與線寬 ---
+                // LINE_COLOR (-1006302): 0 = 黑色
+                SetDimParam(targetType, -1006302, 0);
+                // LINE_PEN (-1006303): 上右為 1, 下右為 2
+                SetDimParam(targetType, -1006303, isDownRight ? 2 : 1);
+                // TICK_MARK_PEN (-1006412): 4
+                SetDimParam(targetType, -1006412, 4);
+
                 // --- 文字相關 ---
-                // TEXT_FONT (-1006300)
-                SetDimParam(targetType, -1006300, isWall ? "微軟正黑體" : "微軟正黑體");
-                // TEXT_SIZE (-1006301)
+                // TEXT_FONT (-1006300): 微軟正黑體
+                SetDimParam(targetType, -1006300, "微軟正黑體");
+                // TEXT_SIZE (-1006301): 牆心 2.0mm, 柱心 2.5mm
                 SetDimParam(targetType, -1006301, isWall ? (2.0 / 304.8) : (2.5 / 304.8));
                 // DIM_TEXT_BACKGROUND (-1006429): 1 = 透明
                 SetDimParam(targetType, -1006429, 1);
                 // TEXT_DIST_TO_LINE (-1006401): 文字偏移
                 SetDimParam(targetType, -1006401, isWall ? (1.1 / 304.8) : 0.0);
-                // DIM_STYLE_READ_CONVENTION (-1006448): 讀取慣例 (2 = 向上，然後向右; 3 = 向下，然後向左)
+                // TEXT_WIDTH_SCALE (-1006304): 寬度係數 1.0
+                SetDimParam(targetType, -1006304, 1.0);
+                // DIM_STYLE_READ_CONVENTION (-1006448): 讀取慣例 (2 = 向上，然後向右; 3 = 向左，然後向上)
                 SetDimParam(targetType, -1006448, isDownRight ? 3 : 2);
 
                 // --- 尺寸線與輔助線相關 ---
@@ -1572,14 +1631,23 @@ namespace RevitMCP.Core
                 SetDimParam(targetType, -1006446, 5.0 / 304.8);
                 // DIM_LINE_EXTENSION (-1006431): 尺寸延長線 0.0 mm
                 SetDimParam(targetType, -1006431, 0.0);
+                // DIM_STYLE_FLIPPED_DIM_LINE_EXTENSION (-1006434): 翻轉的尺寸延長線 2.4 mm
+                SetDimParam(targetType, -1006434, 2.4 / 304.8);
                 // WITNS_LINE_EXTENSION (-1006404): 輔助線延伸 1.5 mm
                 SetDimParam(targetType, -1006404, 1.5 / 304.8);
+                // WITNS_LINE_TO_ELEM_GAP (-1006405): 輔助線到元素的間隙 1.5 mm
+                SetDimParam(targetType, -1006405, 1.5 / 304.8);
                 // LINEAR_DIM_TYPE (-1006467): 1 = 連續
                 SetDimParam(targetType, -1006467, 1);
-                // LINE_PEN (-1006303): 1
-                SetDimParam(targetType, -1006303, 1);
-                // TICK_MARK_PEN (-1006412): 4
-                SetDimParam(targetType, -1006412, 4);
+
+                // --- 內部短斜線標記 ---
+                if (diag3mm != null)
+                {
+                    // DIM_STYLE_INTERIOR_TICK_MARK (-1006447): 對角線 3mm
+                    SetDimParam(targetType, -1006447, diag3mm.Id);
+                }
+                // DIM_STYLE_INTERIOR_TICK_MARK_DISPLAY (-1006449): 2 = 動態
+                SetDimParam(targetType, -1006449, 2);
 
                 // --- 中心線與端點記號 ---
                 // DIM_STYLE_CENTERLINE_SYMBOL (-1006430): -1 = 無
@@ -1592,7 +1660,10 @@ namespace RevitMCP.Core
                 }
                 else
                 {
+                    // 柱心標註：端點必須是空心圓圈 (TABC-空心點 1.5mm)
                     if (hollowDot != null) SetDimParam(targetType, -1006323, hollowDot.Id);
+                    else if (solidDot != null) SetDimParam(targetType, -1006323, solidDot.Id);
+
                     // DIM_STYLE_CENTERLINE_TICK_MARK (-1006445): 中心線短斜線標記 TABC-實圓點 1.5mm
                     if (solidDot != null) SetDimParam(targetType, -1006445, solidDot.Id);
                 }

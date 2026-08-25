@@ -1268,8 +1268,40 @@ namespace RevitMCP.Core
                     double endX = lineObj["endX"].Value<double>() * MM_TO_FEET;
                     double endY = lineObj["endY"].Value<double>() * MM_TO_FEET;
 
-                    XYZ startPt = new XYZ(startX, startY, 0);
-                    XYZ endPt = new XYZ(endX, endY, 0);
+                    XYZ startPt;
+                    XYZ endPt;
+
+                    if (view.ViewType == ViewType.Elevation || view.ViewType == ViewType.Section || view.ViewType == ViewType.Detail)
+                    {
+                        XYZ vRight = view.RightDirection.Normalize();
+                        XYZ vUp = view.UpDirection.Normalize();
+                        XYZ origin = view.Origin;
+
+                        // startX 為模型水平座標 (X 或 Y)，startY 為模型高程 (Z)
+                        // 若視圖主要沿 X 展開，則橫軸為 X，縱軸為 Z；景深取 origin 的對應分量
+                        XYZ p1_world, p2_world;
+                        if (Math.Abs(vRight.X) >= Math.Abs(vRight.Y))
+                        {
+                            p1_world = new XYZ(startX, origin.Y, startY);
+                            p2_world = new XYZ(endX, origin.Y, endY);
+                        }
+                        else
+                        {
+                            p1_world = new XYZ(origin.X, startX, startY);
+                            p2_world = new XYZ(origin.X, endX, endY);
+                        }
+
+                        XYZ diff1 = p1_world - origin;
+                        XYZ diff2 = p2_world - origin;
+
+                        startPt = origin + vRight * diff1.DotProduct(vRight) + vUp * diff1.DotProduct(vUp);
+                        endPt = origin + vRight * diff2.DotProduct(vRight) + vUp * diff2.DotProduct(vUp);
+                    }
+                    else
+                    {
+                        startPt = new XYZ(startX, startY, 0);
+                        endPt = new XYZ(endX, endY, 0);
+                    }
 
                     if (startPt.DistanceTo(endPt) < 0.001) continue;
 

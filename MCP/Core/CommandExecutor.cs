@@ -896,6 +896,23 @@ namespace RevitMCP.Core
                 }
             }
 
+            object curveInfo = null;
+            if (element is CurveElement ce && ce.GeometryCurve != null)
+            {
+                XYZ p0 = ce.GeometryCurve.GetEndPoint(0);
+                XYZ p1 = ce.GeometryCurve.GetEndPoint(1);
+                curveInfo = new
+                {
+                    StartX = Math.Round(p0.X * 304.8, 2),
+                    StartY = Math.Round(p0.Y * 304.8, 2),
+                    StartZ = Math.Round(p0.Z * 304.8, 2),
+                    EndX = Math.Round(p1.X * 304.8, 2),
+                    EndY = Math.Round(p1.Y * 304.8, 2),
+                    EndZ = Math.Round(p1.Z * 304.8, 2),
+                    Length = Math.Round(ce.GeometryCurve.Length * 304.8, 2)
+                };
+            }
+
             return new
             {
                 ElementId = element.Id.GetIdValue(),
@@ -903,6 +920,7 @@ namespace RevitMCP.Core
                 Category = element.Category?.Name,
                 Type = doc.GetElement(element.GetTypeId())?.Name,
                 Level = doc.GetElement(element.LevelId)?.Name,
+                Curve = curveInfo,
                 Parameters = parameterList
             };
         }
