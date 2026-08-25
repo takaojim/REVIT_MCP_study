@@ -1409,8 +1409,48 @@ namespace RevitMCP.Core
             return dim;
         }
 
+        private static void SetDimParam(Element el, int bipId, double val)
+        {
+            try
+            {
+                Parameter p = el.get_Parameter((BuiltInParameter)bipId);
+                if (p != null && !p.IsReadOnly) p.Set(val);
+            }
+            catch {}
+        }
+
+        private static void SetDimParam(Element el, int bipId, int val)
+        {
+            try
+            {
+                Parameter p = el.get_Parameter((BuiltInParameter)bipId);
+                if (p != null && !p.IsReadOnly) p.Set(val);
+            }
+            catch {}
+        }
+
+        private static void SetDimParam(Element el, int bipId, string val)
+        {
+            try
+            {
+                Parameter p = el.get_Parameter((BuiltInParameter)bipId);
+                if (p != null && !p.IsReadOnly) p.Set(val);
+            }
+            catch {}
+        }
+
+        private static void SetDimParam(Element el, int bipId, ElementId val)
+        {
+            try
+            {
+                Parameter p = el.get_Parameter((BuiltInParameter)bipId);
+                if (p != null && !p.IsReadOnly && val != null) p.Set(val);
+            }
+            catch {}
+        }
+
         /// <summary>
-        /// 確保指定名稱的標準標註型式存在於專案中，若不存在則依規格庫標準自動 Duplicate 並設定參數
+        /// 確保指定名稱的標準標註型式存在於專案中，依規格庫權威參數精確建立與寫入
         /// </summary>
         public static DimensionType EnsureDimensionType(Document doc, string targetTypeName)
         {
@@ -1422,96 +1462,135 @@ namespace RevitMCP.Core
                 .Cast<DimensionType>()
                 .FirstOrDefault(dt => dt.Name.Equals(targetTypeName, StringComparison.OrdinalIgnoreCase));
 
-            if (existing != null) return existing;
-
-            // 2. 尋找基礎線性標註型式以進行複製
-            var baseType = new FilteredElementCollector(doc)
+            // 2. 尋找最佳基礎線性標註型式以進行複製
+            var allTypes = new FilteredElementCollector(doc)
                 .OfClass(typeof(DimensionType))
                 .Cast<DimensionType>()
-                .FirstOrDefault(dt => dt.FamilyName == "線性尺寸標註型式" || dt.FamilyName == "Linear Dimension Style" || dt.Name.Contains("TABC") || dt.Name.Contains("DIM"))
-                ?? new FilteredElementCollector(doc).OfClass(typeof(DimensionType)).Cast<DimensionType>().FirstOrDefault();
+                .Where(dt => !dt.Name.Contains("Secret"))
+                .ToList();
 
+            DimensionType baseType = null;
+            if (targetTypeName.Contains("dot") || targetTypeName.Contains("牆心"))
+            {
+                baseType = allTypes.FirstOrDefault(dt => dt.Name.Equals("TABC-DIM_dot", StringComparison.OrdinalIgnoreCase))
+                        ?? allTypes.FirstOrDefault(dt => dt.Name.Contains("dot") && dt.FamilyName.Contains("線性"))
+                        ?? allTypes.FirstOrDefault(dt => dt.FamilyName.Contains("線性"));
+            }
+            else
+            {
+                baseType = allTypes.FirstOrDefault(dt => dt.Name.Equals("TABC-DIM_*/ S 2.5", StringComparison.OrdinalIgnoreCase))
+                        ?? allTypes.FirstOrDefault(dt => dt.Name.StartsWith("TABC") && dt.FamilyName.Contains("線性"))
+                        ?? allTypes.FirstOrDefault(dt => dt.FamilyName.Contains("線性"));
+            }
+
+            if (baseType == null) baseType = allTypes.FirstOrDefault();
             if (baseType == null) return null;
 
-            DimensionType newType = null;
-            try
+            DimensionType targetType = existing;
+            if (targetType == null)
             {
-                newType = baseType.Duplicate(targetTypeName) as DimensionType;
-            }
-            catch
-            {
-                return null;
-            }
-
-            if (newType == null) return null;
-
-            // 3. 依標準規格庫寫入參數
-            try
-            {
-                // 文字大小: 2.5 mm -> 2.5 / 304.8 ft
-                Parameter pTextSize = newType.get_Parameter(BuiltInParameter.TEXT_SIZE) ?? newType.LookupParameter("文字大小");
-                if (pTextSize != null && !pTextSize.IsReadOnly) pTextSize.Set(2.5 / 304.8);
-
-                // 文字字體: 微軟正黑體
-                Parameter pTextFont = newType.get_Parameter(BuiltInParameter.TEXT_FONT) ?? newType.LookupParameter("文字字體");
-                if (pTextFont != null && !pTextFont.IsReadOnly) pTextFont.Set("微軟正黑體");
-
-                // 文字背景: 透明 (1)
-                Parameter pTextBg = newType.get_Parameter(BuiltInParameter.TEXT_BACKGROUND) ?? newType.LookupParameter("文字背景");
-                if (pTextBg != null && !pTextBg.IsReadOnly) pTextBg.Set(1);
-
-                // 輔助線控制: 固定尺寸線 (1)
-                Parameter pWitnessControl = newType.LookupParameter("輔助線控制");
-                if (pWitnessControl != null && !pWitnessControl.IsReadOnly) pWitnessControl.Set(1);
-
-                // 輔助線長度: 5.0 mm -> 5.0 / 304.8 ft
-                Parameter pWitnessLength = newType.LookupParameter("輔助線長度");
-                if (pWitnessLength != null && !pWitnessLength.IsReadOnly) pWitnessLength.Set(5.0 / 304.8);
-
-                // 尺寸線鎖點距離: 5.0 mm -> 5.0 / 304.8 ft
-                Parameter pSnapDist = newType.LookupParameter("尺寸線鎖點距離");
-                if (pSnapDist != null && !pSnapDist.IsReadOnly) pSnapDist.Set(5.0 / 304.8);
-
-                // 讀取慣例: 向上向右 (0) / 向下向左 (1)
-                Parameter pReading = newType.LookupParameter("讀取慣例");
-                if (pReading != null && !pReading.IsReadOnly)
+                try
                 {
-                    if (targetTypeName.Contains("下右") || targetTypeName.Contains("下左"))
-                        pReading.Set(1);
-                    else
-                        pReading.Set(0);
+                    targetType = baseType.Duplicate(targetTypeName) as DimensionType;
+                    if (targetType != null)
+                    {
+                        try { targetType.Name = targetTypeName; } catch {}
+                        try
+                        {
+                            Parameter pName = targetType.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM) 
+                                           ?? targetType.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_NAME);
+                            if (pName != null && !pName.IsReadOnly) pName.Set(targetTypeName);
+                        }
+                        catch {}
+                    }
                 }
-
-                // 尋找箭頭/短斜線/圓點標記 (Arrowheads)
-                var arrowheads = new FilteredElementCollector(doc)
-                    .OfClass(typeof(ElementType))
-                    .Where(e => e.Category != null && (e.Category.Name.Contains("箭頭") || e.Category.Name.Contains("Arrowhead") || e.Category.Name.Contains("標記")))
-                    .ToList();
-
-                Parameter pTick = newType.get_Parameter(BuiltInParameter.DIM_LEADER_ARROWHEAD) ?? newType.LookupParameter("短斜線標記");
-                if (pTick != null && !pTick.IsReadOnly && arrowheads.Count > 0)
+                catch
                 {
-                    Element targetArrow = null;
-                    if (targetTypeName.Contains("dot") || targetTypeName.Contains("牆心"))
-                    {
-                        targetArrow = arrowheads.FirstOrDefault(a => a.Name.Contains("實圓點") || a.Name.Contains("實體圓點") || a.Name.Contains("Dot") || a.Name.Contains("圓點"))
-                                     ?? arrowheads.FirstOrDefault(a => a.Name.Contains("點"));
-                    }
-                    else
-                    {
-                        targetArrow = arrowheads.FirstOrDefault(a => a.Name.Contains("空心點") || a.Name.Contains("對角線") || a.Name.Contains("斜線") || a.Name.Contains("Slash") || a.Name.Contains("Diagonal"))
-                                     ?? arrowheads.FirstOrDefault();
-                    }
+                    return null;
+                }
+            }
 
-                    if (targetArrow != null)
-                    {
-                        pTick.Set(targetArrow.Id);
-                    }
+            if (targetType == null) return null;
+
+            // 3. 尋找所有可用之端點箭頭符號 (Arrowheads)
+            var allElements = new FilteredElementCollector(doc)
+                .OfClass(typeof(ElementType))
+                .ToList();
+
+            var arrowheads = allElements
+                .Where(e => {
+                    try {
+                        return e.Category != null && (
+                            e.Category.Id.GetIdValue() == -2000263 || 
+                            e.Category.Name.Contains("箭頭") || 
+                            e.Category.Name.Contains("Arrowhead") || 
+                            e.Category.Name.Contains("標記")
+                        );
+                    } catch { return false; }
+                })
+                .ToList();
+
+            Element hollowDot = arrowheads.FirstOrDefault(a => a.Name.Contains("空心點") || a.Name.Contains("Hollow"))
+                             ?? arrowheads.FirstOrDefault(a => a.Name.Contains("對角線 1.5") || a.Name.Contains("對角線"));
+
+            Element solidDot = arrowheads.FirstOrDefault(a => a.Name.Contains("實圓點") || a.Name.Contains("實體圓點") || a.Name.Contains("Dot") || a.Name.Contains("圓點 1.5") || a.Name.Contains("圓點"))
+                            ?? arrowheads.FirstOrDefault(a => a.Name.Contains("點"));
+
+            // 4. 依權威規格庫寫入參數 (使用 BuiltInParameter 數值 ID，精確跨專案跨語言保證)
+            try
+            {
+                bool isWall = targetTypeName.Contains("dot") || targetTypeName.Contains("牆心");
+                bool isDownRight = targetTypeName.Contains("下右") || targetTypeName.Contains("下左");
+
+                // --- 文字相關 ---
+                // TEXT_FONT (-1006300)
+                SetDimParam(targetType, -1006300, isWall ? "微軟正黑體" : "微軟正黑體");
+                // TEXT_SIZE (-1006301)
+                SetDimParam(targetType, -1006301, isWall ? (2.0 / 304.8) : (2.5 / 304.8));
+                // DIM_TEXT_BACKGROUND (-1006429): 1 = 透明
+                SetDimParam(targetType, -1006429, 1);
+                // TEXT_DIST_TO_LINE (-1006401): 文字偏移
+                SetDimParam(targetType, -1006401, isWall ? (1.1 / 304.8) : 0.0);
+                // DIM_STYLE_READ_CONVENTION (-1006448): 讀取慣例 (2 = 向上，然後向右; 3 = 向下，然後向左)
+                SetDimParam(targetType, -1006448, isDownRight ? 3 : 2);
+
+                // --- 尺寸線與輔助線相關 ---
+                // DIM_WITNS_LINE_CNTRL (-1006432): 1 = 固定尺寸線
+                SetDimParam(targetType, -1006432, 1);
+                // DIM_WITNS_LINE_EXTENSION_BELOW (-1006433): 輔助線長度 5.0 mm
+                SetDimParam(targetType, -1006433, 5.0 / 304.8);
+                // DIM_STYLE_DIM_LINE_SNAP_DIST (-1006446): 尺寸線鎖點距離 5.0 mm
+                SetDimParam(targetType, -1006446, 5.0 / 304.8);
+                // DIM_LINE_EXTENSION (-1006431): 尺寸延長線 0.0 mm
+                SetDimParam(targetType, -1006431, 0.0);
+                // WITNS_LINE_EXTENSION (-1006404): 輔助線延伸 1.5 mm
+                SetDimParam(targetType, -1006404, 1.5 / 304.8);
+                // LINEAR_DIM_TYPE (-1006467): 1 = 連續
+                SetDimParam(targetType, -1006467, 1);
+                // LINE_PEN (-1006303): 1
+                SetDimParam(targetType, -1006303, 1);
+                // TICK_MARK_PEN (-1006412): 4
+                SetDimParam(targetType, -1006412, 4);
+
+                // --- 中心線與端點記號 ---
+                // DIM_STYLE_CENTERLINE_SYMBOL (-1006430): -1 = 無
+                SetDimParam(targetType, -1006430, ElementId.InvalidElementId);
+
+                // DIM_LEADER_ARROWHEAD (-1006323): 短斜線標記
+                if (isWall)
+                {
+                    if (solidDot != null) SetDimParam(targetType, -1006323, solidDot.Id);
+                }
+                else
+                {
+                    if (hollowDot != null) SetDimParam(targetType, -1006323, hollowDot.Id);
+                    // DIM_STYLE_CENTERLINE_TICK_MARK (-1006445): 中心線短斜線標記 TABC-實圓點 1.5mm
+                    if (solidDot != null) SetDimParam(targetType, -1006445, solidDot.Id);
                 }
             }
             catch {}
 
-            return newType;
+            return targetType;
         }
 
         /// <summary>
