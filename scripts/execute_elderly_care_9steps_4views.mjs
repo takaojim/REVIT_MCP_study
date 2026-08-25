@@ -41,21 +41,22 @@ async function main() {
   console.log(`📌 9 間距齊頭線 (藍線, Step 9):`);
   console.log(`   Top=${globalBounds9.TopY.toFixed(1)}, Bottom=${globalBounds9.BottomY.toFixed(1)}, Left=${globalBounds9.LeftX.toFixed(1)}, Right=${globalBounds9.RightX.toFixed(1)} mm\n`);
 
-  // 3. 標註型式解析
+  // 3. 確保標準標註型式存在於專案中 (規格庫自動載入與自癒)
+  const ensureRes = await client.sendCommand('ensure_dimension_types', {});
+  console.log(`✓ ${ensureRes.data?.Message || '已檢查並確保標準型式存在'}`);
+
   const dimTypesRes = await client.sendCommand('list_dimension_types', {});
   const dimTypeList = dimTypesRes.data?.DimensionTypes || [];
 
-  let typeIdColumn = dimTypeList.find(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5')?.DimensionTypeId ||
-                     dimTypeList.find(t => t.DimensionTypeName?.includes('柱心-上右'))?.DimensionTypeId ||
-                     dimTypeList.find(t => t.DimensionTypeName?.includes('柱心'))?.DimensionTypeId || 583877;
+  let typeIdColumn = dimTypeList.find(t => t.DimensionTypeName === 'TABC-DIM_*/ S 2.5-柱心-上右')?.DimensionTypeId ||
+                     dimTypeList.find(t => t.DimensionTypeName?.includes('柱心-上右'))?.DimensionTypeId || 583877;
 
-  let typeIdWall = dimTypeList.find(t => t.DimensionTypeName === 'TABC-DIM_dot')?.DimensionTypeId ||
-                   dimTypeList.find(t => t.DimensionTypeName?.includes('dot 牆心') || t.DimensionTypeName?.includes('牆心'))?.DimensionTypeId ||
-                   dimTypeList.find(t => t.DimensionTypeName?.includes('dot'))?.DimensionTypeId || 26206;
+  let typeIdWall = dimTypeList.find(t => t.DimensionTypeName === 'TABC-DIM_dot 牆心')?.DimensionTypeId ||
+                   dimTypeList.find(t => t.DimensionTypeName?.includes('dot 牆心'))?.DimensionTypeId || 26206;
 
-  console.log(`使用標註型式:`);
-  console.log(`- 柱心尺寸: ID ${typeIdColumn}`);
-  console.log(`- 牆心尺寸: ID ${typeIdWall}\n`);
+  console.log(`使用標準標註型式:`);
+  console.log(`- 柱心標註: ID ${typeIdColumn} (TABC-DIM_*/ S 2.5-柱心-上右)`);
+  console.log(`- 牆心標註: ID ${typeIdWall} (TABC-DIM_dot 牆心)\n`);
 
   // 4. 定義 16 條軸線 ID 清單
   // 垂直軸線 1~12 (X 軸向): 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
