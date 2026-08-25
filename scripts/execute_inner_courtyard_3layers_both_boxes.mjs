@@ -2,18 +2,18 @@ import { RevitSocketClient } from '../MCP-Server/build/socket.js';
 
 async function main() {
   const client = new RevitSocketClient('localhost', 8964);
-  client.clientName = 'execute-courtyard-both-boxes';
+  client.clientName = 'execute-courtyard-perfect-align';
   await client.connect();
 
   const viewId = 695; // 2FL
   const typeIdWallDot = 2251126; // TABC-DIM_dot 牆心
 
   console.log('================================================================');
-  console.log('=== 【2FL 內凹中庭區】水平紅框 ＋ 垂直紅框 各補足三層牆心標註 ===');
+  console.log('=== 【2FL 內凹中庭區】依外側構件外緣退兩間距 統一雙向階梯標註 ===');
   console.log('================================================================\n');
 
-  // 1. 清除先前在中庭建立的舊標註 (ID 2251260 ~ 2251263)
-  for (let id = 2251260; id <= 2251265; id++) {
+  // 1. 清除先前在中庭建立的舊標註 (ID 2251260 ~ 2251500)
+  for (let id = 2251260; id <= 2251500; id++) {
     try {
       await client.sendCommand('delete_element', { elementId: id });
     } catch (e) {}
@@ -121,23 +121,23 @@ async function main() {
   }
 
   // =========================================================================
-  // 1. 水平紅框：中庭北側向南外牆區（東西向水平標註，測量垂直 15cm 主牆）
+  // 1. 水平藍框：中庭北側外側外牆基準 (Y = 9,938.7 mm，退兩個間距至 Y = 7,988.7 mm)
   // =========================================================================
-  console.log('=== 1. 水平紅框 (東北翼向南外牆區 - 三層標註) ===');
-  // 外牆基準 Y = 11,038.7 mm (往中庭退縮 Step 5, 4, 3)
-  const horizBoxY_L1 = 11038.7 - 3250.0; // 7,788.7 mm (Step 5)
-  const horizBoxY_L2 = 11038.7 - 2600.0; // 8,438.7 mm (Step 4)
-  const horizBoxY_L3 = 11038.7 - 1950.0; // 9,088.7 mm (Step 3)
+  console.log('=== 1. 水平藍框 (東北翼向南外牆區 - 外側基準 Y = 9,938.7 mm 退兩間距) ===');
+  const horizBaseY = 9938.7;
+  const horizBoxY_L3 = horizBaseY - 1950.0; // 7,988.7 mm (Step 3 - 走廊/梯間隔間，退兩個間距)
+  const horizBoxY_L2 = horizBaseY - 2600.0; // 7,338.7 mm (Step 4 - 居室主隔間)
+  const horizBoxY_L1 = horizBaseY - 3250.0; // 6,688.7 mm (Step 5 - 外牆總長)
 
-  // 該區域垂直 15cm 主牆 (X 在 20,000 ~ 48,000 間)
-  const eastWingVert = vertWalls.filter(w => w.centerX >= 22000 && w.centerX <= 48000);
+  // 該區域垂直 15cm 主牆 (X 在 26,000 ~ 48,000 間，起點收在外牆角 X = 26,173.8 mm，終點至東外牆 X = 47,008.3 mm)
+  const eastWingVert = vertWalls.filter(w => w.centerX >= 26000 && w.centerX <= 48000 && w.maxY >= 9500);
 
-  // Layer 1: 東北翼向南外牆總長 (西端 X=22958.3 到 東端 X=47658.3)
+  // Layer 1: 東北翼向南外牆總長 (西端角牆 X=26173.8 到 東端外牆 X=47008.3)
   const horizBoxL1Walls = [
     eastWingVert.reduce((min, w) => w.centerX < min.centerX ? w : min, eastWingVert[0]),
     eastWingVert.reduce((max, w) => w.centerX > max.centerX ? w : max, eastWingVert[0])
   ];
-  await createDimensionLine('水平紅框(東北翼南牆)', 1, '東北翼向南外牆總長', horizBoxL1Walls, false, horizBoxY_L1, false);
+  await createDimensionLine('水平藍框(東北翼南牆)', 1, '東北翼向南外牆總長', horizBoxL1Walls, false, horizBoxY_L1, false);
 
   // Layer 2: 綠線割線 (Y = 17,500 mm) - 居室大隔間
   const horizSlice1 = 17500.0;
@@ -146,25 +146,25 @@ async function main() {
     ...eastWingVert.filter(w => horizSlice1 >= w.minY - 30 && horizSlice1 <= w.maxY + 30),
     horizBoxL1Walls[1]
   ];
-  await createDimensionLine('水平紅框(東北翼南牆)', 2, '東北翼居室主隔間 (綠線 15cm)', horizBoxL2Walls, false, horizBoxY_L2, false);
+  await createDimensionLine('水平藍框(東北翼南牆)', 2, '東北翼居室主隔間 (綠線 15cm)', horizBoxL2Walls, false, horizBoxY_L2, false);
 
-  // Layer 3: 紫線割線 (Y = 11,500 mm / 走廊與梯間側) - 走廊/梯間/機能隔間
-  const horizSlice2 = 11500.0;
+  // Layer 3: 紫線割線 (Y = 11,688.7 mm / 走廊與梯間側) - 走廊/梯間/機能隔間
+  const horizSlice2 = 11688.7;
   const horizBoxL3Walls = [
     horizBoxL1Walls[0],
     ...eastWingVert.filter(w => horizSlice2 >= w.minY - 30 && horizSlice2 <= w.maxY + 30),
     horizBoxL1Walls[1]
   ];
-  await createDimensionLine('水平紅框(東北翼南牆)', 3, '東北翼走廊/梯間隔間 (紫線 15cm)', horizBoxL3Walls, false, horizBoxY_L3, false);
+  await createDimensionLine('水平藍框(東北翼南牆)', 3, '東北翼走廊/梯間隔間 (紫線 15cm)', horizBoxL3Walls, false, horizBoxY_L3, false);
 
   // =========================================================================
-  // 2. 垂直紅框：西南居室翼向東外牆區（南北向垂直標註，測量水平 15cm 主牆）
+  // 2. 垂直紅框：西南居室翼向東外牆區 (再退一格，對齊柱外緣 X = 19,933.3 mm 退兩個間距)
   // =========================================================================
-  console.log('\n=== 2. 垂直紅框 (西南居室翼向東外牆區 - 三層標註) ===');
-  // 外牆基準 X = 19,283.3 mm (往中庭退縮 Step 5, 4, 3)
-  const vertBoxX_L1 = 19283.3 + 3250.0; // 22,533.3 mm (Step 5)
-  const vertBoxX_L2 = 19283.3 + 2600.0; // 21,883.3 mm (Step 4)
-  const vertBoxX_L3 = 19283.3 + 1950.0; // 21,233.3 mm (Step 3)
+  console.log('\n=== 2. 垂直紅框 (西南居室翼向東外牆區 - 再退一格 / X = 21,883.3 mm 起) ===');
+  const vertColFaceX = 19933.3; // 柱外緣基準
+  const vertBoxX_L3 = vertColFaceX + 1950.0; // 21,883.3 mm (Step 3 - 走廊/浴廁隔間，退兩個間距)
+  const vertBoxX_L2 = vertColFaceX + 2600.0; // 22,533.3 mm (Step 4 - 居室主隔間)
+  const vertBoxX_L1 = vertColFaceX + 3250.0; // 23,183.3 mm (Step 5 - 外牆總長)
 
   // 該西南居室翼水平 15cm 主牆 (Y 在 -20,000 ~ 4,500 間，X 在 8,000 ~ 20,000 間)
   const southWingHoriz = horizWalls.filter(w => w.minX <= 20000 && w.maxX >= 10000 && w.centerY <= 4500 && w.centerY >= -20500);
@@ -195,7 +195,7 @@ async function main() {
   await createDimensionLine('垂直紅框(西南翼東牆)', 3, '西南翼走廊/浴廁隔間 (紫線 15cm)', vertBoxL3Walls, true, vertBoxX_L3, true);
 
   console.log('\n================================================================');
-  console.log('=== 【2FL 中庭內凹區】兩個紅框三層標註全部建置完畢！ ===');
+  console.log('=== 【2FL 中庭內凹區】雙向基準完全一致 三層標註建置完畢！ ===');
   console.log('================================================================');
 
   await client.disconnect();
