@@ -1409,6 +1409,174 @@ namespace RevitMCP.Core
             return dim;
         }
 
+        /// <summary>
+        /// 確保指定名稱的標準標註型式存在於專案中，若不存在則依規格庫標準自動 Duplicate 並設定參數
+        /// </summary>
+        public static DimensionType EnsureDimensionType(Document doc, string targetTypeName)
+        {
+            if (string.IsNullOrWhiteSpace(targetTypeName)) return null;
+
+            // 1. 檢查是否已存在同名型式
+            var existing = new FilteredElementCollector(doc)
+                .OfClass(typeof(DimensionType))
+                .Cast<DimensionType>()
+                .FirstOrDefault(dt => dt.Name.Equals(targetTypeName, StringComparison.OrdinalIgnoreCase));
+
+            if (existing != null) return existing;
+
+            // 2. 尋找基礎線性標註型式以進行複製
+            var baseType = new FilteredElementCollector(doc)
+                .OfClass(typeof(DimensionType))
+                .Cast<DimensionType>()
+                .FirstOrDefault(dt => dt.FamilyName == "線性尺寸標註型式" || dt.FamilyName == "Linear Dimension Style" || dt.Name.Contains("TABC") || dt.Name.Contains("DIM"))
+                ?? new FilteredElementCollector(doc).OfClass(typeof(DimensionType)).Cast<DimensionType>().FirstOrDefault();
+
+            if (baseType == null) return null;
+
+            DimensionType newType = null;
+            try
+            {
+                newType = baseType.Duplicate(targetTypeName) as DimensionType;
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (newType == null) return null;
+
+            // 3. 依標準規格庫寫入參數
+            try
+            {
+                // 文字大小: 2.5 mm -> 2.5 / 304.8 ft
+                Parameter pTextSize = newType.get_Parameter(BuiltInParameter.TEXT_SIZE) ?? newType.LookupParameter("文字大小");
+                if (pTextSize != null && !pTextSize.IsReadOnly) pTextSize.Set(2.5 / 304.8);
+
+                // 文字字體: 微軟正黑體
+                Parameter pTextFont = newType.get_Parameter(BuiltInParameter.TEXT_FONT) ?? newType.LookupParameter("文字字體");
+                if (pTextFont != null && !pTextFont.IsReadOnly) pTextFont.Set("微軟正黑體");
+
+                // 文字背景: 透明 (1)
+                Parameter pTextBg = newType.get_Parameter(BuiltInParameter.TEXT_BACKGROUND) ?? newType.LookupParameter("文字背景");
+                if (pTextBg != null && !pTextBg.IsReadOnly) pTextBg.Set(1);
+
+                // 輔助線控制: 固定尺寸線 (1)
+                Parameter pWitnessControl = newType.LookupParameter("輔助線控制");
+                if (pWitnessControl != null && !pWitnessControl.IsReadOnly) pWitnessControl.Set(1);
+
+                // 輔助線長度: 5.0 mm -> 5.0 / 304.8 ft
+                Parameter pWitnessLength = newType.LookupParameter("輔助線長度");
+                if (pWitnessLength != null && !pWitnessLength.IsReadOnly) pWitnessLength.Set(5.0 / 304.8);
+
+                // 尺寸線鎖點距離: 5.0 mm -> 5.0 / 304.8 ft
+                Parameter pSnapDist = newType.LookupParameter("尺寸線鎖點距離");
+                if (pSnapDist != null && !pSnapDist.IsReadOnly) pSnapDist.Set(5.0 / 304.8);
+
+                // 讀取慣例: 向上向右 (0) / 向下向左 (1)
+                Parameter pReading = newType.LookupParameter("讀取慣例");
+                if (pReading != null && !pReading.IsReadOnly)
+                {
+                    if (targetTypeName.Contains("下右") || targetTypeName.Contains("下左"))
+                        pReading.Set(1);
+                    else
+                        pReading.Set(0);
+                }
+
+                // 尋找箭頭/短斜線/圓點標記 (Arrowheads)
+                var arrowheads = new FilteredElementCollector(doc)
+                    .OfClass(typeof(ElementType))
+                    .Where(e => e.Category != null && (e.Category.Name.Contains("箭頭") || e.Category.Name.Contains("Arrowhead") || e.Category.Name.Contains("標記")))
+                    .ToList();
+
+                Parameter pTick = newType.get_Parameter(BuiltInParameter.DIM_LEADER_ARROWHEAD) ?? newType.LookupParameter("短斜線標記");
+                if (pTick != null && !pTick.IsReadOnly && arrowheads.Count > 0)
+                {
+                    Element targetArrow = null;
+                    if (targetTypeName.Contains("dot") || targetTypeName.Contains("牆心"))
+                    {
+                        targetArrow = arrowheads.FirstOrDefault(a => a.Name.Contains("實圓點") || a.Name.Contains("實體圓點") || a.Name.Contains("Dot") || a.Name.Contains("圓點"))
+                                     ?? arrowheads.FirstOrDefault(a => a.Name.Contains("點"));
+                    }
+                    else
+                    {
+                        targetArrow = arrowheads.FirstOrDefault(a => a.Name.Contains("空心點") || a.Name.Contains("對角線") || a.Name.Contains("斜線") || a.Name.Contains("Slash") || a.Name.Contains("Diagonal"))
+                                     ?? arrowheads.FirstOrDefault();
+                    }
+
+                    if (targetArrow != null)
+                    {
+                        pTick.Set(targetArrow.Id);
+                    }
+                }
+            }
+            catch {}
+
+            return newType;
+        }
+
+        /// <summary>
+        /// 批次確保規格庫標準標註型式存在 (支援 ensure_dimension_types 指令)
+        /// </summary>
+        private object EnsureDimensionTypes(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            var standardNames = new List<string>
+            {
+                "TABC-DIM_*/ S 2.5-柱心-上右",
+                "TABC-DIM_*/ S 2.5-柱心-下右",
+                "TABC-DIM_dot 牆心"
+            };
+
+            // 支援額外傳入指定名稱
+            string customName = parameters?["dimensionTypeName"]?.Value<string>() ?? parameters?["name"]?.Value<string>();
+            if (!string.IsNullOrWhiteSpace(customName) && !standardNames.Contains(customName))
+            {
+                standardNames.Add(customName);
+            }
+
+            var results = new List<object>();
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "確保標準標註型式存在"))
+            {
+                trans.Start();
+
+                foreach (var name in standardNames)
+                {
+                    DimensionType dt = EnsureDimensionType(doc, name);
+                    if (dt != null)
+                    {
+                        results.Add(new
+                        {
+                            DimensionTypeId = dt.Id.GetIdValue(),
+                            DimensionTypeName = dt.Name,
+                            FamilyName = dt.FamilyName,
+                            Success = true
+                        });
+                    }
+                    else
+                    {
+                        results.Add(new
+                        {
+                            DimensionTypeId = 0,
+                            DimensionTypeName = name,
+                            Success = false,
+                            Message = "無法複製或建立該標註型式"
+                        });
+                    }
+                }
+
+                trans.Commit();
+            }
+
+            return new
+            {
+                Success = true,
+                Count = results.Count,
+                DimensionTypes = results,
+                Message = $"成功確保 {results.Count} 個標準標註型式"
+            };
+        }
+
         #endregion
     }
 }

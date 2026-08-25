@@ -142,6 +142,11 @@ namespace RevitMCP.Core
                         result = ListDimensionTypes(parameters);
                         break;
 
+                    case "ensure_dimension_types":
+                    case "ensure_dimension_type":
+                        result = EnsureDimensionTypes(parameters);
+                        break;
+
                     case "list_legend_views":
                         result = ListLegendViews(parameters);
                         break;
@@ -2394,6 +2399,11 @@ namespace RevitMCP.Core
                         .OfClass(typeof(DimensionType))
                         .Cast<DimensionType>()
                         .FirstOrDefault(dt => dt.Name.Equals(reqTypeName, StringComparison.OrdinalIgnoreCase) || dt.Name.Contains(reqTypeName));
+
+                    if (targetType == null)
+                    {
+                        targetType = EnsureDimensionType(doc, reqTypeName);
+                    }
                 }
 
                 if (targetType != null)
