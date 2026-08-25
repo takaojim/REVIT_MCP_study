@@ -1097,6 +1097,68 @@ namespace RevitMCP.Core
         /// 全自動平面圖外牆/內牆中心線三層階梯標註（Layer 1 外牆總長 + Layer 2 居室主隔間牆心 + Layer 3 走廊/附屬空間細部牆心）。
         /// 支援右側 (East)、左側 (West)、下側 (South)、上側 (North) 之四向鏡射等距階梯放樣與空間拓撲割線分析。
         /// </summary>
+        private (double minX, double maxX, double minY, double maxY) GetPhysicalEnvelope(Document doc, View view)
+        {
+            var modelCategories = new BuiltInCategory[]
+            {
+                BuiltInCategory.OST_Walls,
+                BuiltInCategory.OST_Floors,
+                BuiltInCategory.OST_Roofs,
+                BuiltInCategory.OST_StructuralColumns,
+                BuiltInCategory.OST_StructuralFraming,
+                BuiltInCategory.OST_Columns,
+                BuiltInCategory.OST_GenericModel,
+                BuiltInCategory.OST_Stairs,
+                BuiltInCategory.OST_Railings,
+                BuiltInCategory.OST_CurtainWallPanels,
+                BuiltInCategory.OST_CurtainWallMullions,
+                BuiltInCategory.OST_Fascia,
+                BuiltInCategory.OST_EdgeSlab
+            };
+
+            var catFilter = new ElementMulticategoryFilter(modelCategories);
+            var modelElements = new FilteredElementCollector(doc, view.Id)
+                .WherePasses(catFilter)
+                .WhereElementIsNotElementType()
+                .ToElements();
+
+            double envMinX = double.MaxValue, envMaxX = double.MinValue;
+            double envMinY = double.MaxValue, envMaxY = double.MinValue;
+            bool found = false;
+
+            foreach (var elem in modelElements)
+            {
+                BoundingBoxXYZ bbox = elem.get_BoundingBox(view) ?? elem.get_BoundingBox(null);
+                if (bbox == null || bbox.Min == null || bbox.Max == null) continue;
+
+                if (Math.Abs(bbox.Min.X) < 32808 && Math.Abs(bbox.Max.X) < 32808)
+                {
+                    envMinX = Math.Min(envMinX, bbox.Min.X);
+                    envMaxX = Math.Max(envMaxX, bbox.Max.X);
+                    envMinY = Math.Min(envMinY, bbox.Min.Y);
+                    envMaxY = Math.Max(envMaxY, bbox.Max.Y);
+                    found = true;
+                }
+            }
+
+            if (!found)
+            {
+                var grids = new FilteredElementCollector(doc, view.Id).OfClass(typeof(Grid)).Cast<Grid>().ToList();
+                if (grids.Count == 0) grids = new FilteredElementCollector(doc).OfClass(typeof(Grid)).Cast<Grid>().ToList();
+                foreach (var g in grids)
+                {
+                    XYZ p0 = g.Curve.GetEndPoint(0);
+                    XYZ p1 = g.Curve.GetEndPoint(1);
+                    envMinX = Math.Min(envMinX, Math.Min(p0.X, p1.X));
+                    envMaxX = Math.Max(envMaxX, Math.Max(p0.X, p1.X));
+                    envMinY = Math.Min(envMinY, Math.Min(p0.Y, p1.Y));
+                    envMaxY = Math.Max(envMaxY, Math.Max(p0.Y, p1.Y));
+                }
+            }
+
+            return (envMinX, envMaxX, envMinY, envMaxY);
+        }
+
         private object AutoDimensionWallCenterlines(JObject parameters)
         {
             Document doc = _uiApp.ActiveUIDocument.Document;

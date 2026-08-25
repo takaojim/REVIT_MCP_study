@@ -380,6 +380,14 @@ namespace RevitMCP.Core
                 .ToList();
 
             if (grids.Count < 2)
+            {
+                grids = new FilteredElementCollector(doc)
+                    .OfClass(typeof(Grid))
+                    .Cast<Grid>()
+                    .ToList();
+            }
+
+            if (grids.Count < 2)
                 throw new Exception($"視圖 {view.Name} 中的軸線數量不足");
 
             Transform transform = view.CropBox?.Transform;
@@ -440,7 +448,7 @@ namespace RevitMCP.Core
                 }
             }
 
-            // 計算實體模型外框包絡 (外牆、陽台、雨遮、結構柱、欄杆、屋頂等)
+            // 計算實體模型外框包絡 (外牆、陽台、雨遮、結構柱、結構梁、欄杆、屋頂等)
             double envMinX = double.MaxValue, envMaxX = double.MinValue;
             double envMinY = double.MaxValue, envMaxY = double.MinValue;
             bool foundPhysical = false;
@@ -469,6 +477,7 @@ namespace RevitMCP.Core
                     BuiltInCategory.OST_Floors,
                     BuiltInCategory.OST_Roofs,
                     BuiltInCategory.OST_StructuralColumns,
+                    BuiltInCategory.OST_StructuralFraming,
                     BuiltInCategory.OST_Columns,
                     BuiltInCategory.OST_GenericModel,
                     BuiltInCategory.OST_Stairs,
