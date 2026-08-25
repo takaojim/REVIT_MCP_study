@@ -102,90 +102,28 @@ description: 標準平面階梯標註與軸線整列系統：全自動讀取視�
 
 ---
 
-## 💻 5. 標準批次執行工作流 (Node.js Reference)
+## 💻 5. 標準批次執行工作流 (Mature Production Scripts)
+
+專案已內建兩大標準化一鍵批次執行腳本：
+
+### (1) 建築平面圖全樓層標註 (1FL, 2FL, 3FL, RFL)
+* **腳本路徑**：[`scripts/execute_all_floors_perfect_15cm.mjs`](file:///c:/Users/User/Documents/REVIT_MCP_study/scripts/execute_all_floors_perfect_15cm.mjs)
+* **核心規範**：
+  * 嚴格過濾 $\ge 15\text{cm}$ 主結構牆（排除 12cm、10cm 矮牆/輕隔間與粉刷層）。
+  * 上右雙層柱心標註（`TABC-DIM_*/ S 2.5-柱心-上右`，空心圓圈 + 短輔助線朝內）。
+  * 四向三層牆心標註（Layer 1 總長、Layer 2 居室主隔間、Layer 3 走廊機能隔間）。
+  * 中庭內凹區方案 C（內縮雙向矩形包絡盒階梯放樣）。
+
+### (2) 結構平面圖全樓層標註 (GL, 1FL, 2FL, 3FL, RFL)
+* **腳本路徑**：[`scripts/execute_all_structural_5steps.mjs`](file:///c:/Users/User/Documents/REVIT_MCP_study/scripts/execute_all_structural_5steps.mjs)
+* **核心規範**：
+  * 軸線齊頭 5 個等距階梯（$+3,250\text{ mm}$ @1:100）。
+  * 配置 A（上方與右側開啟軸號氣泡圓標，下方與左側隱藏）。
+  * Step 4（Tier 1 總跨）與 Step 3（Tier 2 連續柱心）雙層柱心標註。
 
 ```javascript
-import { RevitSocketClient } from './socket.js';
-
-<<<<<<< HEAD
-export async function runStandardPlanDimension(viewId) {
-  const client = new RevitMcpClient();
-  
-  // 0. 動態解析標註型式
-  const typesRes = await client.sendCommand('query_elements', { category: 'DimensionTypes' });
-  const dimTypes = typesRes.data?.DimensionTypes || typesRes.data?.Elements || [];
-  const typeUpRight = dimTypes.find(t => t.DimensionTypeName?.includes('柱心-上右') || t.Name?.includes('柱心-上右'));
-  const typeIdUpRight = typeUpRight?.DimensionTypeId || typeUpRight?.Id || dimTypes[0]?.DimensionTypeId || dimTypes[0]?.Id;
-
-  // 1. 取得視圖資訊與 Scale
-  const viewRes = await client.sendCommand('get_active_view', {});
-  const scale = viewRes.data.Scale || 100; // 例如 100
-  
-  // 2. 取得全區外框實體包絡
-  const envelope = await client.sendCommand('get_floor_envelope', { 
-    viewId: viewId, 
-    includeBalconies: true, 
-    includeRoofs: true 
-  });
-  const { minX, maxX, minY, maxY } = envelope.data;
-
-  // 3. 換算 40mm / 35mm / 30mm / 25mm 偏移量 (單位: mm)
-  const offset40 = 40 * scale;
-  const offset35 = 35 * scale;
-  const offset30 = 30 * scale;
-  const offset25 = 25 * scale;
-
-  // 4. 取得並排序軸線
-  const gridsRes = await client.sendCommand('query_elements', { category: 'Grids' });
-  // 分為 verticalGrids (依 X 排序) 與 horizontalGrids (依 Y 排序)
-  
-  // 5. 建立上方雙層標註 (North)
-  // 第 1 層 (總長 Y = maxY + offset35)
-  const dim1 = await client.sendCommand('create_dimension', {
-=======
-export async function executeStandardPlanDimensions(viewId) {
-  const client = new RevitSocketClient('localhost', 8964);
-  await client.connect();
-
-  // 1. 軸線齊頭整列 (9 間距 5,850mm，配置 A)
-  const alignRes = await client.sendCommand('align_plan_grids', {
->>>>>>> feature/grid-dimension-step-wip
-    viewId: viewId,
-    stepCount: 9.0,
-    stepMm: 650.0,
-    usePhysicalEnvelope: true,
-    showAllBubbles: false
-  });
-
-<<<<<<< HEAD
-  // 第 2 層 (柱間距 Y = maxY + offset30)
-  const dim2 = await client.sendCommand('create_dimension', {
-    viewId: viewId,
-    gridIds: allVGridIdsSorted,
-    startX: maxX, startY: maxY + offset30,
-    endX: minX, endY: maxY + offset30
-  });
-
-  // 套用型式
-  if (typeIdUpRight) {
-    await client.sendCommand('change_element_type', {
-      elementIds: [dim1.data.DimensionId, dim2.data.DimensionId],
-      typeId: typeIdUpRight
-    });
-  }
-=======
-  // 2. 上方與右側雙層柱心標註 (Type: TABC-DIM_*/ S 2.5-柱心-上右)
-  // ...
-
-  // 3. 四向三層牆心標註 (Type: TABC-DIM_dot 牆心, Thickness >= 140mm)
-  // 西側 (全跨)、南側 (南翼)、東側 (東翼)、北側 (北翼)
-  // ...
-
-  // 4. 中庭內凹區 (方案 C: 緊貼內側實體外牆階梯放樣)
-  // ...
-
-  await client.disconnect();
->>>>>>> feature/grid-dimension-step-wip
-}
+// 執行方式
+// node scripts/execute_all_floors_perfect_15cm.mjs
+// node scripts/execute_all_structural_5steps.mjs
 ```
 
