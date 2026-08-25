@@ -1,0 +1,688 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "Revit 標準標註型式規格庫 (Seed Catalog)，用於跨專案防呆自癒與自動生成",
+  "updatedAt": "2026-08-25T05:55:10.126Z",
+  "dimensionTypes": {
+    "TABC-DIM_*/ S 2.5-柱心-上右": {
+      "name": "TABC-DIM_*/ S 2.5-柱心-上右",
+      "typeId": 2240793,
+      "familyName": "線性尺寸標註型式",
+      "parameters": [
+        {
+          "Name": "品類",
+          "Value": "",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "品類",
+          "Value": "",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "設計選項",
+          "Value": "-1",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "尺寸字尾",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "尺寸字首",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "內部短斜線標記的顯示",
+          "Value": "動態",
+          "Type": "Integer"
+        },
+        {
+          "Name": "輔助線短斜線標記",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "替用單位字尾",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "替用單位字首",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "相等輔助顯示",
+          "Value": "記號與直線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "抑制空格",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "引線短斜線標記",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "相等文字",
+          "Value": "EQ",
+          "Type": "String"
+        },
+        {
+          "Name": "在文字移動時展示引線",
+          "Value": "超出輔助線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "引線類型",
+          "Value": "弧",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸字串類型",
+          "Value": "連續",
+          "Type": "Integer"
+        },
+        {
+          "Name": "翻轉的尺寸延長線",
+          "Value": "2.4000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "內部短斜線標記",
+          "Value": "對角線 3mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "替用單位",
+          "Value": "無",
+          "Type": "Integer"
+        },
+        {
+          "Name": "讀取慣例",
+          "Value": "向上，然後向右",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸線鎖點距離",
+          "Value": "5.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "中心線短斜線標記",
+          "Value": "TABC-實圓點 1.5mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "展示開口高度",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "中心線條樣式",
+          "Value": "實體",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "輔助線長度",
+          "Value": "5.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "輔助線控制",
+          "Value": "固定尺寸線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸延長線",
+          "Value": "0.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "中心線符號",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "文字背景",
+          "Value": "透明",
+          "Type": "Integer"
+        },
+        {
+          "Name": "短斜線標記線粗",
+          "Value": "4",
+          "Type": "Integer"
+        },
+        {
+          "Name": "輔助線到元素的間隙",
+          "Value": "1.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "輔助線延伸",
+          "Value": "1.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "文字偏移",
+          "Value": "0.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "寬度係數",
+          "Value": "1",
+          "Type": "Double"
+        },
+        {
+          "Name": "短斜線標記",
+          "Value": "TABC-空心點 1.5mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "底線",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "斜體",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "粗體",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "顏色",
+          "Value": null,
+          "Type": "Integer"
+        },
+        {
+          "Name": "線粗",
+          "Value": "1",
+          "Type": "Integer"
+        },
+        {
+          "Name": "文字大小",
+          "Value": "2.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "文字字體",
+          "Value": "微軟正黑體",
+          "Type": "String"
+        },
+        {
+          "Name": "族群名稱",
+          "Value": "線性尺寸標註型式",
+          "Type": "String"
+        },
+        {
+          "Name": "類型名稱",
+          "Value": "TABC-DIM_*/ S 2.5-柱心-上右",
+          "Type": "String"
+        }
+      ]
+    },
+    "TABC-DIM_*/ S 2.5-柱心-下右": {
+      "name": "TABC-DIM_*/ S 2.5-柱心-下右",
+      "typeId": 2240801,
+      "familyName": "線性尺寸標註型式",
+      "parameters": [
+        {
+          "Name": "品類",
+          "Value": "",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "品類",
+          "Value": "",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "設計選項",
+          "Value": "-1",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "尺寸字尾",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "尺寸字首",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "內部短斜線標記的顯示",
+          "Value": "動態",
+          "Type": "Integer"
+        },
+        {
+          "Name": "輔助線短斜線標記",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "替用單位字尾",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "替用單位字首",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "相等輔助顯示",
+          "Value": "記號與直線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "抑制空格",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "引線短斜線標記",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "相等文字",
+          "Value": "EQ",
+          "Type": "String"
+        },
+        {
+          "Name": "在文字移動時展示引線",
+          "Value": "超出輔助線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "引線類型",
+          "Value": "弧",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸字串類型",
+          "Value": "連續",
+          "Type": "Integer"
+        },
+        {
+          "Name": "翻轉的尺寸延長線",
+          "Value": "2.4000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "內部短斜線標記",
+          "Value": "對角線 3mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "替用單位",
+          "Value": "無",
+          "Type": "Integer"
+        },
+        {
+          "Name": "讀取慣例",
+          "Value": "向左，然後向上",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸線鎖點距離",
+          "Value": "5.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "中心線短斜線標記",
+          "Value": "TABC-實圓點 1.5mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "展示開口高度",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "中心線條樣式",
+          "Value": "實體",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "輔助線長度",
+          "Value": "5.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "輔助線控制",
+          "Value": "固定尺寸線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸延長線",
+          "Value": "0.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "中心線符號",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "文字背景",
+          "Value": "透明",
+          "Type": "Integer"
+        },
+        {
+          "Name": "短斜線標記線粗",
+          "Value": "4",
+          "Type": "Integer"
+        },
+        {
+          "Name": "輔助線到元素的間隙",
+          "Value": "1.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "輔助線延伸",
+          "Value": "1.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "文字偏移",
+          "Value": "0.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "寬度係數",
+          "Value": "1",
+          "Type": "Double"
+        },
+        {
+          "Name": "短斜線標記",
+          "Value": "TABC-空心點 1.5mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "底線",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "斜體",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "粗體",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "顏色",
+          "Value": null,
+          "Type": "Integer"
+        },
+        {
+          "Name": "線粗",
+          "Value": "2",
+          "Type": "Integer"
+        },
+        {
+          "Name": "文字大小",
+          "Value": "2.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "文字字體",
+          "Value": "微軟正黑體",
+          "Type": "String"
+        },
+        {
+          "Name": "族群名稱",
+          "Value": "線性尺寸標註型式",
+          "Type": "String"
+        },
+        {
+          "Name": "類型名稱",
+          "Value": "TABC-DIM_*/ S 2.5-柱心-下右",
+          "Type": "String"
+        }
+      ]
+    },
+    "TABC-DIM_dot 牆心": {
+      "name": "TABC-DIM_dot 牆心",
+      "typeId": 2251126,
+      "familyName": "線性尺寸標註型式",
+      "parameters": [
+        {
+          "Name": "品類",
+          "Value": "",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "品類",
+          "Value": "",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "設計選項",
+          "Value": "-1",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "尺寸字尾",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "尺寸字首",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "內部短斜線標記的顯示",
+          "Value": "動態",
+          "Type": "Integer"
+        },
+        {
+          "Name": "輔助線短斜線標記",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "替用單位字尾",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "替用單位字首",
+          "Value": "",
+          "Type": "String"
+        },
+        {
+          "Name": "相等輔助顯示",
+          "Value": "記號與直線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "抑制空格",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "引線短斜線標記",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "相等文字",
+          "Value": "EQ",
+          "Type": "String"
+        },
+        {
+          "Name": "在文字移動時展示引線",
+          "Value": "超出輔助線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "引線類型",
+          "Value": "弧",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸字串類型",
+          "Value": "連續",
+          "Type": "Integer"
+        },
+        {
+          "Name": "翻轉的尺寸延長線",
+          "Value": "2.4000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "內部短斜線標記",
+          "Value": "對角線 3mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "替用單位",
+          "Value": "無",
+          "Type": "Integer"
+        },
+        {
+          "Name": "讀取慣例",
+          "Value": "向上，然後向右",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸線鎖點距離",
+          "Value": "5.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "中心線短斜線標記",
+          "Value": "預設",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "展示開口高度",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "中心線條樣式",
+          "Value": "實體",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "輔助線長度",
+          "Value": "5.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "輔助線控制",
+          "Value": "固定尺寸線",
+          "Type": "Integer"
+        },
+        {
+          "Name": "尺寸延長線",
+          "Value": "0.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "中心線符號",
+          "Value": "無",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "文字背景",
+          "Value": "透明",
+          "Type": "Integer"
+        },
+        {
+          "Name": "短斜線標記線粗",
+          "Value": "4",
+          "Type": "Integer"
+        },
+        {
+          "Name": "輔助線到元素的間隙",
+          "Value": "1.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "輔助線延伸",
+          "Value": "1.5000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "文字偏移",
+          "Value": "1.1000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "寬度係數",
+          "Value": "1",
+          "Type": "Double"
+        },
+        {
+          "Name": "短斜線標記",
+          "Value": "實圓點 1.5mm",
+          "Type": "ElementId"
+        },
+        {
+          "Name": "底線",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "斜體",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "粗體",
+          "Value": "否",
+          "Type": "Integer"
+        },
+        {
+          "Name": "顏色",
+          "Value": null,
+          "Type": "Integer"
+        },
+        {
+          "Name": "線粗",
+          "Value": "1",
+          "Type": "Integer"
+        },
+        {
+          "Name": "文字大小",
+          "Value": "2.0000 mm",
+          "Type": "Double"
+        },
+        {
+          "Name": "文字字體",
+          "Value": "Microsoft Sans Serif",
+          "Type": "String"
+        },
+        {
+          "Name": "族群名稱",
+          "Value": "線性尺寸標註型式",
+          "Type": "String"
+        },
+        {
+          "Name": "類型名稱",
+          "Value": "TABC-DIM_dot 牆心",
+          "Type": "String"
+        }
+      ]
+    }
+  }
+}
