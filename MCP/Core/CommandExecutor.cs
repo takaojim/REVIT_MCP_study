@@ -556,11 +556,17 @@ namespace RevitMCP.Core
                     case "auto_dimension_walls":
                         result = AutoDimensionWalls(parameters);
                         break;
+                    case "auto_dimension_wall_centerlines":
+                        result = AutoDimensionWallCenterlines(parameters);
+                        break;
                     case "auto_dimension_elevation_grids":
                         result = AutoDimensionElevationGrids(parameters);
                         break;
                     case "auto_dimension_elevation_levels":
                         result = AutoDimensionElevationLevels(parameters);
+                        break;
+                    case "auto_dimension_plan_grids":
+                        result = AutoDimensionPlanGrids(parameters);
                         break;
 
                     // === 從屬視圖模組 ===
@@ -649,6 +655,9 @@ namespace RevitMCP.Core
                     // === 視圖與基準線調整模組 ===
                     case "adjust_section_datums":
                         result = AdjustSectionDatums(parameters);
+                        break;
+                    case "align_plan_grids":
+                        result = AlignPlanGrids(parameters);
                         break;
 
                     // === 樓板坡度分析（Issue #45, 原作者 yunchen-kt）===
@@ -2370,6 +2379,28 @@ namespace RevitMCP.Core
                 // 建立尺寸標註
                 Dimension dim = doc.Create.NewDimension(view, dimLine, refArray);
 
+                // 支援直接指定尺寸型式 (dimensionTypeId / typeId 或 dimensionTypeName / typeName)
+                string reqTypeName = parameters["dimensionTypeName"]?.Value<string>() ?? parameters["typeName"]?.Value<string>();
+                IdType? reqTypeId = parameters["dimensionTypeId"]?.Value<IdType>() ?? parameters["typeId"]?.Value<IdType>();
+
+                DimensionType targetType = null;
+                if (reqTypeId.HasValue && reqTypeId.Value > 0)
+                {
+                    targetType = doc.GetElement(new ElementId(reqTypeId.Value)) as DimensionType;
+                }
+                else if (!string.IsNullOrWhiteSpace(reqTypeName))
+                {
+                    targetType = new FilteredElementCollector(doc)
+                        .OfClass(typeof(DimensionType))
+                        .Cast<DimensionType>()
+                        .FirstOrDefault(dt => dt.Name.Equals(reqTypeName, StringComparison.OrdinalIgnoreCase) || dt.Name.Contains(reqTypeName));
+                }
+
+                if (targetType != null)
+                {
+                    dim.ChangeTypeId(targetType.Id);
+                }
+
                 trans.Commit();
 
                 double dimValue = dim.Value.HasValue ? dim.Value.Value * 304.8 : 0;
@@ -2377,6 +2408,8 @@ namespace RevitMCP.Core
                 return new
                 {
                     DimensionId = dim.Id.GetIdValue(),
+                    DimensionTypeId = dim.GetTypeId().GetIdValue(),
+                    DimensionTypeName = targetType?.Name ?? (doc.GetElement(dim.GetTypeId()) as DimensionType)?.Name,
                     Value = Math.Round(dimValue, 2),
                     SegmentsCount = dim.Segments?.Size ?? 1,
                     Unit = "mm",

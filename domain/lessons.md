@@ -255,6 +255,7 @@ metadata:
   2. 在現代本機環境中，傳輸 1,000 ~ 10,000 筆圖元 JSON 僅需約 20ms，效能與記憶體負擔極低。
   3. AI 執行批次視圖或圖元處理前，必須確保查詢無上限，絕不可基於截斷的 partial list 作出「專案不存在該圖元」的錯誤推論。
 
+<<<<<<< HEAD
 ## [L-032] 標註型式 (DimensionType) 前置動態查詢與降級防呆原則
 
 - **規則**：執行任何尺寸標註（平面柱心、立面標註、房間標註）前，**嚴禁在程式碼中寫死 (Hardcode) 任何靜態 TypeId**（如 `2240793`、`2240801`、`2110318` 等），亦不可未經查詢即假設專案必定存在 `TABC-DIM_*` 標註型式。執行標註前必須先查詢專案既有 `DimensionTypes`。
@@ -284,5 +285,45 @@ metadata:
      * 專案已全面升級至 Revit 2026 時，編譯必須採用 **`Release.R26` / `Debug.R26`**（Target Framework: `.NET 8.0`）。
      * 安裝腳本必須指定 **`-Version 2026`**，部署路徑為 `APPDATA\Autodesk\Revit\Addins\2026\RevitMCP\`。
      * 在與使用者溝通與報告時，嚴禁因慣性提及 2024 等舊版號，確保版本一致性。
+
+## [L-034] 平面圖實體外框抓取、2D 軸線嚴格共線與配置 A 規範
+
+- **規則**：
+  1. **實體外框自適應包絡**：平面軸線四向齊頭整列（`align_plan_grids`）必須跨品類收集實體構件（外牆 `Walls`、陽台地坪 `Floors`、雨遮/挑簷 `Roofs`、結構柱 `Columns`、欄杆 `Railings`、遮陽板 `GenericModels`），計算建物最外緣幾何極值，再向外等距延伸（如 9 個模矩 $5,850\text{ mm}$）。
+  2. **2D 軸線嚴格共線（Collinear）**：在 Revit API 中調用 `grid.SetCurveInView(DatumExtentType.ViewSpecific, view, newCurve)` 時，新線段必須與原軸線基準面 100% 共線。最佳實踐為採用 `view.CropBox.Transform` 局部座標系模式，僅修改端點沿軸向之分量，再轉回世界座標，徹底避免 Revit 拋出 `The curve is unbound or not coincident with the original one of the datum plane` 異常。
+  3. **出圖標準「配置 A」**：上方（北側）與右側（東側）開啟氣泡圓圈（承載柱心總尺寸與柱間距標註）；下方（南側）與左側（西側）關閉氣泡圓圈（留白給外牆主要房間跨度與細部開口標註）。
+  4. **退縮屋頂與屋突層基準繼承**：屋頂層（`RFL`）與屋突層（`TRFL`）等局部內縮之頂層視圖，不可依局部建物收縮軸線，必須透過 `referenceViewId` 強制繼承直屬下層主要樓層（如 `5FL`）之最外側實體外牆極值進行 9 間距齊頭放樣，確保全案 16 條主結構軸線完整顯現，維持整本圖冊 Viewport 排版一致性與柱心相對定位。
+  5. **開發輔助線生命週期**：實體包絡檢驗線（紅色實體框、藍色齊頭框）在現況開發階段保留於視圖中供人工檢視；後續正式交付或由使用者指示時再進行批次刪除。
+
+## [L-035] 柱心尺寸標註型式強制綁定與 Transaction 原生切換機制
+
+- **規則**：
+  1. **禁止依賴 Revit 預設標註型式**：當呼叫 `create_dimension` 建立尺寸時，Revit 原生 API `doc.Create.NewDimension` 會套用專案當前的「預設線性尺寸型式」（例如通用 `線性尺寸標註型式` 或 `DIMing`）。AI 與工作流腳本**嚴禁依賴預設型式**，必須明確指定專屬標準標註型式（上右：`TABC-DIM_*/ S 2.5-柱心-上右`，下右：`TABC-DIM_*/ S 2.5-柱心-下右`）。
+  2. **品類查詢工具邊界**：查詢標註型式時應使用專屬指令 `list_dimension_types`，不可使用 `query_elements(category: 'DimensionTypes')`（Revit `BuiltInCategory` 中無直接的 `DimensionTypes` 列舉，會導致查詢失敗）。
+  3. **動態模糊解析與即時切換**：在跨專案執行時，標註型式名稱可能有微幅字串變體（例如 `TABC-DIM_*/ S 2.5-柱心-上右`、`TABC-DIM_尺度標註/ S 2.5-柱心-上右` 等）。工作流應先以 `list_dimension_types` 進行名稱包含比對（如 `Name.Contains("柱心-上右")`）獲取確切 Type ID，並在建立尺寸後或於同一個 API Transaction 內立即執行 `change_element_type`，完成型式綁定斷言。
+
+## [L-036] 建築平面圖四向三層牆心標註體系、15CM主牆過濾與中庭內凹方案 C 規範
+
+- **規則**：
+  1. **空間拓撲主從與割線截面（Spatial Hierarchy）**：
+     - 大型建築（如具備中廊之機構住宅）必須採「四向標註」，相對兩側分別負責走廊之一側。
+     - 牆心標註包含三層：
+       - **Layer 1（外牆總長）**：最靠近該側之實體外牆端點總長（Step 5）。
+       - **Layer 2（居室主隔間）**：穿透主要居室開間之綠線截面（Step 4）。
+       - **Layer 3（走廊/附屬機能隔間）**：穿透浴廁、前室、梯間與走廊側開口之紫線截面（Step 3）。
+  2. **同心鏡射等距階梯（Concentric Stepped Placement）**：
+     - 以實體外框（Step 0）為基準，每階梯固定為 **$650.0\text{ mm}$（1:100 時圖紙 $6.5\text{ mm}$）**。
+     - **上側/右側**：Step 9(氣泡) ➔ Step 8(柱總) ➔ Step 7(柱間) ➔ Step 6(空一格緩衝) ➔ Step 5(牆總) ➔ Step 4(主隔間) ➔ Step 3(走廊機能)。
+     - **下側/左側**：無柱心尺寸，直接由 Step 5(牆總) 向內側 Step 3 鏡射靠攏放置，四向外牆總長完全等距同心，消除半空懸掛感。
+  3. **15CM 主牆嚴格過濾（Wall Thickness Filter）**：
+     - 標註篩選條件必須為 `Thickness >= 140 mm`。
+     - **100% 嚴格排除**：小於 15cm 的矮牆、RC12cm 管道間包板、10mm 磁磚粉刷層與薄門斗，杜絕無效細碎跳點。
+  4. **中庭/露台內凹區採用「方案 C（緊貼實體外牆階梯放樣）」**：
+     - 最外側柱心維持全區軸網（上右）。
+     - 內凹區實體外牆（如交誼廳南外牆、西南居室翼東外牆）緊貼實體外牆，在中庭內側依 Step 5 $\to$ Step 4 $\to$ Step 3 放樣分翼三層標註，兼顧全區結構跨度與各分翼建築細部。
+  5. **標註型式語意分明**：
+     - 柱心尺寸（斜線 Slash）：`TABC-DIM_*/ S 2.5-柱心-上右`（ID: `2240793`）。
+     - 牆心尺寸（實心圓點 Dot）：`TABC-DIM_dot 牆心`（ID: `2251126`）。
+>>>>>>> feature/grid-dimension-step-wip
 
 

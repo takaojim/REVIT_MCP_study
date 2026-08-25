@@ -879,6 +879,474 @@ namespace RevitMCP.Core
             };
         }
 
+        /// <summary>
+        /// 自動為平面視圖建立四向雙層柱心連續標註（自適應讀取視圖中所有 Grids 的真實幾何端點）
+        /// </summary>
+        private object AutoDimensionPlanGrids(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
+            double paperOffsetTier1Mm = parameters["offsetTier1Mm"]?.Value<double>() ?? 5.0; // 圖紙 5mm
+            double paperOffsetTier2StepMm = parameters["stepTier2Mm"]?.Value<double>() ?? 6.5; // 圖紙 6.5mm (總計 11.5mm)
+
+            View view = doc.GetElement(viewId.ToElementId()) as View;
+            if (view == null)
+                throw new Exception($"找不到視圖 ID: {viewId}");
+
+            // 取得視圖中可見的 Grids
+            var grids = new FilteredElementCollector(doc, view.Id)
+                .OfCategory(BuiltInCategory.OST_Grids)
+                .WhereElementIsNotElementType()
+                .Cast<Grid>()
+                .ToList();
+
+            if (grids.Count < 2)
+                throw new Exception($"視圖 {view.Name} 中的軸線數量不足（至少需要 2 條）");
+
+            XYZ vRight = view.RightDirection.Normalize();
+            XYZ vUp = view.UpDirection.Normalize();
+
+            var vertGrids = new List<(Grid grid, Curve curve, XYZ topPt, XYZ botPt, double uProj)>();
+            var horizGrids = new List<(Grid grid, Curve curve, XYZ leftPt, XYZ rightPt, double vProj)>();
+
+            foreach (var g in grids)
+            {
+                IList<Curve> curves = g.GetCurvesInView(DatumExtentType.ViewSpecific, view);
+                if (curves == null || curves.Count == 0) continue;
+
+                Curve c = curves[0];
+                XYZ ep0 = c.GetEndPoint(0);
+                XYZ ep1 = c.GetEndPoint(1);
+                XYZ dir = (ep1 - ep0).Normalize();
+
+                double dotUp = Math.Abs(dir.DotProduct(vUp));
+                double dotRight = Math.Abs(dir.DotProduct(vRight));
+
+                if (dotUp >= dotRight)
+                {
+                    // 垂直軸線 (例如 1, 2, 3, 4)
+                    XYZ top = ep0.DotProduct(vUp) >= ep1.DotProduct(vUp) ? ep0 : ep1;
+                    XYZ bot = ep0.DotProduct(vUp) < ep1.DotProduct(vUp) ? ep0 : ep1;
+                    double u = top.DotProduct(vRight);
+                    vertGrids.Add((g, c, top, bot, u));
+                }
+                else
+                {
+                    // 水平軸線 (例如 A, B, C, D)
+                    XYZ right = ep0.DotProduct(vRight) >= ep1.DotProduct(vRight) ? ep0 : ep1;
+                    XYZ left = ep0.DotProduct(vRight) < ep1.DotProduct(vRight) ? ep0 : ep1;
+                    double v = left.DotProduct(vUp);
+                    horizGrids.Add((g, c, left, right, v));
+                }
+            }
+
+            // 排序
+            vertGrids.Sort((a, b) => a.uProj.CompareTo(b.uProj)); // 左到右
+            horizGrids.Sort((a, b) => b.vProj.CompareTo(a.vProj)); // 頂到底 (上到下)
+
+            double scale = view.Scale;
+            double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+            double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+
+            // 尋找型式
+            DimensionType typeUpRight = null;
+            DimensionType typeDownRight = null;
+            var allDimTypes = new FilteredElementCollector(doc)
+                .OfClass(typeof(DimensionType))
+                .Cast<DimensionType>()
+                .ToList();
+
+            foreach (var dt in allDimTypes)
+            {
+                if (dt.Name.Contains("上右") || dt.Name.Contains("柱心-上右")) typeUpRight = dt;
+                if (dt.Name.Contains("下右") || dt.Name.Contains("柱心-下右")) typeDownRight = dt;
+            }
+            if (typeUpRight == null) typeUpRight = allDimTypes.FirstOrDefault(dt => dt.Name.Contains("TABC-DIM") || dt.Name == "DIMing");
+            if (typeDownRight == null) typeDownRight = typeUpRight;
+
+            var createdDimIds = new List<long>();
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "自動建立平面四向雙層柱心標註"))
+            {
+                trans.Start();
+
+                // 1. 北側 (頂部: 垂直軸線，由右至左建立使輔助線朝下指向建物)
+                if (vertGrids.Count >= 2)
+                {
+                    double maxUp = vertGrids.Max(g => g.topPt.DotProduct(vUp));
+                    XYZ rightTop = vertGrids.Last().topPt;
+                    XYZ leftTop = vertGrids.First().topPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = rightTop + vUp * (maxUp - rightTop.DotProduct(vUp) - offset1Ft);
+                    XYZ pEnd1 = leftTop + vUp * (maxUp - leftTop.DotProduct(vUp) - offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(vertGrids.Last().grid));
+                    ref1.Append(new Reference(vertGrids.First().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeUpRight != null) d1.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = rightTop + vUp * (maxUp - rightTop.DotProduct(vUp) - offset2Ft);
+                    XYZ pEnd2 = leftTop + vUp * (maxUp - leftTop.DotProduct(vUp) - offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = vertGrids.Count - 1; i >= 0; i--) ref2.Append(new Reference(vertGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeUpRight != null) d2.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                // 2. 南側 (底部: 垂直軸線，由左至右建立使輔助線朝上指向建物)
+                if (vertGrids.Count >= 2)
+                {
+                    double minUp = vertGrids.Min(g => g.botPt.DotProduct(vUp));
+                    XYZ leftBot = vertGrids.First().botPt;
+                    XYZ rightBot = vertGrids.Last().botPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = leftBot + vUp * (minUp - leftBot.DotProduct(vUp) + offset1Ft);
+                    XYZ pEnd1 = rightBot + vUp * (minUp - rightBot.DotProduct(vUp) + offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(vertGrids.First().grid));
+                    ref1.Append(new Reference(vertGrids.Last().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeDownRight != null) d1.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = leftBot + vUp * (minUp - leftBot.DotProduct(vUp) + offset2Ft);
+                    XYZ pEnd2 = rightBot + vUp * (minUp - rightBot.DotProduct(vUp) + offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = 0; i < vertGrids.Count; i++) ref2.Append(new Reference(vertGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeDownRight != null) d2.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                // 3. 西側 (左側: 水平軸線，由頂至底建立使輔助線朝右指向建物)
+                if (horizGrids.Count >= 2)
+                {
+                    double minRight = horizGrids.Min(g => g.leftPt.DotProduct(vRight));
+                    XYZ topHoriz = horizGrids.First().leftPt;
+                    XYZ botHoriz = horizGrids.Last().leftPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = topHoriz + vRight * (minRight - topHoriz.DotProduct(vRight) + offset1Ft);
+                    XYZ pEnd1 = botHoriz + vRight * (minRight - botHoriz.DotProduct(vRight) + offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(horizGrids.First().grid));
+                    ref1.Append(new Reference(horizGrids.Last().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeDownRight != null) d1.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = topHoriz + vRight * (minRight - topHoriz.DotProduct(vRight) + offset2Ft);
+                    XYZ pEnd2 = botHoriz + vRight * (minRight - botHoriz.DotProduct(vRight) + offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = 0; i < horizGrids.Count; i++) ref2.Append(new Reference(horizGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeDownRight != null) d2.ChangeTypeId(typeDownRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                // 4. 東側 (右側: 水平軸線，由底至頂建立使輔助線朝左指向建物)
+                if (horizGrids.Count >= 2)
+                {
+                    double maxRight = horizGrids.Max(g => g.rightPt.DotProduct(vRight));
+                    XYZ botHoriz = horizGrids.Last().rightPt;
+                    XYZ topHoriz = horizGrids.First().rightPt;
+
+                    // Tier 1 (總跨度)
+                    XYZ pStart1 = botHoriz + vRight * (maxRight - botHoriz.DotProduct(vRight) - offset1Ft);
+                    XYZ pEnd1 = topHoriz + vRight * (maxRight - topHoriz.DotProduct(vRight) - offset1Ft);
+                    Line line1 = Line.CreateBound(pStart1, pEnd1);
+                    ReferenceArray ref1 = new ReferenceArray();
+                    ref1.Append(new Reference(horizGrids.Last().grid));
+                    ref1.Append(new Reference(horizGrids.First().grid));
+                    var d1 = doc.Create.NewDimension(view, line1, ref1);
+                    if (d1 != null) { if (typeUpRight != null) d1.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d1.Id.GetIdValue()); }
+
+                    // Tier 2 (柱間距)
+                    XYZ pStart2 = botHoriz + vRight * (maxRight - botHoriz.DotProduct(vRight) - offset2Ft);
+                    XYZ pEnd2 = topHoriz + vRight * (maxRight - topHoriz.DotProduct(vRight) - offset2Ft);
+                    Line line2 = Line.CreateBound(pStart2, pEnd2);
+                    ReferenceArray ref2 = new ReferenceArray();
+                    for (int i = horizGrids.Count - 1; i >= 0; i--) ref2.Append(new Reference(horizGrids[i].grid));
+                    var d2 = doc.Create.NewDimension(view, line2, ref2);
+                    if (d2 != null) { if (typeUpRight != null) d2.ChangeTypeId(typeUpRight.Id); createdDimIds.Add(d2.Id.GetIdValue()); }
+                }
+
+                trans.Commit();
+            }
+
+            return new
+            {
+                Success = true,
+                ViewId = viewId,
+                ViewName = view.Name,
+                CreatedDimensionsCount = createdDimIds.Count,
+                DimensionIds = createdDimIds,
+                VerticalGrids = vertGrids.Select(g => g.grid.Name).ToList(),
+                HorizontalGrids = horizGrids.Select(g => g.grid.Name).ToList()
+            };
+        }
+
+        /// <summary>
+        /// 全自動平面圖外牆/內牆中心線三層階梯標註（Layer 1 外牆總長 + Layer 2 居室主隔間牆心 + Layer 3 走廊/附屬空間細部牆心）。
+        /// 支援右側 (East)、左側 (West)、下側 (South)、上側 (North) 之四向鏡射等距階梯放樣與空間拓撲割線分析。
+        /// </summary>
+        private object AutoDimensionWallCenterlines(JObject parameters)
+        {
+            Document doc = _uiApp.ActiveUIDocument.Document;
+            IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
+            double stepMm = parameters["stepMm"]?.Value<double>() ?? 650.0;
+            string typeName = parameters["dimensionTypeName"]?.Value<string>() ?? "TABC-DIM_dot 牆心";
+            IdType typeId = parameters["dimensionTypeId"]?.Value<IdType>() ?? 0;
+
+            ViewPlan view = doc.GetElement(viewId.ToElementId()) as ViewPlan;
+            if (view == null)
+                throw new Exception($"找不到平面圖視圖 ID: {viewId}");
+
+            // 1. 取得實體外框極值 (Physical Envelope)
+            var (minX, maxX, minY, maxY) = GetPhysicalEnvelope(doc, view);
+            double stepFt = stepMm / 304.8;
+
+            // 2. 解析目標標註型式 (TABC-DIM_dot 牆心)
+            DimensionType targetDimType = null;
+            if (typeId != 0) targetDimType = doc.GetElement(typeId.ToElementId()) as DimensionType;
+            if (targetDimType == null)
+            {
+                targetDimType = new FilteredElementCollector(doc)
+                    .OfClass(typeof(DimensionType))
+                    .Cast<DimensionType>()
+                    .FirstOrDefault(dt => dt.Name.Equals(typeName, StringComparison.OrdinalIgnoreCase) || dt.Name.Contains("dot 牆心") || dt.Name.Contains("牆心"));
+            }
+
+            // 3. 收集視圖中所有直線牆體
+            var allWalls = new FilteredElementCollector(doc, view.Id)
+                .OfClass(typeof(Wall))
+                .Cast<Wall>()
+                .Where(w => w.Location is LocationCurve lc && lc.Curve is Line)
+                .Select(w =>
+                {
+                    Line line = (w.Location as LocationCurve).Curve as Line;
+                    XYZ p0 = line.GetEndPoint(0);
+                    XYZ p1 = line.GetEndPoint(1);
+                    double wMinX = Math.Min(p0.X, p1.X);
+                    double wMaxX = Math.Max(p0.X, p1.X);
+                    double wMinY = Math.Min(p0.Y, p1.Y);
+                    double wMaxY = Math.Max(p0.Y, p1.Y);
+                    bool isVert = Math.Abs(line.Direction.X) < 0.05;
+                    bool isHoriz = Math.Abs(line.Direction.Y) < 0.05;
+                    double center = isVert ? (p0.X + p1.X) / 2.0 : (p0.Y + p1.Y) / 2.0;
+                    return new { Wall = w, Line = line, MinX = wMinX, MaxX = wMaxX, MinY = wMinY, MaxY = wMaxY, IsVertical = isVert, IsHorizontal = isHoriz, Center = center };
+                })
+                .ToList();
+
+            var vertWalls = allWalls.Where(w => w.IsVertical).ToList();
+            var horizWalls = allWalls.Where(w => w.IsHorizontal).ToList();
+
+            // 解析要處理的側邊 (預設為 East, West, South)
+            var sidesParam = parameters["sides"] as JArray;
+            List<string> sides = new List<string>();
+            if (sidesParam != null && sidesParam.Count > 0)
+            {
+                sides = sidesParam.Select(s => s.Value<string>().ToLowerInvariant()).ToList();
+            }
+            else
+            {
+                string singleSide = parameters["side"]?.Value<string>()?.ToLowerInvariant() ?? "all";
+                if (singleSide == "all") sides = new List<string> { "east", "west", "south" };
+                else sides = new List<string> { singleSide };
+            }
+
+            var createdDims = new List<object>();
+
+            using (Transaction trans = TransactionHelper.Begin(doc, "建立牆心三層階梯標註"))
+            {
+                trans.Start();
+
+                foreach (var side in sides)
+                {
+                    if (side == "east" || side == "right")
+                    {
+                        // 東側 (測量東西向水平牆 Y 坐標，標註線為垂直線)
+                        // 放樣位置: Step 5, Step 4, Step 3 (鏡射至 maxX + N * stepFt)
+                        double dimX1 = maxX + 5 * stepFt;
+                        double dimX2 = maxX + 4 * stepFt;
+                        double dimX3 = maxX + 3 * stepFt;
+
+                        // Layer 1: 外牆總長 (最底與最頂水平外牆)
+                        var d1 = CreateDimForSlice(doc, view, horizWalls, isVerticalAxis: true, isAscending: true, dimCoord: dimX1, spanMin: minY, spanMax: maxY, sliceCoord: null, targetDimType);
+                        if (d1 != null) createdDims.Add(new { Side = "East", Layer = 1, Description = "外牆總長", DimensionId = d1.Id.GetIdValue(), ValueMm = d1.Value.HasValue ? Math.Round(d1.Value.Value * 304.8, 1) : 0 });
+
+                        // Layer 2: 第一層居室主隔間牆 (割線在東外牆內縮 3.0m)
+                        double sliceX1 = maxX - 3.0 * 3.28084;
+                        var d2 = CreateDimForSlice(doc, view, horizWalls, isVerticalAxis: true, isAscending: true, dimCoord: dimX2, spanMin: minY, spanMax: maxY, sliceCoord: sliceX1, targetDimType);
+                        if (d2 != null) createdDims.Add(new { Side = "East", Layer = 2, Description = "居室主隔間", DimensionId = d2.Id.GetIdValue(), Segments = d2.Segments?.Size ?? 1 });
+
+                        // Layer 3: 第二層走廊/附屬空間隔間牆 (割線在東外牆內縮 8.0m)
+                        double sliceX2 = maxX - 8.0 * 3.28084;
+                        var d3 = CreateDimForSlice(doc, view, horizWalls, isVerticalAxis: true, isAscending: true, dimCoord: dimX3, spanMin: minY, spanMax: maxY, sliceCoord: sliceX2, targetDimType);
+                        if (d3 != null) createdDims.Add(new { Side = "East", Layer = 3, Description = "走廊/附屬空間隔間", DimensionId = d3.Id.GetIdValue(), Segments = d3.Segments?.Size ?? 1 });
+                    }
+                    else if (side == "west" || side == "left")
+                    {
+                        // 西側 (測量東西向水平牆 Y 坐標，標註線為垂直線)
+                        // 放樣位置: Step 5, Step 4, Step 3 (鏡射至 minX - N * stepFt)
+                        double dimX1 = minX - 5 * stepFt;
+                        double dimX2 = minX - 4 * stepFt;
+                        double dimX3 = minX - 3 * stepFt;
+
+                        // Layer 1: 外牆總長 (最底與最頂水平外牆)
+                        var d1 = CreateDimForSlice(doc, view, horizWalls, isVerticalAxis: true, isAscending: true, dimCoord: dimX1, spanMin: minY, spanMax: maxY, sliceCoord: null, targetDimType);
+                        if (d1 != null) createdDims.Add(new { Side = "West", Layer = 1, Description = "外牆總長", DimensionId = d1.Id.GetIdValue(), ValueMm = d1.Value.HasValue ? Math.Round(d1.Value.Value * 304.8, 1) : 0 });
+
+                        // Layer 2: 第一層居室主隔間牆 (割線在西外牆內縮 3.0m)
+                        double sliceX1 = minX + 3.0 * 3.28084;
+                        var d2 = CreateDimForSlice(doc, view, horizWalls, isVerticalAxis: true, isAscending: true, dimCoord: dimX2, spanMin: minY, spanMax: maxY, sliceCoord: sliceX1, targetDimType);
+                        if (d2 != null) createdDims.Add(new { Side = "West", Layer = 2, Description = "居室主隔間", DimensionId = d2.Id.GetIdValue(), Segments = d2.Segments?.Size ?? 1 });
+
+                        // Layer 3: 第二層走廊/附屬空間隔間牆 (割線在西外牆內縮 7.5m)
+                        double sliceX2 = minX + 7.5 * 3.28084;
+                        var d3 = CreateDimForSlice(doc, view, horizWalls, isVerticalAxis: true, isAscending: true, dimCoord: dimX3, spanMin: minY, spanMax: maxY, sliceCoord: sliceX2, targetDimType);
+                        if (d3 != null) createdDims.Add(new { Side = "West", Layer = 3, Description = "走廊/附屬空間隔間", DimensionId = d3.Id.GetIdValue(), Segments = d3.Segments?.Size ?? 1 });
+                    }
+                    else if (side == "south" || side == "bottom")
+                    {
+                        // 南側 (測量南北向垂直牆 X 坐標，標註線為水平線)
+                        // 放樣位置: Step 5, Step 4, Step 3 (鏡射至 minY - N * stepFt)
+                        double dimY1 = minY - 5 * stepFt;
+                        double dimY2 = minY - 4 * stepFt;
+                        double dimY3 = minY - 3 * stepFt;
+
+                        // Layer 1: 外牆總長 (最左與最右垂直外牆)
+                        var d1 = CreateDimForSlice(doc, view, vertWalls, isVerticalAxis: false, isAscending: false, dimCoord: dimY1, spanMin: minX, spanMax: maxX, sliceCoord: null, targetDimType);
+                        if (d1 != null) createdDims.Add(new { Side = "South", Layer = 1, Description = "外牆總長", DimensionId = d1.Id.GetIdValue(), ValueMm = d1.Value.HasValue ? Math.Round(d1.Value.Value * 304.8, 1) : 0 });
+
+                        // Layer 2: 第一層居室/公共交誼廳主隔間牆 (割線在南外牆內縮 3.0m)
+                        double sliceY1 = minY + 3.0 * 3.28084;
+                        var d2 = CreateDimForSlice(doc, view, vertWalls, isVerticalAxis: false, isAscending: false, dimCoord: dimY2, spanMin: minX, spanMax: maxX, sliceCoord: sliceY1, targetDimType);
+                        if (d2 != null) createdDims.Add(new { Side = "South", Layer = 2, Description = "居室/交誼廳主隔間", DimensionId = d2.Id.GetIdValue(), Segments = d2.Segments?.Size ?? 1 });
+
+                        // Layer 3: 第二層走廊/機能隔間牆 (割線在南外牆內縮 7.5m)
+                        double sliceY2 = minY + 7.5 * 3.28084;
+                        var d3 = CreateDimForSlice(doc, view, vertWalls, isVerticalAxis: false, isAscending: false, dimCoord: dimY3, spanMin: minX, spanMax: maxX, sliceCoord: sliceY2, targetDimType);
+                        if (d3 != null) createdDims.Add(new { Side = "South", Layer = 3, Description = "走廊/附屬機能隔間", DimensionId = d3.Id.GetIdValue(), Segments = d3.Segments?.Size ?? 1 });
+                    }
+                }
+
+                trans.Commit();
+            }
+
+            return new
+            {
+                Success = true,
+                ViewId = viewId,
+                ViewName = view.Name,
+                CreatedDimensionsCount = createdDims.Count,
+                Dimensions = createdDims,
+                DimensionTypeName = targetDimType?.Name
+            };
+        }
+
+        private Dimension CreateDimForSlice<T>(
+            Document doc, ViewPlan view, List<T> wallItems,
+            bool isVerticalAxis, bool isAscending, double dimCoord,
+            double spanMin, double spanMax, double? sliceCoord,
+            DimensionType targetDimType) where T : class
+        {
+            // 動態反射萃取 Wall, Line, Center, Min, Max
+            var items = new List<(Wall wall, double center)>();
+            const double tol = 0.082; // 25mm 聚類公差
+
+            foreach (var item in wallItems)
+            {
+                dynamic dyn = item;
+                Wall w = dyn.Wall;
+                double c = dyn.Center;
+                double minC = isVerticalAxis ? dyn.MinX : dyn.MinY;
+                double maxC = isVerticalAxis ? dyn.MaxX : dyn.MaxY;
+
+                if (sliceCoord.HasValue)
+                {
+                    if (sliceCoord.Value >= minC - tol && sliceCoord.Value <= maxC + tol)
+                    {
+                        items.Add((w, c));
+                    }
+                }
+                else
+                {
+                    items.Add((w, c));
+                }
+            }
+
+            if (items.Count == 0) return null;
+
+            // 聚類去重 (以中心線座標排序)
+            var sorted = items.OrderBy(x => x.center).ToList();
+            var uniqueWalls = new List<(Wall wall, double center)>();
+            foreach (var (w, c) in sorted)
+            {
+                if (uniqueWalls.Count == 0 || Math.Abs(uniqueWalls.Last().center - c) > tol)
+                {
+                    uniqueWalls.Add((w, c));
+                }
+            }
+
+            // 若為 Layer 1 (sliceCoord == null)，只取極值兩端
+            if (!sliceCoord.HasValue)
+            {
+                if (uniqueWalls.Count < 2) return null;
+                uniqueWalls = new List<(Wall wall, double center)> { uniqueWalls.First(), uniqueWalls.Last() };
+            }
+
+            if (uniqueWalls.Count < 2) return null;
+
+            // 根據方向排序 (isAscending: 由小到大；!isAscending: 由大到小)
+            if (!isAscending)
+            {
+                uniqueWalls.Reverse();
+            }
+
+            ReferenceArray refArray = new ReferenceArray();
+            foreach (var (w, _) in uniqueWalls)
+            {
+                refArray.Append(new Reference(w));
+            }
+
+            Line dimLine = null;
+            if (isVerticalAxis)
+            {
+                // 標註線沿 Y 軸 (垂直)
+                XYZ pStart = new XYZ(dimCoord, spanMin, 0);
+                XYZ pEnd = new XYZ(dimCoord, spanMax, 0);
+                dimLine = Line.CreateBound(pStart, pEnd);
+            }
+            else
+            {
+                // 標註線沿 X 軸 (水平)
+                XYZ pStart = new XYZ(spanMax, dimCoord, 0);
+                XYZ pEnd = new XYZ(spanMin, dimCoord, 0);
+                dimLine = Line.CreateBound(pStart, pEnd);
+            }
+
+            Dimension dim = null;
+            try
+            {
+                dim = doc.Create.NewDimension(view, dimLine, refArray);
+                if (dim != null && targetDimType != null)
+                {
+                    dim.ChangeTypeId(targetDimType.Id);
+                }
+            }
+            catch { }
+
+            return dim;
+        }
+
         #endregion
     }
 }

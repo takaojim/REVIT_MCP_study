@@ -1,10 +1,12 @@
-# Build outputs
+node_modules/
 MCP/MCP/bin/
 MCP/MCP/obj/
 MCP-Server/build/
 MCP-Server/node_modules/
 MCP.Contracts/
 MCP.CoreRuntime/
+scripts/scratch/
+REVIT_MCP_study/
 
 # Secrets / credentials — NEVER commit tokens or API keys
 .env
