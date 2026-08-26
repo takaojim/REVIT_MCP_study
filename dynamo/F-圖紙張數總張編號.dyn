@@ -1,0 +1,2685 @@
+{
+  "Uuid": "81366c09-7836-4463-bc29-8da6a0d54b29",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "F-圖紙張數總張編號",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "List.OfRepeatedItem": {
+        "Key": "List",
+        "Value": "BuiltIn.ds"
+      },
+      "List": {
+        "Key": "List",
+        "Value": "BuiltIn.ds"
+      },
+      "List.__Create": {
+        "Key": "List",
+        "Value": "BuiltIn.ds"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "c89126f0f53548be83c8309c95735ad7",
+      "Name": "要編號的欄位",
+      "Type": "string",
+      "Value": "張號",
+      "Description": "建立一個字串。",
+      "SelectedIndex": 0
+    },
+    {
+      "Id": "993c60bb02fe44fa99dd7e811a00f352",
+      "Name": "想要排序的品類--(範圍)",
+      "Type": "dropdownSelection",
+      "Value": "OST_Sheets",
+      "Description": "所有內建品類。",
+      "SelectedIndex": 492
+    },
+    {
+      "Id": "875c1484261a4d4e885eacce6e48335f",
+      "Name": "說明",
+      "Type": "string",
+      "Value": "通常圖號排序，\r\n然後在編號欄排序由1~N\r\n**若沒產生多執行一次\r\n張號後面緊接總張欄位",
+      "Description": "建立一個字串。",
+      "SelectedIndex": 0
+    },
+    {
+      "Id": "37d59d091f3f4a24ae69d2449904f93d",
+      "Name": "要編號的欄位",
+      "Type": "string",
+      "Value": "[\"張號\",\"總張\"]",
+      "Description": "建立一個字串。",
+      "SelectedIndex": 0
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "DSRevitNodesUI.Categories, DSRevitNodesUI",
+      "SelectedIndex": 492,
+      "SelectedString": "OST_Sheets",
+      "NodeType": "ExtensionNode",
+      "Id": "487b5144245e4d2282d20d3df8f5c330",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d07b355446fa48cd9fc7f41a568889dc",
+          "Name": "Category",
+          "Description": "選取的品類。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有內建品類。"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.ElementsOfCategory, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "Id": "5047c6cf16ef4a2f9b17cae8fa516138",
+      "Inputs": [
+        {
+          "Id": "99fdd987bfda466cbc2cb96dcaf0f6e3",
+          "Name": "Category",
+          "Description": "品類",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "0ba5a01cd4d1423bbbf73679aa5a6fd1",
+          "Name": "Elements",
+          "Description": "元素類型。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從模型中取得所指定之品類的所有元素。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Revit.LinkElement.GetParameterValueByName@Revit.LinkElement,string",
+      "Id": "cec56d0ec68f471a83942daee945a6b0",
+      "Inputs": [
+        {
+          "Id": "283ce45d80054a44b8019604fc07de06",
+          "Name": "linkElement",
+          "Description": "The link linkedElement to query.\n\nLinkElement",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "5857933ad2534a1084c6e1c986acf859",
+          "Name": "parameterName",
+          "Description": "The name of the parameter to obtain.\n\nstring",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "79078f8b63a04a71901adde24d7bc00a",
+          "Name": "var[]..[]",
+          "Description": "var[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Get the value of one of the LinkElement's parameters. Use BimorphNodes LinkElement.OfCategory or LinkElement.ByRayBounce node to collect the LinkElement's. \r\rVisit bimorph.com/bimorph-nodes for support\n\nLinkElement.GetParameterValueByName (linkElement: LinkElement, parameterName: string): var[]..[]"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "張號",
+      "Id": "c89126f0f53548be83c8309c95735ad7",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6e1264a7e51344308974b98458b18ef9",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Revit.Elements.Element.Parameters",
+      "Id": "30de45d3d47f473cab536df7f8a96afb",
+      "Inputs": [
+        {
+          "Id": "785242c212c0457ea33291840222281c",
+          "Name": "element",
+          "Description": "Revit.Elements.Element",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "04e18a841dbd41ccad8cdd2558deb7ae",
+          "Name": "Parameter[]",
+          "Description": "Parameter[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "取得元素中的所有參數，依名稱排序。\n\nElement.Parameters: Parameter[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "archilab.Revit.Selection.Select.ByCategoryAndView@Revit.Elements.Category,Revit.Elements.Views.View",
+      "Id": "da0a857c830c42c2bba9219a956b9a61",
+      "Inputs": [
+        {
+          "Id": "92e19d023a424b698672230464bf2bfd",
+          "Name": "category",
+          "Description": "Category to filter for.\n\nCategory",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a87905c5099e4b92b34cfd1a6795ac28",
+          "Name": "view",
+          "Description": "View to filter for.\n\nView",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "200fb1fe9c9a48abaf57d86d3b9b9503",
+          "Name": "Element",
+          "Description": "Element.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Select Elements by Category and View.\n\nSelect.ByCategoryAndView (category: Category, view: View): Element[]"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Categories, DSRevitNodesUI",
+      "SelectedIndex": 492,
+      "SelectedString": "OST_Sheets",
+      "NodeType": "ExtensionNode",
+      "Id": "993c60bb02fe44fa99dd7e811a00f352",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "7e013fa9c7d04189a1da567eca7ad175",
+          "Name": "Category",
+          "Description": "選取的品類。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有內建品類。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Function, DynamoCore",
+      "FunctionSignature": "e5c5958c-016e-4efc-bb16-b3734d00a855",
+      "FunctionType": "Graph",
+      "NodeType": "FunctionNode",
+      "Id": "48bfdad781b94f6baf030b10e3d4fe3b",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "9ed1e5dc188d48489a9aec40b4b1d742",
+          "Name": "View",
+          "Description": "傳回值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Gets the active view of the current document"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Revit.Schedule.GetDataColumns@Revit.Elements.Element,int[],bool,bool",
+      "Id": "f63bcc7b46734d85ae0eca141c611415",
+      "Inputs": [
+        {
+          "Id": "b9ad5d3a7124435a811468201363bab0",
+          "Name": "scheduleView",
+          "Description": "Input the Revit schedule view.\n\nElement",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f9724d62422949f78cd5e58a34ba5663",
+          "Name": "columnIndexes",
+          "Description": "Input the index or indexes of the required columns. Indexes start from 0.\n\nint[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6f3540ef89a343a3bbc9ff484c702dc2",
+          "Name": "removeHeading",
+          "Description": "Set to True to remove the headings from the schedule data. Has no effect on Electric Panel Schedules or if schedule headings are not visible.\n\nbool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ed98f2f53b5b496da3a4b04313f048a3",
+          "Name": "refresh",
+          "Description": "Input a bool and switch states to refresh the data or set Dynamo to periodic updating.\n\nbool\n預設值 : true",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "291e7663ec06441b874be077e3f378df",
+          "Name": "string[][]",
+          "Description": "String[][]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Gets all the table data from a given schedule as strings. Column indexes start at 0. Supports Periodic updating.\r\rVisit bimorph.com/bimorph-nodes for support\n\nSchedule.GetDataColumns (scheduleView: Element, columnIndexes: int[], removeHeading: bool = false, refresh: bool = true): string[][]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Revit.Schedule.GetData@Revit.Elements.Element,bool,bool",
+      "Id": "d05126c7424e47e99aaa32243e1faccf",
+      "Inputs": [
+        {
+          "Id": "fc06ca27b7cd45e08364ad42807eb24b",
+          "Name": "scheduleView",
+          "Description": "Input the Revit schedule view.\n\nElement",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "09184a11722c49a294451ae198167777",
+          "Name": "removeHeading",
+          "Description": "Set to True to remove the headings from the schedule data. Has no effect on Electric Panel Schedules or if schedule headings are not visible.\n\nbool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "0c8b271daf20447c9be451e5d2b1dc58",
+          "Name": "refresh",
+          "Description": "y Input a bool and switch states to refresh the data or set Dynamo to periodic updating.\n\nbool\n預設值 : true",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ff5413acbcd44226932d2cff5b38d23d",
+          "Name": "string[][]",
+          "Description": "String[][]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Gets all the table data from a given Schedule or Electric Panel Schedule as strings. Supports Periodic updating.\r\rVisit bimorph.com/bimorph-nodes for support\n\nSchedule.GetData (scheduleView: Element, removeHeading: bool = false, refresh: bool = true): string[][]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.TakeItems@var[]..[],int",
+      "Id": "2c01a3b4cd154da4b016355d27ea2cc4",
+      "Inputs": [
+        {
+          "Id": "6cfc189db77d42f3984b4d3513a90e3f",
+          "Name": "list",
+          "Description": "要從中取得的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "02b0d8c2490c4192863e1c9589c5bbed",
+          "Name": "amount",
+          "Description": "要取得的項目數量。 若為負值，則從清單結尾取得項目。\n\nint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6dd783e16d7b487b94d0c623f342e9a3",
+          "Name": "list",
+          "Description": "萃取的項目清單。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "從清單開頭擷取項目數量。\n\nList.TakeItems (list: var[]..[], amount: int): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "1;",
+      "Id": "d839c09977714672bb2b839e34f6fb53",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8aa204d1734949da94d6c45f2e0d933a",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Flatten@var[]..[],int",
+      "Id": "9cad1052dd8f469f9a0ae67f6fae83c7",
+      "Inputs": [
+        {
+          "Id": "f0eadcf7876f43a88b49671985edde7f",
+          "Name": "list",
+          "Description": "要展開的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "367fd0c1749c457f828357cb2deb956a",
+          "Name": "amount",
+          "Description": "要移除的清單巢狀層數 (-1 將移除所有清單巢狀)\n\nint\n預設值 : -1",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "4540e64beafa47e48336aa55d8005489",
+          "Name": "list",
+          "Description": "依數量展開清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "依特定數量展開清單的巢狀清單。\n\nList.Flatten (list: var[]..[], amount: int = -1): var[]..[]"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "NodeType": "PythonScriptNode",
+      "Code": "# 載入 Python 標準資源庫和 DesignScript 資源庫\r\nimport sys\r\nimport clr\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\n# 此節點的輸入將在 IN 變數中儲存為一個清單。\r\ndataEnteringNode = IN\r\n\r\n# 在此行下方放入您的程式碼\r\nA=IN[0]\r\nB=IN[1]\r\nC=0\r\nfor i in A:\r\n\tif (i == B):\r\n\t\tK=C\r\n\telse:\r\n\t\tC+=1\t\r\n\t \t\r\n\r\n\r\n\r\n# 指定輸出至 OUT 變數。\r\nOUT =  K",
+      "Engine": "IronPython2",
+      "VariableInputPorts": true,
+      "Id": "c27ace8f8b9d4d1e9b8f61f43afee835",
+      "Inputs": [
+        {
+          "Id": "72333fef5817474e8336857a68029c44",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "12c16b89b9264da49cecbaeb82d59bac",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "25211a55d17447d5a4528dc265f01a34",
+          "Name": "OUT",
+          "Description": "Python 腳本的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 腳本。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "NodeType": "BooleanInputNode",
+      "InputValue": true,
+      "Id": "a6bb52b5b2c34dba8f910b61c0382062",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "af29d1948e96443a83df2ea321299ea8",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "在 True 與 False 之間選取。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.FilterByBoolMask@var[]..[],var[]..[]",
+      "Id": "3f67549d681e42a2a3d351f8254b7673",
+      "Inputs": [
+        {
+          "Id": "2ef64961e5b54f3b9f8f331fc9e951a7",
+          "Name": "list",
+          "Description": "要篩選的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "130e708f7f6140fbb9f7519add31fe2f",
+          "Name": "mask",
+          "Description": "表示遮罩的布林清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "514708d8f51743559b1847ddc6a14550",
+          "Name": "in",
+          "Description": "遮罩索引為 True 的項目。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "badc76da4b6f491e8cec58e55f94f268",
+          "Name": "out",
+          "Description": "遮罩索引為 False 的項目。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "查看個別布林清單中的對應索引來篩選順序。\n\nList.FilterByBoolMask (list: var[]..[], mask: var[]..[]): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.String.Length@string",
+      "Id": "6b19e34bf77f44a8bc3c0862b7a696cd",
+      "Inputs": [
+        {
+          "Id": "90ade600bf184c4c8b0ef1d9c640d9af",
+          "Name": "string",
+          "Description": "要找出其長度的字串\n\nstring",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d2862a5ce5b043d6870bb81acaccbc10",
+          "Name": "int",
+          "Description": "字串中的字元數",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "傳回給定字串中包含的字元數。\n\nString.Length (string: string): int"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": ">@var[]..[],var[]..[]",
+      "Id": "516ea21f37ff44768288e422453f059c",
+      "Inputs": [
+        {
+          "Id": "7d2aec3a20cd47e2a3b08305d5ec0a20",
+          "Name": "x",
+          "Description": "整數或倍精度值\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e40d1a92949c4a86b33dd67530da89d8",
+          "Name": "y",
+          "Description": "整數或倍精度值\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "59411af2b71d4d0c8a98af9bb3ba34c4",
+          "Name": "bool",
+          "Description": "如果 x 大於 y 則為 true，如果不是則為 false",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "比較 x 是否大於 y\n\n> (x: var[]..[], y: var[]..[]): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "0;",
+      "Id": "8b799df794554ccab4d66059059900a4",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "67e8b217a5b64eaea4845e7ae91101f7",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "9168c63e90684184b71a90905018c4e2",
+      "Inputs": [
+        {
+          "Id": "50a5b76bf5d347c79991c90b2ce42273",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "665580895fb148fdbf85452a2470bbd4",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.CreateList, CoreNodeModels",
+      "VariableInputPorts": true,
+      "NodeType": "ExtensionNode",
+      "Id": "9b56e041f8d24ca68eec38e73329e393",
+      "Inputs": [
+        {
+          "Id": "d683428c9ad14866979f6857aed2215f",
+          "Name": "item0",
+          "Description": "項目索引 #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ac8810d7364c4f9db8d499f084e16c6b",
+          "Name": "item1",
+          "Description": "項目索引 #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "1068828c2d864ca390bc9584918a8392",
+          "Name": "list",
+          "Description": "清單 (類型: var[]..[])",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從給定的輸入製作新清單"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Transpose@var[]..[]",
+      "Id": "c238e38a4374456b8619358171565676",
+      "Inputs": [
+        {
+          "Id": "aa75fb1d62c04b1398dfdbeae1efee46",
+          "Name": "lists",
+          "Description": "要轉置的清單的清單\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "72352c9540c142bdb545a6842389b7f1",
+          "Name": "lists",
+          "Description": "已轉置清單的清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "置換清單的清單中的「列和欄」。 如果有某些列短於其他列， 空值會作為預留位置在結果 陣列中插入，以便其永遠為矩形。\n\nList.Transpose (lists: var[]..[]): var[]..[]"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.CreateList, CoreNodeModels",
+      "VariableInputPorts": true,
+      "NodeType": "ExtensionNode",
+      "Id": "649250f14fe945729803640c145f45b2",
+      "Inputs": [
+        {
+          "Id": "08adf2a7fdb74dfab1be45ea6054b7d3",
+          "Name": "item0",
+          "Description": "項目索引 #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "232e2e8f33504a1d828e890118e4284f",
+          "Name": "item1",
+          "Description": "項目索引 #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "49b4858408074bdc80873904b7769c07",
+          "Name": "list",
+          "Description": "清單 (類型: var[]..[])",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從給定的輸入製作新清單"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Count@var[]..[]",
+      "Id": "93a2a2fac8ef4d6791a5f10c3d91a922",
+      "Inputs": [
+        {
+          "Id": "fb85f55e069243328660fb073cf142fc",
+          "Name": "list",
+          "Description": "要取得項目計數的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "b26344c0f3724a2d9985b113c3fcb086",
+          "Name": "int",
+          "Description": "清單長度。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "傳回給定清單中儲存的項目數目。\n\nList.Count (list: var[]..[]): int"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "1..#A..1;",
+      "Id": "824313e74310478184e7eecbaa5b04a7",
+      "Inputs": [
+        {
+          "Id": "bbdc37981ab444a1b4a72cc1b1106a85",
+          "Name": "A",
+          "Description": "A",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "028bf46bea564817bf3f1840870b2154",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Flatten@var[]..[],int",
+      "Id": "4adf4e643e0043f9bb995d5b794e0a65",
+      "Inputs": [
+        {
+          "Id": "ffc8f74a334d420981df5b99f865e747",
+          "Name": "list",
+          "Description": "要展開的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8dd77aabacf14efdb16514e49a15de64",
+          "Name": "amount",
+          "Description": "要移除的清單巢狀層數 (-1 將移除所有清單巢狀)\n\nint\n預設值 : -1",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "fe018e5062e64b82af04411adcbf7e8f",
+          "Name": "list",
+          "Description": "依數量展開清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "依特定數量展開清單的巢狀清單。\n\nList.Flatten (list: var[]..[], amount: int = -1): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Transpose@var[]..[]",
+      "Id": "cd961bea97194d62bc61e18eda16dcc6",
+      "Inputs": [
+        {
+          "Id": "e1a85dc79f8c414f8a7f6fc5f9b0e1d5",
+          "Name": "lists",
+          "Description": "要轉置的清單的清單\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "77f462a5b8af47daa4f0738c577675a5",
+          "Name": "lists",
+          "Description": "已轉置清單的清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "置換清單的清單中的「列和欄」。 如果有某些列短於其他列， 空值會作為預留位置在結果 陣列中插入，以便其永遠為矩形。\n\nList.Transpose (lists: var[]..[]): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Function, DynamoCore",
+      "FunctionSignature": "c7b1d8ca-bc1f-4755-9632-bcaaad615794",
+      "FunctionType": "Graph",
+      "NodeType": "FunctionNode",
+      "Id": "89f582302b284753b8b2019383e36935",
+      "Inputs": [
+        {
+          "Id": "a358faac2b8547bca0d179772e6bc02a",
+          "Name": "seq",
+          "Description": "var[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "4e34b6b053e9488e80965ec38b65859a",
+          "Name": "sortIndex",
+          "Description": "int\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2c280cc42cdc41079e456ac1aece3986",
+          "Name": "caseInsensitive",
+          "Description": "bool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8d5c606b1e10460aa4b86467c7d4e776",
+          "Name": "orderDescending",
+          "Description": "bool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "30f0a6dc00954fc29c2ca4cc1a474bd1",
+          "Name": "seq",
+          "Description": "傳回值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Sorts a list of lists by one of its sublists"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "1;\nfalse;\nfalse;",
+      "Id": "1b64918778924059857cad69e8cb0d9c",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "968883d424804cacbefc18fcd9ff2516",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ad8df9ce58504e419a66a0022f987441",
+          "Name": "",
+          "Description": "表示式在第 2 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f5dc9be5fd774461b0221f133930d897",
+          "Name": "",
+          "Description": "表示式在第 3 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.String.ToNumber@string",
+      "Id": "4f150cee75ec440b9b986cdb17c14a47",
+      "Inputs": [
+        {
+          "Id": "5f55b3bb3111478b83767e12ed457035",
+          "Name": "string",
+          "Description": "要轉換的字串\n\nstring",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "173f02952e4848eaaefd218be3362807",
+          "Name": "number",
+          "Description": "整數或倍精度類型數值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "將字串轉換為整數或倍精數。\n\nString.ToNumber (string: string): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Function, DynamoCore",
+      "FunctionSignature": "c7b1d8ca-bc1f-4755-9632-bcaaad615794",
+      "FunctionType": "Graph",
+      "NodeType": "FunctionNode",
+      "Id": "aa62f7ea76444aa59129e2d873503bb5",
+      "Inputs": [
+        {
+          "Id": "1be8c18adce545879873c02cb1f1096b",
+          "Name": "seq",
+          "Description": "var[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2f2941787d254fd5931a8fa05b0cff65",
+          "Name": "sortIndex",
+          "Description": "int\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 1,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "777db4df1c114ee982383da869e86a42",
+          "Name": "caseInsensitive",
+          "Description": "bool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "506b8720b57744e1a38d609e56d2f9de",
+          "Name": "orderDescending",
+          "Description": "bool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "50f35ccefa4e4cbb9d0e16b5f5d2f7b0",
+          "Name": "seq",
+          "Description": "傳回值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Sorts a list of lists by one of its sublists"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "0;\nfalse;\nfalse;",
+      "Id": "c283c33674d34a1e913617f75f57438b",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "5f41e90f2df9486ca954d0efd52d4398",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fd065c9674a942999fcbf2935d8ed0cd",
+          "Name": "",
+          "Description": "表示式在第 2 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "48aa5bd01b3846f3a84eceb6304b2d9a",
+          "Name": "",
+          "Description": "表示式在第 3 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.String.ToNumber@string",
+      "Id": "8caa9144e41440e59fffa45dc34be72f",
+      "Inputs": [
+        {
+          "Id": "a24ce7dfcbe14b359384aa2dfdafcd21",
+          "Name": "string",
+          "Description": "要轉換的字串\n\nstring",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6c8f4f2683934c5abed5397db209e3aa",
+          "Name": "number",
+          "Description": "整數或倍精度類型數值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "將字串轉換為整數或倍精數。\n\nString.ToNumber (string: string): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Revit.Elements.Element.SetParameterByName@string,var",
+      "Id": "8a833175d8554ef498131310d271652a",
+      "Inputs": [
+        {
+          "Id": "436df64eaf8141ebbc233ebb325d3872",
+          "Name": "element",
+          "Description": "Revit.Elements.Element",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6ce2d8c539cd44f3a45dff9dda95741d",
+          "Name": "parameterName",
+          "Description": "要設定的參數名稱。\n\nstring",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "24bf6858dfef4b3ea366406e034ed647",
+          "Name": "value",
+          "Description": "值。\n\nvar",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "60da9ff8574643a4ab01a566a94f1a23",
+          "Name": "Element",
+          "Description": "Element",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "設定其中一個元素參數。\n\nElement.SetParameterByName (parameterName: string, value: var): Element"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "1;",
+      "Id": "0783b1eb955f4c26b2d6d45b13de60f4",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "39f294f3e21640359a61c51d04b6ffd8",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.TakeItems@var[]..[],int",
+      "Id": "03a2c84fa628478784027ce30fe1a7f5",
+      "Inputs": [
+        {
+          "Id": "bbc5ced999534330be0cdb87af4cb492",
+          "Name": "list",
+          "Description": "要從中取得的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "06e85e84dba944d1ac9e0bebb00aba74",
+          "Name": "amount",
+          "Description": "要取得的項目數量。 若為負值，則從清單結尾取得項目。\n\nint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "1cdaf7a422b34ef19d99cced9d8a19ee",
+          "Name": "list",
+          "Description": "萃取的項目清單。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "從清單開頭擷取項目數量。\n\nList.TakeItems (list: var[]..[], amount: int): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "1;",
+      "Id": "46322a87eada47a59a6b9b5940f59fa3",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f5e83057929f4c09adbce81db3cb6ab1",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.GetItemAtIndex@var[]..[],int",
+      "Id": "dd252326fc8a4b2a980a82dff25b8ea9",
+      "Inputs": [
+        {
+          "Id": "2c5f426f0e734675b332fcb671d90522",
+          "Name": "list",
+          "Description": "要從中擷取項目的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a31765eb40c34382935ea361fdad126d",
+          "Name": "index",
+          "Description": "要擷取的項目索引。\n\nint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "f74b3d3cde934e51a2b5c147aad8d4ba",
+          "Name": "item",
+          "Description": "清單中位於給定索引的項目。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "從位於指定索引的給定清單傳回項目。\n\nList.GetItemAtIndex (list: var[]..[], index: int): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Flatten@var[]..[],int",
+      "Id": "520d8c744fa14045b567abf6cecb567d",
+      "Inputs": [
+        {
+          "Id": "face4d27fdaf4a48a4c9fbbd0e397de4",
+          "Name": "list",
+          "Description": "要展開的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "da3bf68e97dd4cd0a87511e1de9a76c7",
+          "Name": "amount",
+          "Description": "要移除的清單巢狀層數 (-1 將移除所有清單巢狀)\n\nint\n預設值 : -1",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "320dc399257b49ada87d5cb7ff55a784",
+          "Name": "list",
+          "Description": "依數量展開清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "依特定數量展開清單的巢狀清單。\n\nList.Flatten (list: var[]..[], amount: int = -1): var[]..[]"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.FromObject, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "e33447c593c647bfb8366584aead2b3a",
+      "Inputs": [
+        {
+          "Id": "1fbfa9836a914980b75dd2a8c02e9cc0",
+          "Name": "object",
+          "Description": "要序列化的物件",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5e3451db56ac48ba8aad25f3f25b873b",
+          "Name": "string",
+          "Description": "物件的字串表現法",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "將物件轉換為字串表現法。"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 36,
+      "SelectedString": "A2-01-07各層面積計入檢討",
+      "NodeType": "ExtensionNode",
+      "Id": "a9ea424136d340a9bbc0d7731be92c49",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "04b5839f1bbd4cacaf513060e2e232a1",
+          "Name": "Views",
+          "Description": "選取的 Views",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在目前文件中取得的視圖。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "通常圖號排序，\r\n然後在編號欄排序由1~N\r\n**若沒產生多執行一次\r\n張號後面緊接總張欄位",
+      "Id": "875c1484261a4d4e885eacce6e48335f",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "caeac40fb2144fecaaf422067d163839",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "NodeType": "StringInputNode",
+      "InputValue": "[\"張號\",\"總張\"]",
+      "Id": "37d59d091f3f4a24ae69d2449904f93d",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "eb3f127855954b839ae48e4e75992bac",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "9f5f603a7a5247cbad38839fc71960a1",
+      "Inputs": [
+        {
+          "Id": "fca3248b046e479b9f83ca185876f822",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "47c6254ca42b4a40ace67fc48036e754",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Count@var[]..[]",
+      "Id": "000dd7d362754f1eb080064b318a4132",
+      "Inputs": [
+        {
+          "Id": "9910723a5a394a5299fa7c6e4cab537f",
+          "Name": "list",
+          "Description": "要取得項目計數的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "189f7ac5f3fd425080c9912552c1c086",
+          "Name": "int",
+          "Description": "清單長度。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "傳回給定清單中儲存的項目數目。\n\nList.Count (list: var[]..[]): int"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.FromObject, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "c4c9ff46c13a41f2a48bee8a2e45d403",
+      "Inputs": [
+        {
+          "Id": "6d70d868c7514e9eb2b045ff891fea4e",
+          "Name": "object",
+          "Description": "要序列化的物件",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "48409eb0f266452b9e6d5a22ee63ec9e",
+          "Name": "string",
+          "Description": "物件的字串表現法",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "將物件轉換為字串表現法。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.OfRepeatedItem@var[]..[],int",
+      "Id": "b63898ec579a4091b76f08d6c8824957",
+      "Inputs": [
+        {
+          "Id": "3b38e0aab0b84172b866539c43279215",
+          "Name": "item",
+          "Description": "要重複的項目。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "748367d402874f808c3fc166ecdd9d66",
+          "Name": "amount",
+          "Description": "要重複的項目數。\n\nint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "bdb829573007436ba81214c13c8d595c",
+          "Name": "list",
+          "Description": "已重複項目的清單。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "建立一個清單，其中包含給定的項目和給定的項目數。\n\nList.OfRepeatedItem (item: var[]..[], amount: int): var[]..[]"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.CreateList, CoreNodeModels",
+      "VariableInputPorts": true,
+      "NodeType": "ExtensionNode",
+      "Id": "a60d19bee8a14453b5b9dc4581689c75",
+      "Inputs": [
+        {
+          "Id": "6a87805fc42849b39b177da7dbf435e8",
+          "Name": "item0",
+          "Description": "項目索引 #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "3a077c3c15524209bfe01e5afb3a5ce4",
+          "Name": "item1",
+          "Description": "項目索引 #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "f4badf91809049ba84766f7181849ce3",
+          "Name": "list",
+          "Description": "清單 (類型: var[]..[])",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從給定的輸入製作新清單"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "[\"張號\",\"總張\"];",
+      "Id": "d2206e6ba8b34f2b889f0383a3484dd0",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "53fa342248a747ff856e5958a81e9b6c",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Transpose@var[]..[]",
+      "Id": "5dfb94ac2b194865a93188bfcd7cdd1a",
+      "Inputs": [
+        {
+          "Id": "430e616e331340eaa0eacb0fc395785a",
+          "Name": "lists",
+          "Description": "要轉置的清單的清單\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6cac05e0888f4a5baaaf81251268c29b",
+          "Name": "lists",
+          "Description": "已轉置清單的清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "置換清單的清單中的「列和欄」。 如果有某些列短於其他列， 空值會作為預留位置在結果 陣列中插入，以便其永遠為矩形。\n\nList.Transpose (lists: var[]..[]): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Cycle@var[]..[],int",
+      "Id": "88e734e21b03403ca140e4fea2133796",
+      "Inputs": [
+        {
+          "Id": "cb826aa2ea2d49c4a117f33d61f0db45",
+          "Name": "list",
+          "Description": "要重複的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 1,
+          "UseLevels": true,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "550ecc2e41e74f78ae0eade81696b8f0",
+          "Name": "amount",
+          "Description": "要重複的項目數。\n\nint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6e530b1f60004771a6e607283546c2ea",
+          "Name": "list",
+          "Description": "重複清單的清單，類型: var[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "連接給定清單的複本來建立新清單。\n\nList.Cycle (list: var[]..[], amount: int): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Transpose@var[]..[]",
+      "Id": "5205aa5c575742d1bbaefc9803b533fd",
+      "Inputs": [
+        {
+          "Id": "bbfdc6740f8a4ea5b79a9e606b016806",
+          "Name": "lists",
+          "Description": "要轉置的清單的清單\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "a449b4e97a9248019e9d36841886d165",
+          "Name": "lists",
+          "Description": "已轉置清單的清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "置換清單的清單中的「列和欄」。 如果有某些列短於其他列， 空值會作為預留位置在結果 陣列中插入，以便其永遠為矩形。\n\nList.Transpose (lists: var[]..[]): var[]..[]"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "d07b355446fa48cd9fc7f41a568889dc",
+      "End": "99fdd987bfda466cbc2cb96dcaf0f6e3",
+      "Id": "31a62eedab81410989b469cd348fd533"
+    },
+    {
+      "Start": "79078f8b63a04a71901adde24d7bc00a",
+      "End": "5f55b3bb3111478b83767e12ed457035",
+      "Id": "ce4dd3a94c154ec8956a2d6e6c39dd01"
+    },
+    {
+      "Start": "6e1264a7e51344308974b98458b18ef9",
+      "End": "5857933ad2534a1084c6e1c986acf859",
+      "Id": "337f8dcb526b42fb8929051044ec3260"
+    },
+    {
+      "Start": "6e1264a7e51344308974b98458b18ef9",
+      "End": "12c16b89b9264da49cecbaeb82d59bac",
+      "Id": "914865bf80024082946134f2d19629c3"
+    },
+    {
+      "Start": "200fb1fe9c9a48abaf57d86d3b9b9503",
+      "End": "785242c212c0457ea33291840222281c",
+      "Id": "2c1f39b1aeb34cf293f83f58bf15d091"
+    },
+    {
+      "Start": "200fb1fe9c9a48abaf57d86d3b9b9503",
+      "End": "283ce45d80054a44b8019604fc07de06",
+      "Id": "580b41eacad247e39fc0cc84ca52eef6"
+    },
+    {
+      "Start": "200fb1fe9c9a48abaf57d86d3b9b9503",
+      "End": "d683428c9ad14866979f6857aed2215f",
+      "Id": "164d5f70d4e040da81ef54e5d794368d"
+    },
+    {
+      "Start": "7e013fa9c7d04189a1da567eca7ad175",
+      "End": "92e19d023a424b698672230464bf2bfd",
+      "Id": "dcf1defb1be342a6b9de06b598629734"
+    },
+    {
+      "Start": "9ed1e5dc188d48489a9aec40b4b1d742",
+      "End": "fc06ca27b7cd45e08364ad42807eb24b",
+      "Id": "9b4cd0a617a046d88488de9cf7f1a84e"
+    },
+    {
+      "Start": "9ed1e5dc188d48489a9aec40b4b1d742",
+      "End": "b9ad5d3a7124435a811468201363bab0",
+      "Id": "208f86c1a1464fafafdf6614f2b0320a"
+    },
+    {
+      "Start": "9ed1e5dc188d48489a9aec40b4b1d742",
+      "End": "a87905c5099e4b92b34cfd1a6795ac28",
+      "Id": "04a7e287dc4d45e1bb00d7c0d16ab0ee"
+    },
+    {
+      "Start": "291e7663ec06441b874be077e3f378df",
+      "End": "90ade600bf184c4c8b0ef1d9c640d9af",
+      "Id": "63dcb4b9c4484625a5136bedd8391960"
+    },
+    {
+      "Start": "291e7663ec06441b874be077e3f378df",
+      "End": "2ef64961e5b54f3b9f8f331fc9e951a7",
+      "Id": "b369bf5d431c477481104cd027455a50"
+    },
+    {
+      "Start": "ff5413acbcd44226932d2cff5b38d23d",
+      "End": "6cfc189db77d42f3984b4d3513a90e3f",
+      "Id": "131c8acc6f204044b8f6d624dd34ab2e"
+    },
+    {
+      "Start": "6dd783e16d7b487b94d0c623f342e9a3",
+      "End": "f0eadcf7876f43a88b49671985edde7f",
+      "Id": "b9f3443dc82e453681f88299c7391b1e"
+    },
+    {
+      "Start": "8aa204d1734949da94d6c45f2e0d933a",
+      "End": "02b0d8c2490c4192863e1c9589c5bbed",
+      "Id": "2c3a63dc7b9e40b49e331f2816401517"
+    },
+    {
+      "Start": "4540e64beafa47e48336aa55d8005489",
+      "End": "72333fef5817474e8336857a68029c44",
+      "Id": "2cc8e8b3f6d84445a6c1502bd0b11c24"
+    },
+    {
+      "Start": "25211a55d17447d5a4528dc265f01a34",
+      "End": "f9724d62422949f78cd5e58a34ba5663",
+      "Id": "cb7e90bbe96342dbb95d28e56f7209cc"
+    },
+    {
+      "Start": "af29d1948e96443a83df2ea321299ea8",
+      "End": "6f3540ef89a343a3bbc9ff484c702dc2",
+      "Id": "d501c56e2740457faeb747f5fc36a958"
+    },
+    {
+      "Start": "af29d1948e96443a83df2ea321299ea8",
+      "End": "ed98f2f53b5b496da3a4b04313f048a3",
+      "Id": "03372269bc2d4f6ba06fb320ebbb49ef"
+    },
+    {
+      "Start": "514708d8f51743559b1847ddc6a14550",
+      "End": "50a5b76bf5d347c79991c90b2ce42273",
+      "Id": "42b3b549c9ee4a60a95a7449a35565e1"
+    },
+    {
+      "Start": "d2862a5ce5b043d6870bb81acaccbc10",
+      "End": "7d2aec3a20cd47e2a3b08305d5ec0a20",
+      "Id": "1e3da5dd0b284ffaa9214e99758684e0"
+    },
+    {
+      "Start": "59411af2b71d4d0c8a98af9bb3ba34c4",
+      "End": "130e708f7f6140fbb9f7519add31fe2f",
+      "Id": "34bb6c44b81949c98da23121b2d3657b"
+    },
+    {
+      "Start": "67e8b217a5b64eaea4845e7ae91101f7",
+      "End": "e40d1a92949c4a86b33dd67530da89d8",
+      "Id": "6fc6096fa76d4884afe26768fe4899ee"
+    },
+    {
+      "Start": "665580895fb148fdbf85452a2470bbd4",
+      "End": "ffc8f74a334d420981df5b99f865e747",
+      "Id": "7b2272a3cb4e41b580d7afe4d51f540f"
+    },
+    {
+      "Start": "1068828c2d864ca390bc9584918a8392",
+      "End": "aa75fb1d62c04b1398dfdbeae1efee46",
+      "Id": "2bb10fdc1b984caeaa9f0c59c5e6d429"
+    },
+    {
+      "Start": "1068828c2d864ca390bc9584918a8392",
+      "End": "a358faac2b8547bca0d179772e6bc02a",
+      "Id": "e2b498984f894a21ba49e5b0da152c9b"
+    },
+    {
+      "Start": "49b4858408074bdc80873904b7769c07",
+      "End": "e1a85dc79f8c414f8a7f6fc5f9b0e1d5",
+      "Id": "9f315201eb9847d7a61e6b55d1a8f793"
+    },
+    {
+      "Start": "49b4858408074bdc80873904b7769c07",
+      "End": "1be8c18adce545879873c02cb1f1096b",
+      "Id": "084dfde35c9b4f0cbd5c52261c6e6165"
+    },
+    {
+      "Start": "b26344c0f3724a2d9985b113c3fcb086",
+      "End": "bbdc37981ab444a1b4a72cc1b1106a85",
+      "Id": "4d404ab6db01417eba732ebffc5cae7e"
+    },
+    {
+      "Start": "028bf46bea564817bf3f1840870b2154",
+      "End": "232e2e8f33504a1d828e890118e4284f",
+      "Id": "77818b4469214c63bb9af5788e125420"
+    },
+    {
+      "Start": "fe018e5062e64b82af04411adcbf7e8f",
+      "End": "fb85f55e069243328660fb073cf142fc",
+      "Id": "1754df537bc14aedbb285515fdd26b48"
+    },
+    {
+      "Start": "fe018e5062e64b82af04411adcbf7e8f",
+      "End": "a24ce7dfcbe14b359384aa2dfdafcd21",
+      "Id": "9f6ed51c20ea4318b3a51c061884d804"
+    },
+    {
+      "Start": "30f0a6dc00954fc29c2ca4cc1a474bd1",
+      "End": "bbc5ced999534330be0cdb87af4cb492",
+      "Id": "0ae93a9b528842c9a1355981320ddcf6"
+    },
+    {
+      "Start": "968883d424804cacbefc18fcd9ff2516",
+      "End": "4e34b6b053e9488e80965ec38b65859a",
+      "Id": "0b4279ba00cb4d22980ff23b1f19ab63"
+    },
+    {
+      "Start": "ad8df9ce58504e419a66a0022f987441",
+      "End": "2c280cc42cdc41079e456ac1aece3986",
+      "Id": "24167946e74a402e9b9ba367f02a99e4"
+    },
+    {
+      "Start": "f5dc9be5fd774461b0221f133930d897",
+      "End": "8d5c606b1e10460aa4b86467c7d4e776",
+      "Id": "0c99e45aa36345e1afc6d1b39e9a302a"
+    },
+    {
+      "Start": "173f02952e4848eaaefd218be3362807",
+      "End": "ac8810d7364c4f9db8d499f084e16c6b",
+      "Id": "24775c57f86a4621a600f449849fe434"
+    },
+    {
+      "Start": "50f35ccefa4e4cbb9d0e16b5f5d2f7b0",
+      "End": "2c5f426f0e734675b332fcb671d90522",
+      "Id": "755a69ccdc0f42b5904e1626ca0e1ad8"
+    },
+    {
+      "Start": "5f41e90f2df9486ca954d0efd52d4398",
+      "End": "2f2941787d254fd5931a8fa05b0cff65",
+      "Id": "5e0e725afb764b5ebebc4893e8e6ce28"
+    },
+    {
+      "Start": "fd065c9674a942999fcbf2935d8ed0cd",
+      "End": "777db4df1c114ee982383da869e86a42",
+      "Id": "cf2c1fdf315e4d6cb91d3d8e4ef4ad19"
+    },
+    {
+      "Start": "48aa5bd01b3846f3a84eceb6304b2d9a",
+      "End": "506b8720b57744e1a38d609e56d2f9de",
+      "Id": "32124804a8ae48b98c2cce78f9b814b0"
+    },
+    {
+      "Start": "6c8f4f2683934c5abed5397db209e3aa",
+      "End": "08adf2a7fdb74dfab1be45ea6054b7d3",
+      "Id": "b74cafbca4e64bba9e395049f8ca2895"
+    },
+    {
+      "Start": "39f294f3e21640359a61c51d04b6ffd8",
+      "End": "a31765eb40c34382935ea361fdad126d",
+      "Id": "197d432dc4424e21ac4328bcb4915a2e"
+    },
+    {
+      "Start": "1cdaf7a422b34ef19d99cced9d8a19ee",
+      "End": "face4d27fdaf4a48a4c9fbbd0e397de4",
+      "Id": "55b2ac6e02114bdfa377ea9b35f6bc4a"
+    },
+    {
+      "Start": "f5e83057929f4c09adbce81db3cb6ab1",
+      "End": "06e85e84dba944d1ac9e0bebb00aba74",
+      "Id": "33c5c70667b849d8970559818d632d7b"
+    },
+    {
+      "Start": "f74b3d3cde934e51a2b5c147aad8d4ba",
+      "End": "1fbfa9836a914980b75dd2a8c02e9cc0",
+      "Id": "1bda99262ada4681b00537c6088733d1"
+    },
+    {
+      "Start": "320dc399257b49ada87d5cb7ff55a784",
+      "End": "436df64eaf8141ebbc233ebb325d3872",
+      "Id": "1f8217cc3ff24ea6aaf87989085f5577"
+    },
+    {
+      "Start": "5e3451db56ac48ba8aad25f3f25b873b",
+      "End": "9910723a5a394a5299fa7c6e4cab537f",
+      "Id": "132bfd37b7c140b6b27dc1ed80c7a8d2"
+    },
+    {
+      "Start": "5e3451db56ac48ba8aad25f3f25b873b",
+      "End": "6a87805fc42849b39b177da7dbf435e8",
+      "Id": "8b3421fdadee4834a00ebfa17b6b65c6"
+    },
+    {
+      "Start": "47c6254ca42b4a40ace67fc48036e754",
+      "End": "cb826aa2ea2d49c4a117f33d61f0db45",
+      "Id": "1fd4e703012d44c4a023cc40568edc94"
+    },
+    {
+      "Start": "189f7ac5f3fd425080c9912552c1c086",
+      "End": "6d70d868c7514e9eb2b045ff891fea4e",
+      "Id": "24e34d2228bb431789b13383798d95b6"
+    },
+    {
+      "Start": "189f7ac5f3fd425080c9912552c1c086",
+      "End": "748367d402874f808c3fc166ecdd9d66",
+      "Id": "feabf4008c174014a55c855ef4b7c51f"
+    },
+    {
+      "Start": "189f7ac5f3fd425080c9912552c1c086",
+      "End": "550ecc2e41e74f78ae0eade81696b8f0",
+      "Id": "2ef49e7cc53641ec9d7927de14c57bb8"
+    },
+    {
+      "Start": "48409eb0f266452b9e6d5a22ee63ec9e",
+      "End": "3b38e0aab0b84172b866539c43279215",
+      "Id": "fe88d04df6bb44fdb9f9f94afe4c638f"
+    },
+    {
+      "Start": "bdb829573007436ba81214c13c8d595c",
+      "End": "3a077c3c15524209bfe01e5afb3a5ce4",
+      "Id": "10b31cdc31744850b2edeb8057a721bf"
+    },
+    {
+      "Start": "f4badf91809049ba84766f7181849ce3",
+      "End": "430e616e331340eaa0eacb0fc395785a",
+      "Id": "7be9365ce8a548f793baa66f7103c36e"
+    },
+    {
+      "Start": "53fa342248a747ff856e5958a81e9b6c",
+      "End": "fca3248b046e479b9f83ca185876f822",
+      "Id": "fb75306d98764d57ab3fbaec5e325389"
+    },
+    {
+      "Start": "6cac05e0888f4a5baaaf81251268c29b",
+      "End": "24bf6858dfef4b3ea366406e034ed647",
+      "Id": "36ec429ed87449e8bfb502c3414e5b9b"
+    },
+    {
+      "Start": "6e530b1f60004771a6e607283546c2ea",
+      "End": "bbfdc6740f8a4ea5b79a9e606b016806",
+      "Id": "49dc73885dd6487d9f872b3f25bcf7c5"
+    },
+    {
+      "Start": "a449b4e97a9248019e9d36841886d165",
+      "End": "6ce2d8c539cd44f3a45dff9dda95741d",
+      "Id": "6fa23374d52b4f38900cb70db103f311"
+    }
+  ],
+  "Dependencies": [
+    "e5c5958c-016e-4efc-bb16-b3734d00a855",
+    "c7b1d8ca-bc1f-4755-9632-bcaaad615794"
+  ],
+  "NodeLibraryDependencies": [
+    {
+      "Name": "bimorphNodes",
+      "Version": "4.2.4",
+      "ReferenceType": "Package",
+      "Nodes": [
+        "cec56d0ec68f471a83942daee945a6b0",
+        "f63bcc7b46734d85ae0eca141c611415",
+        "d05126c7424e47e99aaa32243e1faccf"
+      ]
+    },
+    {
+      "Name": "archi-lab.net",
+      "Version": "2023.213.1722",
+      "ReferenceType": "Package",
+      "Nodes": [
+        "da0a857c830c42c2bba9219a956b9a61"
+      ]
+    },
+    {
+      "Name": "Clockwork for Dynamo 2.x",
+      "Version": "2.3.0",
+      "ReferenceType": "Package",
+      "Nodes": [
+        "48bfdad781b94f6baf030b10e3d4fe3b",
+        "89f582302b284753b8b2019383e36935",
+        "aa62f7ea76444aa59129e2d873503bb5"
+      ]
+    }
+  ],
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.12.0.5650",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "NodeViews": [
+      {
+        "ShowGeometry": true,
+        "Name": "Categories",
+        "Id": "487b5144245e4d2282d20d3df8f5c330",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -81.650068080086271,
+        "Y": 449.16452539583929
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "All Elements of Category",
+        "Id": "5047c6cf16ef4a2f9b17cae8fa516138",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 174.24896941905035,
+        "Y": 493.45221372091646
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "LinkElement.GetParameterValueByName",
+        "Id": "cec56d0ec68f471a83942daee945a6b0",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1020.198696768211,
+        "Y": 189.67241252778467
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "要編號的欄位",
+        "Id": "c89126f0f53548be83c8309c95735ad7",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 386.43519349421342,
+        "Y": 583.69021292780621
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Element.Parameters",
+        "Id": "30de45d3d47f473cab536df7f8a96afb",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 712.6384542949279,
+        "Y": -26.595748981442057
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Select.ByCategoryAndView",
+        "Id": "da0a857c830c42c2bba9219a956b9a61",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 364.42986109035166,
+        "Y": 27.662082994070715
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "想要排序的品類--(範圍)",
+        "Id": "993c60bb02fe44fa99dd7e811a00f352",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 78.1284613500103,
+        "Y": -126.16953434346715
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Document.ActiveViewFromCurrentDocument",
+        "Id": "48bfdad781b94f6baf030b10e3d4fe3b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -43.066967142097383,
+        "Y": -318.87570392769942
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Schedule.GetDataColumns",
+        "Id": "f63bcc7b46734d85ae0eca141c611415",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1313.8073268147248,
+        "Y": -343.70039821272655
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Schedule.GetData",
+        "Id": "d05126c7424e47e99aaa32243e1faccf",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 552.33711986823641,
+        "Y": -465.50637406925745
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.TakeItems",
+        "Id": "2c01a3b4cd154da4b016355d27ea2cc4",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 842.16701829063993,
+        "Y": -530.24851593289372
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "d839c09977714672bb2b839e34f6fb53",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 558.79799635223776,
+        "Y": -608.96613108646886
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Flatten",
+        "Id": "9cad1052dd8f469f9a0ae67f6fae83c7",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1124.7254374028948,
+        "Y": -530.80880409279962
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Python Script",
+        "Id": "c27ace8f8b9d4d1e9b8f61f43afee835",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1370.3686075401738,
+        "Y": -530.20383943287209
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Boolean",
+        "Id": "a6bb52b5b2c34dba8f910b61c0382062",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 914.99831677307691,
+        "Y": -264.59251736645672
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.FilterByBoolMask",
+        "Id": "3f67549d681e42a2a3d351f8254b7673",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1665.486847852284,
+        "Y": -517.21932815197772
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String.Length",
+        "Id": "6b19e34bf77f44a8bc3c0862b7a696cd",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1519.9997037252747,
+        "Y": -890.287326686412
+      },
+      {
+        "ShowGeometry": true,
+        "Name": ">",
+        "Id": "516ea21f37ff44768288e422453f059c",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1784.1291783364097,
+        "Y": -745.783983729238
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "8b799df794554ccab4d66059059900a4",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1576.0,
+        "Y": -757.0
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Watch",
+        "Id": "9168c63e90684184b71a90905018c4e2",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1959.1246248246753,
+        "Y": -571.90249325784771
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List Create",
+        "Id": "9b56e041f8d24ca68eec38e73329e393",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1794.0092661175368,
+        "Y": -106.60742047895781
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Transpose",
+        "Id": "c238e38a4374456b8619358171565676",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2734.3181555145561,
+        "Y": -290.78315902132749
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List Create",
+        "Id": "649250f14fe945729803640c145f45b2",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2483.9809839748145,
+        "Y": -723.91780932667893
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Count",
+        "Id": "93a2a2fac8ef4d6791a5f10c3d91a922",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2389.7659968528442,
+        "Y": -546.8771608941654
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "824313e74310478184e7eecbaa5b04a7",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2200.7607318671353,
+        "Y": -666.54003575144588
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Flatten",
+        "Id": "4adf4e643e0043f9bb995d5b794e0a65",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2134.173300431235,
+        "Y": -873.88140109707615
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Transpose",
+        "Id": "cd961bea97194d62bc61e18eda16dcc6",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2763.1691456455919,
+        "Y": -787.72486340406169
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.SortListOfLists",
+        "Id": "89f582302b284753b8b2019383e36935",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2909.726223055281,
+        "Y": -152.19829656175477
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "1b64918778924059857cad69e8cb0d9c",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2631.7585116540695,
+        "Y": -106.32197132176105
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String.ToNumber",
+        "Id": "4f150cee75ec440b9b986cdb17c14a47",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1436.5497506854103,
+        "Y": 146.84411041742828
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.SortListOfLists",
+        "Id": "aa62f7ea76444aa59129e2d873503bb5",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2893.963597662545,
+        "Y": -739.42107993565151
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "c283c33674d34a1e913617f75f57438b",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2612.2438021374178,
+        "Y": -632.057170380131
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String.ToNumber",
+        "Id": "8caa9144e41440e59fffa45dc34be72f",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 2440.0172938735441,
+        "Y": -802.3510840002167
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Element.SetParameterByName",
+        "Id": "8a833175d8554ef498131310d271652a",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 5105.2673267383,
+        "Y": -680.13489192312738
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "0783b1eb955f4c26b2d6d45b13de60f4",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3305.2867496257527,
+        "Y": -616.84284628187208
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.TakeItems",
+        "Id": "03a2c84fa628478784027ce30fe1a7f5",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3330.3485946985061,
+        "Y": -343.4209253271336
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "46322a87eada47a59a6b9b5940f59fa3",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3261.4745599057542,
+        "Y": -150.33744439772164
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.GetItemAtIndex",
+        "Id": "dd252326fc8a4b2a980a82dff25b8ea9",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3424.5779230672315,
+        "Y": -670.420220236852
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Flatten",
+        "Id": "520d8c744fa14045b567abf6cecb567d",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3564.3921598784468,
+        "Y": -302.96278699236444
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String from Object",
+        "Id": "e33447c593c647bfb8366584aead2b3a",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3687.0024056351667,
+        "Y": -731.35867484779271
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "明細表的名稱",
+        "Id": "a9ea424136d340a9bbc0d7731be92c49",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -22.209798272162288,
+        "Y": -437.69593803725724
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "說明",
+        "Id": "875c1484261a4d4e885eacce6e48335f",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": -90.247202353488319,
+        "Y": -687.67451964645625
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "要編號的欄位",
+        "Id": "37d59d091f3f4a24ae69d2449904f93d",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 498.92971964135086,
+        "Y": 671.14147774737876
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Watch",
+        "Id": "9f5f603a7a5247cbad38839fc71960a1",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1087.6360493244977,
+        "Y": 670.42811199393759
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Count",
+        "Id": "000dd7d362754f1eb080064b318a4132",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 3869.1957145652482,
+        "Y": -764.99908874648668
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "String from Object",
+        "Id": "c4c9ff46c13a41f2a48bee8a2e45d403",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4081.6627383571936,
+        "Y": -867.83370170088733
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.OfRepeatedItem",
+        "Id": "b63898ec579a4091b76f08d6c8824957",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4280.3192264958707,
+        "Y": -831.66327839858877
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List Create",
+        "Id": "a60d19bee8a14453b5b9dc4581689c75",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4541.4792520335786,
+        "Y": -983.43724280009758
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "d2206e6ba8b34f2b889f0383a3484dd0",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 639.0,
+        "Y": 644.0
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Transpose",
+        "Id": "5dfb94ac2b194865a93188bfcd7cdd1a",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4719.3152452793629,
+        "Y": -1036.1260827958474
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Cycle",
+        "Id": "88e734e21b03403ca140e4fea2133796",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1391.370128128013,
+        "Y": 742.85648420731536
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Transpose",
+        "Id": "5205aa5c575742d1bbaefc9803b533fd",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 1606.6986283812344,
+        "Y": 751.39829040553457
+      }
+    ],
+    "Annotations": [],
+    "X": 416.48935881801538,
+    "Y": 2637.4736021351109,
+    "Zoom": 3.5596327974993032
+  }
+}

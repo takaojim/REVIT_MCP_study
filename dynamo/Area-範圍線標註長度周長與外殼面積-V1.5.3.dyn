@@ -1,0 +1,489 @@
+{
+  "Uuid": "8fd51c06-1b61-4d45-850b-7cb6e45bdac0",
+  "IsCustomNode": false,
+  "Description": "範圍線改為黑色 RGB(0,0,0) 虛線，並保留舊版本線條清除相容性。",
+  "Name": "Area-範圍線標註長度周長與外殼面積-V1.5.3",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "List": {
+        "Key": "List",
+        "Value": "BuiltIn.ds"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "9fd7733eb3f5436fb0167f558b155eb2",
+      "Name": "3.繪製範圍線",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "6bf2d38f34d64148809a4f62fc82b385",
+      "Name": "4.周長包含內孔",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "42e74c0620904d9d878fc040f7ca3b3f",
+      "Name": "6.周長文字偏移(mm)",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "81e167f49da44746b1ffa32870409344",
+      "Name": "5.只清除結果(不重新產生)",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "0ab76742f3744f25a711af13493cdb28",
+      "Name": "1.長度小數位數",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "2",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "6b290115372348f9beba7846d6dd41b3",
+      "Name": "2.邊長文字偏移(mm)",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "4",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "d30f4a4557e24e56b0c6d22ebe10b2a3",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "# AREA PERIMETER Script Version: 2026.07.20-V1.5.3\nimport clr\nimport math\nimport traceback\n\nclr.AddReference('System')\nfrom System.Collections.Generic import List\n\nclr.AddReference('RevitAPI')\nfrom Autodesk.Revit.DB import *\n\nclr.AddReference('RevitServices')\nfrom RevitServices.Persistence import DocumentManager\n\ndoc = DocumentManager.Instance.CurrentDBDocument\nview = doc.ActiveView\n\nFT_TO_M = 0.3048\nTAG = \"CODEX_AREA_PERIMETER_V1\"\nLINE_STYLE_NAME = \"AREA_周長範圍線_黑色虛線\"\nLEGACY_LINE_STYLE_NAMES = (\"AREA_周長範圍線_紫\", \"AREA_周長範圍線_洋紅虛線\", \"AREA_周長範圍線_RGB000-166-000_虛線\")\nLINE_PATTERN_NAME = \"AREA_周長_虛線3mm_間隔1.5mm\"\nSEG_TEXT_NAME = \"AREA_邊長_2.5mm\"\nTOTAL_TEXT_NAME = \"AREA_周長合計_3.5mm\"\n\ndef get_num(idx, default):\n    try:\n        value = IN[idx]\n        if isinstance(value, list):\n            value = value[0] if value else default\n        return float(value)\n    except:\n        return default\n\ndef get_bool(idx, default):\n    try:\n        value = IN[idx]\n        if isinstance(value, list):\n            value = value[0] if value else default\n        if isinstance(value, str):\n            return value.strip().lower() == \"true\"\n        return bool(value)\n    except:\n        return default\n\ndecimals = max(0, min(6, int(get_num(0, 2))))\nlabel_offset_mm = max(0.0, get_num(1, 2.5))\ndraw_boundary = get_bool(2, True)\ninclude_inner = get_bool(3, False)\nclear_only = get_bool(4, False)\ntotal_offset_mm = max(0.0, get_num(5, 10.0))\n\ndef format_m(value):\n    text = (\"{0:.\" + str(decimals) + \"f}\").format(value)\n    if \".\" in text:\n        text = text.rstrip(\"0\").rstrip(\".\")\n    return text + \" m\"\n\ndef get_type_name(element_type):\n    p = element_type.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM)\n    return p.AsString() if p else \"\"\n\ndef get_or_create_text_type(name, size_mm):\n    types = list(FilteredElementCollector(doc).OfClass(TextNoteType).ToElements())\n    for text_type in types:\n        if get_type_name(text_type) == name:\n            return text_type.Id\n    if not types:\n        raise Exception(\"文件中找不到可複製的文字註解型別。\")\n    new_type = types[0].Duplicate(name)\n    size_param = new_type.get_Parameter(BuiltInParameter.TEXT_SIZE)\n    if size_param and not size_param.IsReadOnly:\n        size_param.Set(size_mm / 304.8)\n    return new_type.Id\n\ndef get_or_create_dash_pattern():\n    for pattern_element in FilteredElementCollector(doc).OfClass(LinePatternElement):\n        if pattern_element.Name == LINE_PATTERN_NAME:\n            return pattern_element\n\n    pattern = LinePattern(LINE_PATTERN_NAME)\n    segments = List[LinePatternSegment]()\n    segments.Add(LinePatternSegment(LinePatternSegmentType.Dash, 3.0 / 304.8))\n    segments.Add(LinePatternSegment(LinePatternSegmentType.Space, 1.5 / 304.8))\n    pattern.SetSegments(segments)\n    return LinePatternElement.Create(doc, pattern)\n\ndef get_or_create_line_style():\n    lines = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines)\n    if lines.SubCategories.Contains(LINE_STYLE_NAME):\n        subcat = lines.SubCategories.get_Item(LINE_STYLE_NAME)\n    else:\n        subcat = doc.Settings.Categories.NewSubcategory(lines, LINE_STYLE_NAME)\n\n    dash_pattern = get_or_create_dash_pattern()\n    subcat.LineColor = Color(0, 0, 0)\n    subcat.SetLineWeight(3, GraphicsStyleType.Projection)\n    subcat.SetLinePatternId(dash_pattern.Id, GraphicsStyleType.Projection)\n    return subcat.GetGraphicsStyle(GraphicsStyleType.Projection)\n\ndef set_tag(element):\n    p = element.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)\n    if p and not p.IsReadOnly:\n        p.Set(TAG)\n\ndef has_tag(element):\n    p = element.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)\n    return p is not None and p.AsString() == TAG\n\ndef readable_angle(curve):\n    try:\n        tangent = curve.ComputeDerivatives(0.5, True).BasisX\n        angle = math.atan2(tangent.Y, tangent.X)\n    except:\n        p0 = curve.GetEndPoint(0)\n        p1 = curve.GetEndPoint(1)\n        angle = math.atan2(p1.Y - p0.Y, p1.X - p0.X)\n    while angle > math.pi:\n        angle -= 2.0 * math.pi\n    while angle <= -math.pi:\n        angle += 2.0 * math.pi\n    if angle > math.pi / 2.0:\n        angle -= math.pi\n    elif angle < -math.pi / 2.0:\n        angle += math.pi\n    return angle\n\ndef loop_points(loop):\n    points = []\n    for segment in loop:\n        curve = segment.GetCurve()\n        try:\n            tess = list(curve.Tessellate())\n            if points and tess:\n                tess = tess[1:]\n            points.extend(tess)\n        except:\n            points.append(curve.GetEndPoint(0))\n    return points\n\ndef signed_area_xy(points):\n    if len(points) < 3:\n        return 0.0\n    total = 0.0\n    for i in range(len(points)):\n        a = points[i]\n        b = points[(i + 1) % len(points)]\n        total += a.X * b.Y - b.X * a.Y\n    return total * 0.5\n\ndef loop_centroid(points):\n    if not points:\n        return XYZ(0, 0, 0)\n    return XYZ(\n        sum(p.X for p in points) / len(points),\n        sum(p.Y for p in points) / len(points),\n        sum(p.Z for p in points) / len(points)\n    )\n\ndef element_id_number(element_id):\n    # Revit 2024+ uses the 64-bit Value property; older releases use IntegerValue.\n    if hasattr(element_id, \"Value\"):\n        return int(element_id.Value)\n    return int(element_id.IntegerValue)\n\ndef plain_number(value):\n    text = (\"{0:.\" + str(decimals) + \"f}\").format(value)\n    if \".\" in text:\n        text = text.rstrip(\"0\").rstrip(\".\")\n    return text\n\ndef sum_formula(values):\n    parts = [plain_number(v) for v in values]\n    if not parts:\n        return \"0\"\n    lines = []\n    for i in range(0, len(parts), 8):\n        lines.append(\" + \".join(parts[i:i + 8]))\n    return (\"\\n+ \").join(lines)\n\nall_levels = sorted(\n    list(FilteredElementCollector(doc).OfClass(Level).ToElements()),\n    key=lambda level: level.Elevation\n)\n\ndef get_floor_height(area):\n    current_level = doc.GetElement(area.LevelId)\n    if current_level is None and hasattr(view, \"GenLevel\"):\n        current_level = view.GenLevel\n    if current_level is None:\n        return None, None, None\n    next_level = next(\n        (level for level in all_levels\n         if level.Elevation > current_level.Elevation + 0.0001),\n        None\n    )\n    if next_level is None:\n        return current_level, None, None\n    height_m = (next_level.Elevation - current_level.Elevation) * FT_TO_M\n    return current_level, next_level, height_m\n\nareas = list(\n    FilteredElementCollector(doc, view.Id)\n    .OfCategory(BuiltInCategory.OST_Areas)\n    .WhereElementIsNotElementType()\n    .ToElements()\n)\n\nif not areas and not clear_only:\n    OUT = [\"目前視圖中沒有 Area。\"]\nelse:\n    tx = Transaction(doc, \"Area 範圍線、邊長與周長\")\n    tx.Start()\n    try:\n        segment_text_id = get_or_create_text_type(SEG_TEXT_NAME, 2.5)\n        total_text_id = get_or_create_text_type(TOTAL_TEXT_NAME, 3.5)\n        line_style = get_or_create_line_style()\n\n        # Always remove results produced by older runs before generating.\n        # Use three identifiers because some Revit element classes do not expose Comments.\n        generated_ids = []\n        for text_note in FilteredElementCollector(doc, view.Id).OfClass(TextNote).ToElements():\n            text_type = doc.GetElement(text_note.GetTypeId())\n            type_name = get_type_name(text_type) if text_type else \"\"\n            if has_tag(text_note) or type_name in (SEG_TEXT_NAME, TOTAL_TEXT_NAME):\n                generated_ids.append(text_note.Id)\n\n        for curve_element in FilteredElementCollector(doc, view.Id).OfClass(CurveElement).ToElements():\n            style_name = \"\"\n            try:\n                if curve_element.LineStyle is not None:\n                    style_name = curve_element.LineStyle.Name\n            except:\n                pass\n            if has_tag(curve_element) or style_name in ((LINE_STYLE_NAME,) + LEGACY_LINE_STYLE_NAMES):\n                generated_ids.append(curve_element.Id)\n\n        unique_ids = []\n        seen_ids = set()\n        for element_id in generated_ids:\n            value = element_id_number(element_id)\n            if value not in seen_ids:\n                seen_ids.add(value)\n                unique_ids.append(element_id)\n\n        for element_id in unique_ids:\n            doc.Delete(element_id)\n        deleted_count = len(unique_ids)\n\n        if clear_only:\n            tx.Commit()\n            OUT = [\"清除完成\", \"已刪除 {0} 個上次產生的圖元。\".format(deleted_count)]\n        else:\n            seg_options = TextNoteOptions(segment_text_id)\n            seg_options.HorizontalAlignment = HorizontalTextAlignment.Center\n            seg_options.VerticalAlignment = VerticalTextAlignment.Middle\n\n            total_options = TextNoteOptions(total_text_id)\n            total_options.HorizontalAlignment = HorizontalTextAlignment.Left\n            total_options.VerticalAlignment = VerticalTextAlignment.Top\n\n            boundary_options = SpatialElementBoundaryOptions()\n            boundary_options.SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish\n\n            segment_offset_ft = (label_offset_mm / 304.8) * view.Scale\n            total_offset_ft = (total_offset_mm / 304.8) * view.Scale\n            results = []\n\n            for index, area in enumerate(areas, 1):\n                loops = area.GetBoundarySegments(boundary_options)\n                if not loops:\n                    results.append(\"Area {0}: 無有效邊界\".format(element_id_number(area.Id)))\n                    continue\n\n                loop_data = []\n                for loop in loops:\n                    points = loop_points(loop)\n                    loop_data.append((loop, points, abs(signed_area_xy(points))))\n\n                loop_data.sort(key=lambda item: item[2], reverse=True)\n                selected = loop_data if include_inner else loop_data[:1]\n                perimeter_ft = 0.0\n                segment_lengths_m = []\n                all_points = []\n\n                for loop, points, _ in selected:\n                    all_points.extend(points)\n                    for segment in loop:\n                        curve = segment.GetCurve()\n                        length_ft = curve.Length\n                        perimeter_ft += length_ft\n                        segment_lengths_m.append(length_ft * FT_TO_M)\n\n                        if draw_boundary:\n                            detail = doc.Create.NewDetailCurve(view, curve)\n                            if line_style:\n                                detail.LineStyle = line_style\n                            set_tag(detail)\n\n                        mid = curve.Evaluate(0.5, True)\n                        try:\n                            tangent = curve.ComputeDerivatives(0.5, True).BasisX.Normalize()\n                            normal = XYZ(-tangent.Y, tangent.X, 0)\n                        except:\n                            normal = XYZ(0, 1, 0)\n                        text_point = mid.Add(normal.Multiply(segment_offset_ft))\n                        text = format_m(length_ft * FT_TO_M)\n                        note = TextNote.Create(doc, view.Id, text_point, text, seg_options)\n                        set_tag(note)\n                        angle = readable_angle(curve)\n                        axis = Line.CreateBound(text_point, text_point.Add(XYZ.BasisZ))\n                        ElementTransformUtils.RotateElement(doc, note.Id, axis, angle)\n\n                perimeter_m = perimeter_ft * FT_TO_M\n                area_name = \"\"\n                try:\n                    area_name = area.Name or \"\"\n                except:\n                    pass\n                title = area_name if area_name else \"Area {0}\".format(element_id_number(area.Id))\n\n                # Place the calculation block to the right of the boundary.\n                max_x = max(p.X for p in all_points)\n                max_y = max(p.Y for p in all_points)\n                base_z = sum(p.Z for p in all_points) / len(all_points)\n                total_point = XYZ(max_x + total_offset_ft, max_y, base_z)\n\n                formula = sum_formula(segment_lengths_m)\n                current_level, next_level, floor_height_m = get_floor_height(area)\n                if current_level is not None and current_level.Name:\n                    calculation_heading = \"{0}外殼面積計算式\".format(current_level.Name)\n                else:\n                    calculation_heading = \"樓層外殼面積計算式\"\n                block_lines = [\n                    calculation_heading,\n                    \"周長算式 = {0} = {1}\".format(formula, format_m(perimeter_m))\n                ]\n\n                shell_area_m2 = None\n                if floor_height_m is not None:\n                    shell_area_m2 = perimeter_m * floor_height_m\n                    block_lines.append(\n                        \"樓高 = {0} - {1} = {2}\".format(\n                            next_level.Name,\n                            current_level.Name,\n                            format_m(floor_height_m)\n                        )\n                    )\n                    block_lines.append(\n                        \"外殼面積 = {0} × {1} = {2} m²\".format(\n                            plain_number(perimeter_m),\n                            plain_number(floor_height_m),\n                            plain_number(shell_area_m2)\n                        )\n                    )\n                elif current_level is None:\n                    block_lines.append(\"樓高 = 找不到 Area 所屬樓層\")\n                    block_lines.append(\"外殼面積 = 無法計算\")\n                else:\n                    block_lines.append(\n                        \"樓高 = {0} 上方沒有更高樓層\".format(current_level.Name)\n                    )\n                    block_lines.append(\"外殼面積 = 無法計算\")\n\n                total_note = TextNote.Create(\n                    doc,\n                    view.Id,\n                    total_point,\n                    \"\\n\".join(block_lines),\n                    total_options\n                )\n                set_tag(total_note)\n                results.append({\n                    \"AreaId\": element_id_number(area.Id),\n                    \"Name\": title,\n                    \"Perimeter_m\": round(perimeter_m, decimals),\n                    \"FloorHeight_m\": (\n                        round(floor_height_m, decimals)\n                        if floor_height_m is not None else None\n                    ),\n                    \"ShellArea_m2\": (\n                        round(shell_area_m2, decimals)\n                        if shell_area_m2 is not None else None\n                    ),\n                    \"LoopCount\": len(selected)\n                })\n\n            tx.Commit()\n            OUT = results\n    except Exception as ex:\n        if tx.HasStarted():\n            tx.RollBack()\n        OUT = [\"執行失敗，已回復本次變更。\", str(ex), traceback.format_exc()]\n",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "07975a6b92bd4064a6a7dbdb87e43380",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "0a77993fa79c440b9d9dfba8493cbc68",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6708e453ae904a468021c02ff817d90b",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "4c16d2bee9f7439b8ce684d4ecdc3fe8",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fea223fba13c4d31a964c7d3ab5665d2",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b3246484ae6d4510bf941f83f2b68417",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fee49d10d4334df19e4017b798f18cdb",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "a5517a5d4c154cbd822c4109cb0d15e7",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200,
+      "WatchHeight": 40,
+      "Id": "d30f4a4557e24e56b0c6d22ebe10b2a3",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "62f8c36c6164448c929507debdbe079b",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2e069989322347f59db47e7e85ff67de",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "9fd7733eb3f5436fb0167f558b155eb2",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8223705a7c8c4da7adbfcf065dd977f9",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "6bf2d38f34d64148809a4f62fc82b385",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "75a942f533514ee9af242c68b061fc00",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "42e74c0620904d9d878fc040f7ca3b3f",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "27fc4878d8db47ec8a598224bcafaad2",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 10
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "81e167f49da44746b1ffa32870409344",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b21b8123dd3b424fbf82cf25efa2eabd",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "0ab76742f3744f25a711af13493cdb28",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "61f859fbd4324797a2946a0b810a7f60",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": "2.0"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "6b290115372348f9beba7846d6dd41b3",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "39615b728c244c61b1fcc07333d711df",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": "2.5"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "a5517a5d4c154cbd822c4109cb0d15e7",
+      "End": "62f8c36c6164448c929507debdbe079b",
+      "Id": "a3a7a6b24fde434eb26c4cbf012f0a41",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "8223705a7c8c4da7adbfcf065dd977f9",
+      "End": "4c16d2bee9f7439b8ce684d4ecdc3fe8",
+      "Id": "a1b88cda54b84b3da8aaf89151fb0050",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "75a942f533514ee9af242c68b061fc00",
+      "End": "fea223fba13c4d31a964c7d3ab5665d2",
+      "Id": "b94b837169ea4480b592ad4b42208aea",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "27fc4878d8db47ec8a598224bcafaad2",
+      "End": "fee49d10d4334df19e4017b798f18cdb",
+      "Id": "b368cd72169440c3a5e30c8c27bcdca3",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b21b8123dd3b424fbf82cf25efa2eabd",
+      "End": "b3246484ae6d4510bf941f83f2b68417",
+      "Id": "96ebfdab481143e990a7fcd0d21b12fe",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "61f859fbd4324797a2946a0b810a7f60",
+      "End": "0a77993fa79c440b9d9dfba8493cbc68",
+      "Id": "b96b8762e4a64131923b705979f539ba",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "39615b728c244c61b1fcc07333d711df",
+      "End": "6708e453ae904a468021c02ff817d90b",
+      "Id": "7c3ae41a5386410e928c345c9469b76e",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "OpenAI Codex",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1,
+      "HasRunWithoutCrash": false,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -156.8134307861328,
+      "EyeY": 197.33596801757812,
+      "EyeZ": 713.8496704101562,
+      "LookX": 150.48594665527344,
+      "LookY": -163.02642822265625,
+      "LookZ": -727.3488159179688,
+      "UpX": 0,
+      "UpY": 1,
+      "UpZ": 0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "07975a6b92bd4064a6a7dbdb87e43380",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1126.9671601918794,
+        "Y": -117.08147085642463
+      },
+      {
+        "Id": "d30f4a4557e24e56b0c6d22ebe10b2a3",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 2019.6385184864953,
+        "Y": -93.55291519705514
+      },
+      {
+        "Id": "9fd7733eb3f5436fb0167f558b155eb2",
+        "Name": "3.繪製範圍線",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 469.07899219500047,
+        "Y": -76.04880888632124
+      },
+      {
+        "Id": "6bf2d38f34d64148809a4f62fc82b385",
+        "Name": "4.周長包含內孔",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 312.76983198031235,
+        "Y": 52.7722906257755
+      },
+      {
+        "Id": "42e74c0620904d9d878fc040f7ca3b3f",
+        "Name": "6.周長文字偏移(mm)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 508.43303531563913,
+        "Y": 309.6090439839323
+      },
+      {
+        "Id": "81e167f49da44746b1ffa32870409344",
+        "Name": "5.只清除結果(不重新產生)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 466.84662525353974,
+        "Y": 174.68127682227828
+      },
+      {
+        "Id": "0ab76742f3744f25a711af13493cdb28",
+        "Name": "1.長度小數位數",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 504.1966894476067,
+        "Y": -354.3658910035809
+      },
+      {
+        "Id": "6b290115372348f9beba7846d6dd41b3",
+        "Name": "2.邊長文字偏移(mm)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 504.189062277925,
+        "Y": -220.38651316092023
+      }
+    ],
+    "Annotations": [],
+    "X": -1.5727010155719654,
+    "Y": 406.1295475335213,
+    "Zoom": 0.9353092645147989
+  }
+}

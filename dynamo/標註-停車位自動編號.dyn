@@ -1,0 +1,401 @@
+{
+  "Uuid": "d78c587b-6868-4a5a-bf8a-d6d88823cd64",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-停車位自動編號",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "0258bf84c22a445cbc1bcacb7edcef04",
+      "Name": "機車開始編號",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "1",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "4ca30f2f828346529a9ac03850394ae7",
+      "Name": "編號的參數",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "備註",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "509e1248d93d40cc8e93cae83e5e2274",
+      "Name": "汽車開始編號",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "1",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "30e750bf37674451a2353189e0b46d6f",
+      "Name": "編號統計",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport sys\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入事務管理\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 1. 讀取 Dynamo 輸入 ---\r\nstart_num_cars = int(IN[0])     # 汽車起始編號 \r\nstart_num_motors = int(IN[1])   # 機車起始編號 \r\nparam_name = IN[2]              # 參數名稱 \r\n\r\n# --- 2. 核心功能：座標分群排序函數 ---\r\ndef get_sorted_elements(elements):\r\n    if not elements:\r\n        return []\r\n    \r\n    data_list = []\r\n    for e in elements:\r\n        loc = e.Location\r\n        if isinstance(loc, LocationPoint):\r\n            pt = loc.Point\r\n            data_list.append({\"elem\": e, \"pt\": pt, \"x\": pt.X, \"y\": pt.Y})\r\n    \r\n    cluster_tolerance = 12.0 \r\n    clusters = []\r\n    visited = set()\r\n    \r\n    for i, d1 in enumerate(data_list):\r\n        if i in visited: continue\r\n        current_cluster = []\r\n        queue = [i]\r\n        visited.add(i)\r\n        while queue:\r\n            curr_idx = queue.pop(0)\r\n            current_cluster.append(data_list[curr_idx])\r\n            for j, d2 in enumerate(data_list):\r\n                if j not in visited:\r\n                    dist = ((data_list[curr_idx][\"pt\"].X - d2[\"pt\"].X)**2 + (data_list[curr_idx][\"pt\"].Y - d2[\"pt\"].Y)**2)**0.5\r\n                    if dist < cluster_tolerance:\r\n                        visited.add(j)\r\n                        queue.append(j)\r\n        clusters.append(current_cluster)\r\n    \r\n    cluster_info = []\r\n    for c in clusters:\r\n        cy = sum([item[\"y\"] for item in c]) / float(len(c))\r\n        cx = sum([item[\"x\"] for item in c]) / float(len(c))\r\n        cluster_info.append({\"cluster\": c, \"cy\": cy, \"cx\": cx})\r\n    \r\n    cluster_info.sort(key=lambda c: c[\"cy\"], reverse=True) \r\n    \r\n    block_rows = []\r\n    curr_b_row = []\r\n    if cluster_info:\r\n        curr_b_row.append(cluster_info[0])\r\n        for c in cluster_info[1:]:\r\n            if abs(c[\"cy\"] - curr_b_row[0][\"cy\"]) < 15.0:\r\n                curr_b_row.append(c)\r\n            else:\r\n                block_rows.append(curr_b_row)\r\n                curr_b_row = [c]\r\n        block_rows.append(curr_b_row)\r\n    \r\n    sorted_clusters = []\r\n    for b_row in block_rows:\r\n        b_row.sort(key=lambda c: c[\"cx\"]) \r\n        for c in b_row: sorted_clusters.append(c[\"cluster\"])\r\n    \r\n    final_ordered = []\r\n    for c in sorted_clusters:\r\n        c.sort(key=lambda item: item[\"y\"], reverse=True)\r\n        rows = []\r\n        curr_row = []\r\n        if c:\r\n            curr_row.append(c[0])\r\n            for item in c[1:]:\r\n                if abs(item[\"y\"] - curr_row[0][\"y\"]) < 5.0:\r\n                    curr_row.append(item)\r\n                else:\r\n                    rows.append(curr_row)\r\n                    curr_row = [item]\r\n            rows.append(curr_row)\r\n        for row in rows:\r\n            row.sort(key=lambda item: item[\"x\"])\r\n            for r in row: final_ordered.append(r[\"elem\"])\r\n            \r\n    return final_ordered\r\n\r\n# --- 3. 收集目前視圖中的所有停車位並分類 ---\r\nactive_view_id = doc.ActiveView.Id \r\ncollector = FilteredElementCollector(doc, active_view_id).OfCategory(BuiltInCategory.OST_Parking).WhereElementIsNotElementType()\r\n\r\ncars_to_process = []\r\nmotors_to_process = []\r\n\r\nfor e in collector:\r\n    if not isinstance(e, FamilyInstance): continue\r\n    \r\n    # 🔴 核心修正：同時抓取「類型名稱」與「族群名稱」\r\n    type_name = e.Name               # 取得類型名稱 (例如: 1m x 2m 法定停車位(機車))\r\n    fam_name = e.Symbol.Family.Name  # 取得族群名稱 (例如: 法規停車位_V4)\r\n    \r\n    # 只要類型或族群名稱其中一個包含「機車」，就判定為機車位\r\n    if \"機車\" in type_name or \"機車\" in fam_name:\r\n        motors_to_process.append(e)\r\n    else:\r\n        cars_to_process.append(e)\r\n\r\n# --- 4. 分別執行排序 ---\r\nsorted_cars = get_sorted_elements(cars_to_process)\r\nsorted_motors = get_sorted_elements(motors_to_process)\r\n\r\n# --- 5. 寫入參數 ---\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# 處理汽車編號\r\ncurrent_car = start_num_cars\r\nfor car in sorted_cars:\r\n    p = car.LookupParameter(param_name)\r\n    if p and not p.IsReadOnly:\r\n        val = str(current_car) if p.StorageType == StorageType.String else current_car\r\n        p.Set(val)\r\n        current_car += 1\r\n\r\n# 處理機車編號\r\ncurrent_motor = start_num_motors\r\nfor motor in sorted_motors:\r\n    p = motor.LookupParameter(param_name)\r\n    if p and not p.IsReadOnly:\r\n        val = str(current_motor) if p.StorageType == StorageType.String else current_motor\r\n        p.Set(val)\r\n        current_motor += 1\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# --- 6. 輸出結果 ---\r\nOUT = {\r\n    \"1_鎖定視圖\": doc.ActiveView.Name,\r\n    \"2_汽車編號數量\": len(sorted_cars),\r\n    \"3_機車編號數量\": len(sorted_motors),\r\n    \"4_總計編號數量\": len(sorted_cars) + len(sorted_motors)\r\n}",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "d93e5be147ca4cb788bb2fa6c6700546",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "909d6b7bc2114df38fa0e6bdb4558e0b",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "5dd0bc1cc4b14655adadab1beae5b395",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fec56d76355b4a9d9a9934bd4f41cbeb",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "297efa6fb8974872832ce35dcf2bcc95",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "18d74b5816204dc1af60cbfdd7f3a561",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "a85cd072c18d4c5686d65be6045364af",
+          "Name": "document",
+          "Description": "Revit.Application.Document",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "916286aa2e574a58815ddb4a6d4c3637",
+          "Name": "View",
+          "Description": "View",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Revit.Application.Document.ActiveView",
+      "Replication": "Auto",
+      "Description": "取得文件的作用中視圖\n\nDocument.ActiveView: View"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "b8f07f36105347979df4821af7f5d7a7",
+      "NodeType": "FunctionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f363dd14e527447ca9ce0efffcfcf033",
+          "Name": "Document",
+          "Description": "Document",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Revit.Application.Document.Current",
+      "Replication": "Auto",
+      "Description": "取得目前文件\n\nDocument.Current: Document"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "30e750bf37674451a2353189e0b46d6f",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "17365930ce6c44ecb076fba084b7897a",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5105468ebfee4d12a33a48aed9947f47",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "0258bf84c22a445cbc1bcacb7edcef04",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "55ae9182a267452284edaad5f79caab5",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 1.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "4ca30f2f828346529a9ac03850394ae7",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "2e5397a0afde41278d0a81a9cec17e07",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "備註"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "509e1248d93d40cc8e93cae83e5e2274",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c044238cc8644a0ba5e42373a829231d",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 1.0
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "297efa6fb8974872832ce35dcf2bcc95",
+      "End": "17365930ce6c44ecb076fba084b7897a",
+      "Id": "740bb54a358a486aab33d53bdec192f0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f363dd14e527447ca9ce0efffcfcf033",
+      "End": "a85cd072c18d4c5686d65be6045364af",
+      "Id": "39c7b38b38ae479a8d86a1dd2a814684",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "55ae9182a267452284edaad5f79caab5",
+      "End": "5dd0bc1cc4b14655adadab1beae5b395",
+      "Id": "d501d099931c4383bb433ca83c519104",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "2e5397a0afde41278d0a81a9cec17e07",
+      "End": "fec56d76355b4a9d9a9934bd4f41cbeb",
+      "Id": "bd54c173c9b64e5fb761d07cac1a601d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c044238cc8644a0ba5e42373a829231d",
+      "End": "909d6b7bc2114df38fa0e6bdb4558e0b",
+      "Id": "aeb7fdc790c84179ae4750348ecc1ec4",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "d93e5be147ca4cb788bb2fa6c6700546",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 749.0,
+        "Y": 285.0
+      },
+      {
+        "Id": "18d74b5816204dc1af60cbfdd7f3a561",
+        "Name": "Document.ActiveView",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 300.9136643134226,
+        "Y": -1.557442049488003
+      },
+      {
+        "Id": "b8f07f36105347979df4821af7f5d7a7",
+        "Name": "Document.Current",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 63.9136643134226,
+        "Y": 0.442557950511997
+      },
+      {
+        "Id": "30e750bf37674451a2353189e0b46d6f",
+        "Name": "編號統計",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1058.0415674731146,
+        "Y": 175.07112175021854
+      },
+      {
+        "Id": "0258bf84c22a445cbc1bcacb7edcef04",
+        "Name": "機車開始編號",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 310.7281078561794,
+        "Y": 486.3118794049017
+      },
+      {
+        "Id": "4ca30f2f828346529a9ac03850394ae7",
+        "Name": "編號的參數",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 344.75951488832186,
+        "Y": 617.1277473436459
+      },
+      {
+        "Id": "509e1248d93d40cc8e93cae83e5e2274",
+        "Name": "汽車開始編號",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 306.5202590246829,
+        "Y": 339.09601188965746
+      }
+    ],
+    "Annotations": [],
+    "X": 42.05997354337984,
+    "Y": 184.7825132947702,
+    "Zoom": 0.7042258785842903
+  }
+}

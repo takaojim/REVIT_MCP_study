@@ -1,0 +1,295 @@
+{
+  "Uuid": "b2e7cd12-9c26-41d5-bbd7-9cc3874b387e",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-顯示文公後標",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "Math": {
+        "Key": "DSCore.Math",
+        "Value": "DSCoreNodes.dll"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "d1c1d70a610c4eb38b156bd88035cedb",
+      "Name": "要不要細標",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "d4cde1c35d1c4fdeb796048d95450536",
+      "Name": "文公尺單位長",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "42.854",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "15a5e0f78ca24f949668eadbc8442fb8",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "631968eac96543c8baf6e1ead8469e07",
+          "Name": "double",
+          "Description": "42.854",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼",
+      "Code": "42.854;"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "d1c1d70a610c4eb38b156bd88035cedb",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "60006378390b416aadb5ccdd58c8f44e",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "d4cde1c35d1c4fdeb796048d95450536",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "98f77ad5331146d38622f61a28aa4557",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 42.854
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport System\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 只要 IN[0] 和 IN[1]，暴力美學不需要 IN[2]！\r\ncycle_len_cm = IN[0] if IN[0] else 42.854\r\nis_detailed = IN[1]\r\n\r\nlist_8 = [\"吉-財\",\"凶-病\",\"凶-離\",\"吉-義\",\"吉-官\",\"凶-劫\",\"凶-害\",\"吉-本\"]\r\nlist_32 = [\"_財德\",\"_寶庫\",\"_六合\",\"_迎福\",\"_退財\",\"_公事\",\"_牢執\",\"_孤寡\",\r\n           \"_長庫\",\"_劫財\",\"_官鬼\",\"_失脫\",\"_添丁\",\"_益利\",\"_貴子\",\"_大吉\",\r\n           \"_順科\",\"_橫財\",\"_進益\",\"_富貴\",\"_死別\",\"_退口\",\"_離鄉\",\"_財失\",\r\n           \"_災至\",\"_死絕\",\"_病臨\",\"_口舌\",\"_財至\",\"_登科\",\"_進寶\",\"_興旺\"]\r\n\r\ndef get_fengshui_text(val_feet, L_cm, detailed):\r\n    val_cm = round(val_feet * 30.48, 2)\r\n    rem = val_cm % L_cm\r\n    \r\n    idx8 = int(rem / (L_cm / 8.0))\r\n    if idx8 >= 8: idx8 = 7\r\n    \r\n    idx32 = int(rem / (L_cm / 32.0))\r\n    if idx32 >= 32: idx32 = 31\r\n    \r\n    return list_8[idx8] + list_32[idx32] if detailed else list_8[idx8]\r\n\r\n# 【暴力搜查】不分視圖、不挑 API Class，直接用 Revit 最底層的類別代碼 OST_Dimensions 抄家！\r\ndims = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Dimensions).WhereElementIsNotElementType().ToElements()\r\n\r\ncount = 0\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor dim in dims:\r\n    try:\r\n        # 暴力抓名稱：不管三七二十一，有 Name 屬性就抓出來看\r\n        dim_name = dim.Name\r\n        \r\n        # 名字不是文公尺的，直接踢掉\r\n        if dim_name is None or \"文公尺\" not in dim_name:\r\n            continue\r\n            \r\n        # 暴力寫入 (直接用 Try 包住，不囉嗦)\r\n        is_multi = False\r\n        try:\r\n            if dim.Segments is not None and dim.Segments.Size > 0:\r\n                is_multi = True\r\n        except: pass\r\n            \r\n        if is_multi:\r\n            for seg in dim.Segments:\r\n                try:\r\n                    if seg.Value is not None:\r\n                        seg.Suffix = \" \" + get_fengshui_text(seg.Value, cycle_len_cm, is_detailed)\r\n                        count += 1\r\n                except: pass\r\n        else:\r\n            try:\r\n                if dim.Value is not None:\r\n                    dim.Suffix = \" \" + get_fengshui_text(dim.Value, cycle_len_cm, is_detailed)\r\n                    count += 1\r\n            except: pass\r\n            \r\n    except: pass\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 霸氣回報\r\nif count > 0:\r\n    OUT = \"優喝！暴力破解成功！為 {} 個段落霸氣上字！啾咪！\".format(count)\r\nelse:\r\n    OUT = \"報告哥哥：暴力掃了全案，還是沒抓到名字裡有「文公尺」的傢伙耶，要不要檢查一下 Revit 裡的標註類型名稱？\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "2463e5fd7ea2449181579029d960cd30",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "3fe6387423c24380a7f9dc711b8ac66d",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1cb51f73097d4da0abd0985ca22eeb35",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "c4c11560677c40d38ddafa92f2ba39be",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 208.0,
+      "WatchHeight": 200.0,
+      "Id": "9266baa2e38543b39f7f02b4913b28af",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "bb98551187714215b00fba10930a5070",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "21856e38d4ab45129b9d849ae8c0e504",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "60006378390b416aadb5ccdd58c8f44e",
+      "End": "1cb51f73097d4da0abd0985ca22eeb35",
+      "Id": "d92658d009f346448adf79f07d7a4a19",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "98f77ad5331146d38622f61a28aa4557",
+      "End": "3fe6387423c24380a7f9dc711b8ac66d",
+      "Id": "6a597fd3c1b34aadb657b9d9fb3b17e9",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c4c11560677c40d38ddafa92f2ba39be",
+      "End": "bb98551187714215b00fba10930a5070",
+      "Id": "a1d5e1d25cc44cdb876722897952be8b",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "15a5e0f78ca24f949668eadbc8442fb8",
+        "Name": "文公尺單位長",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -237.66786421212123,
+        "Y": -132.2033164507361
+      },
+      {
+        "Id": "d1c1d70a610c4eb38b156bd88035cedb",
+        "Name": "要不要細標",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -54.571844800435144,
+        "Y": -507.90480951014655
+      },
+      {
+        "Id": "d4cde1c35d1c4fdeb796048d95450536",
+        "Name": "文公尺單位長",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -37.25858732365606,
+        "Y": -633.3870862031778
+      },
+      {
+        "Id": "2463e5fd7ea2449181579029d960cd30",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 275.68681252777066,
+        "Y": -602.1696711809916
+      },
+      {
+        "Id": "9266baa2e38543b39f7f02b4913b28af",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 479.586748927449,
+        "Y": -596.2964269094364
+      }
+    ],
+    "Annotations": [],
+    "X": 215.612939735713,
+    "Y": 920.6494236466808,
+    "Zoom": 1.124691333675452
+  }
+}

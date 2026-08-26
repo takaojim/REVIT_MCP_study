@@ -1,0 +1,143 @@
+{
+  "Uuid": "b985bf38-7af3-4a88-9bb7-6a2850a1dd24",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "視圖-複製視圖",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "157ed5d5b654457e835ca7c62dead23f",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "在專案瀏覽器之中選你要的視圖然按確定會複製一份一樣的視圖",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\n# 匯入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 匯入 Revit UI API (為了抓取選取項)\r\nclr.AddReference('RevitAPIUI')\r\nfrom Autodesk.Revit.UI import *\r\n\r\n# 匯入 Revit 服務\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得目前的文檔與介面\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\n# 1. 抓取專案瀏覽器中目前被選取的元素 ID\r\nselection_ids = uidoc.Selection.GetElementIds()\r\n\r\nduplicated_views = []\r\n\r\n# 開啟交易 (Transaction)\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor eid in selection_ids:\r\n    element = doc.GetElement(eid)\r\n    \r\n    # 2. 判斷選取的是不是「視圖」且「可以被複製」\r\n    if isinstance(element, View) and element.CanViewBeDuplicated(ViewDuplicateOption.WithDetailing):\r\n        try:\r\n            # 3. 執行複製 (使用 WithDetailing 選項，即：與細節一起複製)\r\n            new_view_id = element.Duplicate(ViewDuplicateOption.WithDetailing)\r\n            new_view = doc.GetElement(new_view_id)\r\n            duplicated_views.append(new_view)\r\n        except:\r\n            pass\r\n\r\n# 結束交易\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 輸出結果\r\nOUT = duplicated_views",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "ed9433be8ac8421cbea3a95e3765208f",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d9101c3270ec4137a17ac433e470e6d4",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "157ed5d5b654457e835ca7c62dead23f",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6c6b35fb1177473dbc507db84887e14b",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "在專案瀏覽器之中選你要的視圖然按確定會複製一份一樣的視圖"
+    }
+  ],
+  "Connectors": [],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Automatic",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "ed9433be8ac8421cbea3a95e3765208f",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 732.0,
+        "Y": 426.4
+      },
+      {
+        "Id": "157ed5d5b654457e835ca7c62dead23f",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 401.6000000000001,
+        "Y": 388.79999999999995
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

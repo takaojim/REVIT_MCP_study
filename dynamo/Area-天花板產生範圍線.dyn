@@ -1,0 +1,255 @@
+{
+  "Uuid": "ae732c69-be08-4705-a652-6453ba782fd2",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Area-天花板產生範圍線",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "0fe3d5e8efd14bdd9aa4d538fa3cfac5",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "Area-天花板產生範圍線--\r\n選到你要計算面積的平面視圖(建地平面圖)，然後按下確定就會在各牆面中心線畫上面積的邊界線；注意陽臺是算在外皮所以你要移動一下面積邊界線的位置...",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "a50e0813d5a24081ad592cf55ac04cd6",
+      "Name": "Views",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "1FL天花板平面圖",
+      "Description": "所有可在目前文件中取得的視圖。",
+      "SelectedIndex": 15
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "53c586ac1ff640b1972f393073f3eb12",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport sys\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Revit 節點與事務處理\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 接收 Dynamo 輸入\r\nsource_view = UnwrapElement(IN[0]) # 天花板平面圖\r\ntarget_view = doc.ActiveView       # 當前作用中的視圖\r\n\r\ndef flatten_curve(curve, z_val):\r\n    \"\"\"將曲線精準投影(壓平)到目標視圖的 Z 高度\"\"\"\r\n    try:\r\n        if isinstance(curve, Line):\r\n            p1 = curve.GetEndPoint(0)\r\n            p2 = curve.GetEndPoint(1)\r\n            return Line.CreateBound(XYZ(p1.X, p1.Y, z_val), XYZ(p2.X, p2.Y, z_val))\r\n        elif isinstance(curve, Arc):\r\n            p1 = curve.GetEndPoint(0)\r\n            p2 = curve.GetEndPoint(1)\r\n            pm = curve.Evaluate(0.5, True)\r\n            return Arc.Create(XYZ(p1.X, p1.Y, z_val), XYZ(p2.X, p2.Y, z_val), XYZ(pm.X, pm.Y, z_val))\r\n        else:\r\n            start_z = curve.GetEndPoint(0).Z\r\n            translation = Transform.CreateTranslation(XYZ(0, 0, z_val - start_z))\r\n            return curve.CreateTransformed(translation)\r\n    except:\r\n        return None\r\n\r\n# 確保當前視圖是平面視圖 (包含一般平面圖與面積平面圖)\r\nif not isinstance(source_view, View) or not isinstance(target_view, ViewPlan):\r\n    OUT = \"錯誤：IN[0] 必須是視圖，且您目前 Revit 的作用中視圖必須是平面圖或面積平面圖。\"\r\nelse:\r\n    # 取得目標視圖的基準高度\r\n    if target_view.GenLevel:\r\n        target_z = target_view.GenLevel.Elevation\r\n    else:\r\n        target_z = target_view.Origin.Z\r\n\r\n    # 篩選天花板\r\n    ceilings = FilteredElementCollector(doc, source_view.Id)\\\r\n                .OfCategory(BuiltInCategory.OST_Ceilings)\\\r\n                .WhereElementIsNotElementType()\\\r\n                .ToElements()\r\n\r\n    opt = Options()\r\n    opt.ComputeReferences = True\r\n    opt.View = source_view\r\n\r\n    created_lines = []\r\n\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n    # 處理 SketchPlane (面積邊界線必須要有草圖平面才能建立)\r\n    sketch_plane = target_view.SketchPlane\r\n    if not sketch_plane and target_view.GenLevel:\r\n        try:\r\n            sketch_plane = SketchPlane.Create(doc, target_view.GenLevel.Id)\r\n            target_view.SketchPlane = sketch_plane\r\n        except:\r\n            pass\r\n\r\n    # 判斷當下是否為「面積平面圖」\r\n    is_area_plan = (target_view.ViewType == ViewType.AreaPlan)\r\n\r\n    for ceiling in ceilings:\r\n        geom_elem = ceiling.get_Geometry(opt)\r\n        if not geom_elem: continue\r\n\r\n        for geom_obj in geom_elem:\r\n            if isinstance(geom_obj, Solid) and geom_obj.Volume > 0:\r\n                for face in geom_obj.Faces:\r\n                    # 尋找底面\r\n                    if isinstance(face, PlanarFace) and face.FaceNormal.Z < -0.5:\r\n                        curve_loops = face.GetEdgesAsCurveLoops()\r\n                        \r\n                        if curve_loops:\r\n                            # 篩選最外圍邊界 (過濾掉內部開孔)\r\n                            outer_loop = max(curve_loops, key=lambda loop: loop.GetExactLength())\r\n                            \r\n                            for curve in outer_loop:\r\n                                flat_curve = flatten_curve(curve, target_z)\r\n                                if flat_curve and sketch_plane:\r\n                                    try:\r\n                                        if is_area_plan:\r\n                                            # 如果是面積視圖，直接建立「面積邊界線」\r\n                                            line = doc.Create.NewAreaBoundaryLine(sketch_plane, flat_curve, target_view)\r\n                                        else:\r\n                                            # 如果是一般視圖，建立「一般詳圖線」\r\n                                            line = doc.Create.NewDetailCurve(target_view, flat_curve)\r\n                                        \r\n                                        created_lines.append(line)\r\n                                    except Exception as e:\r\n                                        pass\r\n\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    \r\n    OUT = created_lines",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "c530479042984fffa85f2aafd002d59b",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "40ff0a75018c4303a4d7bb1a8e848f43",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "899dcb0d304d45b4a05f3172f1e884a5",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "53c586ac1ff640b1972f393073f3eb12",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "20792e013a504fc69131f3a02e1ccee2",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6251e8fb352e4c3aac818d40afd421e3",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "0fe3d5e8efd14bdd9aa4d538fa3cfac5",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c7efd739e1d14f9292b48211145d1007",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "Area-天花板產生範圍線--\r\n選到你要計算面積的平面視圖(建地平面圖)，然後按下確定就會在各牆面中心線畫上面積的邊界線；注意陽臺是算在外皮所以你要移動一下面積邊界線的位置..."
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.Views, DSRevitNodesUI",
+      "SelectedIndex": 15,
+      "SelectedString": "1FL天花板平面圖",
+      "Id": "a50e0813d5a24081ad592cf55ac04cd6",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "dc7632c0c6d44575960002e77208d672",
+          "Name": "Views",
+          "Description": "選取的 Views",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在目前文件中取得的視圖。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "899dcb0d304d45b4a05f3172f1e884a5",
+      "End": "20792e013a504fc69131f3a02e1ccee2",
+      "Id": "5aeb801a4de44796a0153acaa2e1380e",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "dc7632c0c6d44575960002e77208d672",
+      "End": "40ff0a75018c4303a4d7bb1a8e848f43",
+      "Id": "93bb10dc92c940cd8c14e2450a67d8d4",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "c530479042984fffa85f2aafd002d59b",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 909.0,
+        "Y": 80.0
+      },
+      {
+        "Id": "53c586ac1ff640b1972f393073f3eb12",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1170.0,
+        "Y": 81.0
+      },
+      {
+        "Id": "0fe3d5e8efd14bdd9aa4d538fa3cfac5",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -90.99439561531182,
+        "Y": -70.45972064098751
+      },
+      {
+        "Id": "a50e0813d5a24081ad592cf55ac04cd6",
+        "Name": "Views",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 599.0434406732362,
+        "Y": 159.84610758568047
+      }
+    ],
+    "Annotations": [],
+    "X": -569.9503069189052,
+    "Y": 92.92883724595066,
+    "Zoom": 1.1511757837314411
+  }
+}

@@ -1,0 +1,306 @@
+{
+  "Uuid": "f9cfa4e5-ddad-4d9d-a66e-10b76af1e5e3",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-標註引線文字位置重排",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "3faf7e420b334230b2d3d11e6e6af326",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "引線文字跟標註文字的排列整齊\r\n把要排的存成選集\"000\"\r\n",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "db4ad02d57a447a9ad8e67a1884701e5",
+      "Name": "是否調整行距",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "358bcebba4434d9bb9b476abc5c69e0e",
+      "Name": "是否折線對齊",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "00ce624a72f8424b87e59200af7da8e9",
+      "Name": "Watch",
+      "Type": "string",
+      "InitialValue": "基準線校正完畢！已完全依據最上方物件之 X/Y 軸與折線位置切齊。",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\nview_scale = view.Scale\r\n\r\n# --- 輸入處理 ---\r\n# IN[0]: 是否調整行距 (True/False 或 \"是\"/\"否\")\r\nmode_input_0 = IN[0]\r\nadjust_spacing = False\r\nif isinstance(mode_input_0, bool): \r\n    adjust_spacing = mode_input_0\r\nelif isinstance(mode_input_0, str) and mode_input_0 == \"是\": \r\n    adjust_spacing = True\r\n\r\n# IN[1]: 是否對齊折線垂直點 (True/False 或 \"是\"/\"否\")\r\nalign_elbows = False\r\nif len(IN) > 1:\r\n    mode_input_1 = IN[1]\r\n    if isinstance(mode_input_1, bool): \r\n        align_elbows = mode_input_1\r\n    elif isinstance(mode_input_1, str) and mode_input_1 == \"是\": \r\n        align_elbows = True\r\n\r\nselection_name = \"000\"\r\n# 預設肩膀長度 (換算模型比例)\r\ndefault_shoulder_len = (6.0 / 304.8) * view_scale\r\n\r\n# --- 輔助函式 ---\r\ndef get_text_height(elem):\r\n    el_type = doc.GetElement(elem.GetTypeId())\r\n    p = el_type.get_Parameter(BuiltInParameter.TEXT_SIZE)\r\n    if p: paper_size = p.AsDouble()\r\n    else: paper_size = 3.0 / 304.8 \r\n    return paper_size * view_scale\r\n\r\ndef set_text_justification(text_note, is_right):\r\n    try:\r\n        if is_right: text_note.HorizontalAlignment = HorizontalTextAlignment.Right\r\n        else: text_note.HorizontalAlignment = HorizontalTextAlignment.Left\r\n    except: pass\r\n\r\n# --- 主要物件類別 ---\r\nclass AlignItem:\r\n    def __init__(self, elem, head_pos, is_tag):\r\n        self.elem = elem\r\n        self.head_pos = head_pos\r\n        self.is_tag = is_tag\r\n        self.height = get_text_height(elem)\r\n        \r\n        self.leader_end = None\r\n        self.first_elbow = None\r\n        self.orientation = None \r\n        self.tag_ref = None \r\n\r\n        if is_tag:\r\n            if hasattr(elem, \"GetTaggedReferences\"): \r\n                refs = elem.GetTaggedReferences()\r\n                if refs and len(refs) > 0:\r\n                    self.tag_ref = refs[0]\r\n                    try:\r\n                        self.leader_end = elem.GetLeaderEnd(self.tag_ref)\r\n                        if elem.HasLeaderElbow(self.tag_ref):\r\n                            self.first_elbow = elem.GetLeaderElbow(self.tag_ref)\r\n                    except: pass\r\n            else: \r\n                if getattr(elem, \"HasLeader\", False):\r\n                    try:\r\n                        self.leader_end = elem.LeaderEnd\r\n                        self.first_elbow = elem.LeaderElbow\r\n                    except: pass\r\n        else:\r\n            leaders = elem.GetLeaders()\r\n            if leaders and len(leaders) > 0:\r\n                leader = leaders[0]\r\n                self.leader_end = leader.End\r\n                try: self.first_elbow = leader.Elbow\r\n                except: pass\r\n        \r\n        if self.leader_end:\r\n            if self.head_pos.X < self.leader_end.X: self.orientation = \"LEFT\"\r\n            else: self.orientation = \"RIGHT\"\r\n\r\n    def set_elbow(self, new_elbow):\r\n        if self.is_tag:\r\n            if hasattr(self.elem, \"SetLeaderElbow\") and self.tag_ref:\r\n                try: self.elem.SetLeaderElbow(self.tag_ref, new_elbow)\r\n                except: pass\r\n            else:\r\n                try: self.elem.LeaderElbow = new_elbow\r\n                except: pass\r\n        else:\r\n            leaders = self.elem.GetLeaders()\r\n            if leaders and len(leaders) > 0:\r\n                try: leaders[0].Elbow = new_elbow\r\n                except: pass\r\n\r\n# 1. 取得選集 \"000\"\r\nfilters = FilteredElementCollector(doc).OfClass(SelectionFilterElement).ToElements()\r\ntarget_filter = next((f for f in filters if f.Name == selection_name), None)\r\n\r\nitems = []\r\nif target_filter:\r\n    for e_id in target_filter.GetElementIds():\r\n        elem = doc.GetElement(e_id)\r\n        if isinstance(elem, IndependentTag):\r\n            items.append(AlignItem(elem, elem.TagHeadPosition, True))\r\n        elif isinstance(elem, TextNote):\r\n            items.append(AlignItem(elem, elem.Coord, False))\r\n\r\n    if items:\r\n        # 全域排序：抓出整個選集最高點作為 Y 軸初始高度\r\n        items.sort(key=lambda x: x.head_pos.Y, reverse=True)\r\n        top_y = items[0].head_pos.Y\r\n        \r\n        left_items = [i for i in items if i.orientation == \"LEFT\"]\r\n        right_items = [i for i in items if i.orientation == \"RIGHT\"]\r\n        \r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        \r\n        # --- 處理左側物件 (文字在左 -> 靠右對齊) ---\r\n        if left_items:\r\n            # 依高度從上往下排\r\n            left_items.sort(key=lambda x: x.head_pos.Y, reverse=True)\r\n            \r\n            # 【核心修改】直接拿左側群組「最上方那一個(index 0)」的文字X與折線X當基準線！\r\n            base_head_x_left = left_items[0].head_pos.X\r\n            if left_items[0].first_elbow:\r\n                elbow_x_target_left = left_items[0].first_elbow.X\r\n            else:\r\n                elbow_x_target_left = base_head_x_left + default_shoulder_len\r\n            \r\n            current_y_left = top_y\r\n            \r\n            for i, item in enumerate(left_items):\r\n                if i == 0: new_y = top_y\r\n                elif adjust_spacing:\r\n                    new_y = current_y_left - (left_items[i-1].height * 1.5)\r\n                    current_y_left = new_y\r\n                else: new_y = item.head_pos.Y\r\n                \r\n                delta_y = new_y - item.head_pos.Y\r\n                delta_x = base_head_x_left - item.head_pos.X\r\n                \r\n                new_head_pos = XYZ(base_head_x_left, new_y, item.head_pos.Z)\r\n                \r\n                if item.first_elbow:\r\n                    # 折線 Y 跟隨文字等量位移，永不翹起\r\n                    new_elbow_y = item.first_elbow.Y + delta_y\r\n                    if align_elbows: \r\n                        new_elbow_x = elbow_x_target_left\r\n                    else: \r\n                        new_elbow_x = item.first_elbow.X + delta_x\r\n                    new_elbow_pos = XYZ(new_elbow_x, new_elbow_y, item.first_elbow.Z)\r\n                else:\r\n                    new_elbow_pos = None\r\n\r\n                if item.is_tag:\r\n                    item.elem.TagHeadPosition = new_head_pos\r\n                    if new_elbow_pos: item.set_elbow(new_elbow_pos)\r\n                else:\r\n                    item.elem.Coord = new_head_pos\r\n                    if new_elbow_pos: item.set_elbow(new_elbow_pos)\r\n                    set_text_justification(item.elem, True)\r\n\r\n        # --- 處理右側物件 (文字在右 -> 靠左對齊) ---\r\n        if right_items:\r\n            # 依高度從上往下排\r\n            right_items.sort(key=lambda x: x.head_pos.Y, reverse=True)\r\n            \r\n            # 【核心修改】直接拿右側群組「最上方那一個(index 0)」的文字X與折線X當基準線！\r\n            base_head_x_right = right_items[0].head_pos.X\r\n            if right_items[0].first_elbow:\r\n                elbow_x_target_right = right_items[0].first_elbow.X\r\n            else:\r\n                elbow_x_target_right = base_head_x_right - default_shoulder_len\r\n                \r\n            current_y_right = top_y\r\n            \r\n            for i, item in enumerate(right_items):\r\n                if i == 0: new_y = top_y\r\n                elif adjust_spacing:\r\n                    new_y = current_y_right - (right_items[i-1].height * 1.5)\r\n                    current_y_right = new_y\r\n                else: new_y = item.head_pos.Y\r\n                \r\n                delta_y = new_y - item.head_pos.Y\r\n                delta_x = base_head_x_right - item.head_pos.X\r\n                \r\n                new_head_pos = XYZ(base_head_x_right, new_y, item.head_pos.Z)\r\n                \r\n                if item.first_elbow:\r\n                    new_elbow_y = item.first_elbow.Y + delta_y\r\n                    if align_elbows: \r\n                        new_elbow_x = elbow_x_target_right\r\n                    else: \r\n                        new_elbow_x = item.first_elbow.X + delta_x\r\n                    new_elbow_pos = XYZ(new_elbow_x, new_elbow_y, item.first_elbow.Z)\r\n                else:\r\n                    new_elbow_pos = None\r\n                \r\n                if item.is_tag:\r\n                    item.elem.TagHeadPosition = new_head_pos\r\n                    if new_elbow_pos: item.set_elbow(new_elbow_pos)\r\n                else:\r\n                    item.elem.Coord = new_head_pos\r\n                    if new_elbow_pos: item.set_elbow(new_elbow_pos)\r\n                    set_text_justification(item.elem, False)\r\n\r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        OUT = \"基準線校正完畢！已完全依據最上方物件之 X/Y 軸與折線位置切齊。\"\r\n    else:\r\n        OUT = \"選集 000 中沒有可識別的標籤或文字。\"\r\nelse:\r\n    OUT = \"找不到選集 000，請確認 Revit 內命名是否為 000。\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "a088186d96d340fba951686edeb09ab2",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "ff18041df44c40c8a6fa0bf59ffe8ed2",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "62c445b1b51c4655a71e737654458c22",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "abf2ced858274e80aaa0836ed7f9045d",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 268.0,
+      "WatchHeight": 200.0,
+      "Id": "00ce624a72f8424b87e59200af7da8e9",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "39a652a0a67d4a75a39658c0dc392996",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "67c5bae63d5945a7a0e131fe07878c87",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "3faf7e420b334230b2d3d11e6e6af326",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "89d3ecf6fefe4397839e6525fb83febc",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "引線文字跟標註文字的排列整齊\r\n把要排的存成選集\"000\"\r\n"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "db4ad02d57a447a9ad8e67a1884701e5",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "2dd856846c8749258716f914ae268bb4",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "358bcebba4434d9bb9b476abc5c69e0e",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e79e6844ee9b4d67b02cfdb6d09adf7a",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "abf2ced858274e80aaa0836ed7f9045d",
+      "End": "39a652a0a67d4a75a39658c0dc392996",
+      "Id": "5f2f1cbb469844a79bafce6e1cdf06b7",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "2dd856846c8749258716f914ae268bb4",
+      "End": "ff18041df44c40c8a6fa0bf59ffe8ed2",
+      "Id": "5e095a48b7944ac3b194d6cb3eb8ffc0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e79e6844ee9b4d67b02cfdb6d09adf7a",
+      "End": "62c445b1b51c4655a71e737654458c22",
+      "Id": "6d47361c456b4e589ac715062e2a34a2",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "a088186d96d340fba951686edeb09ab2",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 797.0,
+        "Y": 318.0
+      },
+      {
+        "Id": "00ce624a72f8424b87e59200af7da8e9",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1093.4055487191079,
+        "Y": 230.7469605100968
+      },
+      {
+        "Id": "3faf7e420b334230b2d3d11e6e6af326",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 368.3437222617802,
+        "Y": 181.30278780745073
+      },
+      {
+        "Id": "db4ad02d57a447a9ad8e67a1884701e5",
+        "Name": "是否調整行距",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 494.13363419435746,
+        "Y": 473.64474209722835
+      },
+      {
+        "Id": "358bcebba4434d9bb9b476abc5c69e0e",
+        "Name": "是否折線對齊",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 478.6604805976888,
+        "Y": 625.1837464601724
+      }
+    ],
+    "Annotations": [],
+    "X": 19.351829957306933,
+    "Y": -83.30865762277506,
+    "Zoom": 1.04151616977416
+  }
+}

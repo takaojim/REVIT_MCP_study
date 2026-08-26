@@ -1,0 +1,199 @@
+{
+  "Uuid": "19ebd337-b634-4f35-ba6f-7f4bd4faa7ef",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Area-開窗面積計算",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "40cc2930b2f146f9932449679d3d1263",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "依照目前視圖的房間算出開窗的面積總和除以房間面積算出開窗率 \r\n陽台, 花台, 露台,陽臺, 花臺, 露臺...算是室外 ",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "063368cee97e438e9b24a045700ba10d",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Dynamo 專用的 Revit 服務\r\nclr.AddReference(\"RevitServices\")\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得目前文件與視圖\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\n\r\n# 💡 核心功能：取得目前視圖的階段 ID\r\nview_phase_id = view.get_Parameter(BuiltInParameter.VIEW_PHASE).AsElementId()\r\n\r\nroom_collector = FilteredElementCollector(doc, view.Id).OfCategory(BuiltInCategory.OST_Rooms)\r\nresult_text_lines = [\"【房間外牆開窗率檢討清單】\\n\"]\r\noptions = SpatialElementBoundaryOptions()\r\n\r\noutdoor_keywords = [\"陽台\", \"花台\", \"露台\",\"陽臺\", \"花臺\", \"露臺\"]\r\n\r\ndef get_dimension(element, type_element, built_in, string_names):\r\n    p = element.get_Parameter(built_in)\r\n    if p and p.HasValue: return p.AsDouble()\r\n    if type_element:\r\n        p = type_element.get_Parameter(built_in)\r\n        if p and p.HasValue: return p.AsDouble()\r\n    for name in string_names:\r\n        p = element.LookupParameter(name)\r\n        if p and p.HasValue: return p.AsDouble()\r\n    if type_element:\r\n        for name in string_names:\r\n            p = type_element.LookupParameter(name)\r\n            if p and p.HasValue: return p.AsDouble()\r\n    return 0.0\r\n\r\nfor room in room_collector:\r\n    if room.Area > 0:\r\n        room_num = room.Number\r\n        room_name = room.get_Parameter(BuiltInParameter.ROOM_NAME).AsString()\r\n        \r\n        # 陽台類不計開窗率\r\n        if room_name and any(kw in room_name for kw in outdoor_keywords):\r\n            continue\r\n            \r\n        room_area_sqm = room.Area * 0.092903 \r\n        \r\n        phase_id = room.get_Parameter(BuiltInParameter.ROOM_PHASE).AsElementId()\r\n        phase = doc.GetElement(phase_id)\r\n        room_level = doc.GetElement(room.LevelId)\r\n        probe_z = room_level.Elevation + 3.28 \r\n        \r\n        total_window_area_sqm = 0.0\r\n        calc_strings = [] \r\n        window_marks = [] \r\n        \r\n        boundaries = room.GetBoundarySegments(options)\r\n        if boundaries:\r\n            for boundary_list in boundaries:\r\n                for segment in boundary_list:\r\n                    element_id = segment.ElementId\r\n                    if element_id != ElementId.InvalidElementId:\r\n                        element = doc.GetElement(element_id)\r\n                        \r\n                        if isinstance(element, Wall) and hasattr(element.Location, \"Curve\"):\r\n                            wall_curve = element.Location.Curve\r\n                            inserts = element.FindInserts(True, False, False, False)\r\n                            \r\n                            for insert_id in inserts:\r\n                                insert_element = doc.GetElement(insert_id)\r\n                                \r\n                                # 💡 核心修復：階段過濾邏輯\r\n                                win_created_phase = insert_element.CreatedPhaseId\r\n                                win_demolished_phase = insert_element.DemolishedPhaseId\r\n                                \r\n                                # 如果窗戶的新建階段不等於目前視圖階段，且視圖階段 ID 是有效的\r\n                                # (註：此處採用嚴格比對視圖當前階段，若需包含既有則改為檢查階段順序)\r\n                                if win_created_phase != view_phase_id:\r\n                                    continue\r\n                                \r\n                                # 如果窗戶在目前階段已被拆除\r\n                                if win_demolished_phase != ElementId.InvalidElementId:\r\n                                    if win_demolished_phase == view_phase_id:\r\n                                        continue\r\n\r\n                                try:\r\n                                    cat_id = insert_element.Category.Id.Value\r\n                                except AttributeError:\r\n                                    cat_id = insert_element.Category.Id.IntegerValue\r\n                                    \r\n                                if cat_id == int(BuiltInCategory.OST_Windows):\r\n                                    loc = insert_element.Location\r\n                                    if loc and hasattr(loc, \"Point\"):\r\n                                        win_pt = loc.Point\r\n                                        win_proj = wall_curve.Project(win_pt)\r\n                                        seg_curve = segment.GetCurve()\r\n                                        p1_proj = wall_curve.Project(seg_curve.GetEndPoint(0))\r\n                                        p2_proj = wall_curve.Project(seg_curve.GetEndPoint(1))\r\n                                        \r\n                                        if win_proj and p1_proj and p2_proj:\r\n                                            win_param = win_proj.Parameter\r\n                                            seg_p1 = p1_proj.Parameter\r\n                                            seg_p2 = p2_proj.Parameter\r\n                                            \r\n                                            min_p = min(seg_p1, seg_p2)\r\n                                            max_p = max(seg_p1, seg_p2)\r\n                                            \r\n                                            if min_p - 0.05 <= win_param <= max_p + 0.05:\r\n                                                is_interior_window = False\r\n                                                if phase:\r\n                                                    transform = wall_curve.ComputeDerivatives(win_param, False)\r\n                                                    tangent = transform.BasisX.Normalize()\r\n                                                    z_axis = XYZ(0,0,1)\r\n                                                    normal = tangent.CrossProduct(z_axis).Normalize()\r\n                                                    offset = 1.64 \r\n                                                    pt1 = XYZ(win_pt.X + normal.X * offset, win_pt.Y + normal.Y * offset, probe_z)\r\n                                                    pt2 = XYZ(win_pt.X - normal.X * offset, win_pt.Y - normal.Y * offset, probe_z)\r\n                                                    room1 = doc.GetRoomAtPoint(pt1, phase)\r\n                                                    room2 = doc.GetRoomAtPoint(pt2, phase)\r\n                                                    if room1 and room2:\r\n                                                        r1_name = room1.get_Parameter(BuiltInParameter.ROOM_NAME).AsString() if room1 else \"\"\r\n                                                        r2_name = room2.get_Parameter(BuiltInParameter.ROOM_NAME).AsString() if room2 else \"\"\r\n                                                        is_r1_outdoor = any(kw in r1_name for kw in outdoor_keywords)\r\n                                                        is_r2_outdoor = any(kw in r2_name for kw in outdoor_keywords)\r\n                                                        if not (is_r1_outdoor or is_r2_outdoor):\r\n                                                            is_interior_window = True\r\n                                                \r\n                                                if is_interior_window: continue\r\n                                                \r\n                                                window_type = doc.GetElement(insert_element.GetTypeId())\r\n                                                t_mark = window_type.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_MARK)\r\n                                                i_mark = insert_element.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)\r\n                                                mark_str = t_mark.AsString() if (t_mark and t_mark.AsString()) else (i_mark.AsString() if (i_mark and i_mark.AsString()) else \"未命名\")\r\n                                                \r\n                                                w_raw = get_dimension(insert_element, window_type, BuiltInParameter.WINDOW_WIDTH, [\"寬度\", \"寬\", \"Width\", \"W\"])\r\n                                                h_raw = get_dimension(insert_element, window_type, BuiltInParameter.WINDOW_HEIGHT, [\"高度\", \"高\", \"Height\", \"H\"])\r\n                                                \r\n                                                if w_raw > 0 and h_raw > 0:\r\n                                                    w_m, h_m = w_raw * 0.3048, h_raw * 0.3048\r\n                                                    total_window_area_sqm += (w_m * h_m)\r\n                                                    calc_strings.append(\"{:.2f}*{:.2f}\".format(w_m, h_m))\r\n                                                    window_marks.append(mark_str)\r\n\r\n        wfr_ratio = (total_window_area_sqm / room_area_sqm) * 100 if room_area_sqm > 0 else 0\r\n        calc_display = \" + \".join(calc_strings) if calc_strings else \"0.00\"\r\n        mark_display = \", \".join(window_marks) if window_marks else \"無\"\r\n        \r\n        if room_name and \"廚房\" in room_name:\r\n            l_s = \">12.5%...OK\" if wfr_ratio >= 12.5 else \"<12.5%...**NG\"\r\n            v_s = \">10%...OK\" if wfr_ratio >= 10.0 else \"<10%...**NG\"\r\n            check_text = \" ,居室採光{}, 廚房通風{}\".format(l_s, v_s)\r\n        elif room_name and (\"廁所\" in room_name or \"浴廁\" in room_name):\r\n            v_s = \">5%...OK\" if wfr_ratio >= 5.0 else \"<5%...**NG\"\r\n            check_text = \" ,廁所通風{}\".format(v_s)\r\n        else:\r\n            l_s = \">12.5%...OK\" if wfr_ratio >= 12.5 else \"<12.5%...**NG\"\r\n            check_text = \" ,居室採光{}\".format(l_s)\r\n        \r\n        line1 = \"編號: {} | 名稱: {} | 房間面積: {:.2f}\".format(room_num, room_name, room_area_sqm)\r\n        line2 = \"窗戶編號: {}\".format(mark_display)\r\n        line3 = \"窗戶計算: {} = {:.2f}\".format(calc_display, total_window_area_sqm)\r\n        line4 = \"開窗率: {:.2f} / {:.2f} = {:.2f}%{}\".format(total_window_area_sqm, room_area_sqm, wfr_ratio, check_text)\r\n        result_text_lines.append(\"{}\\n{}\\n{}\\n{}\\n\".format(line1, line2, line3, line4))\r\n\r\nfinal_text = \"\\n\".join(result_text_lines)\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\ntry:\r\n    view_bbox = view.CropBox\r\n    text_location = XYZ(view_bbox.Max.X + 10, view_bbox.Max.Y, 0)\r\n    text_type_id = doc.GetDefaultElementTypeId(ElementTypeGroup.TextNoteType)\r\n    TextNote.Create(doc, view.Id, text_location, final_text, text_type_id)\r\n    status_msg = \"成功：已加入「\" + doc.GetElement(view_phase_id).Name + \"」階段過濾！\"\r\nexcept Exception as e:\r\n    status_msg = \"錯誤：\" + str(e)\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = [status_msg, final_text]",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "520259d90e99483eaf7355efe5006d8b",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1074fabe045a487dad5f1c66ea7f1583",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "063368cee97e438e9b24a045700ba10d",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "96ccb8dabd0c4aaa9bc4b747569b1110",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2496a20189cd4677a2ebdb3a0ecf0b66",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "40cc2930b2f146f9932449679d3d1263",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "2c8750d41459481ead0c8504b05c81b6",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "依照目前視圖的房間算出開窗的面積總和除以房間面積算出開窗率 \r\n陽台, 花台, 露台,陽臺, 花臺, 露臺...算是室外 "
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "1074fabe045a487dad5f1c66ea7f1583",
+      "End": "96ccb8dabd0c4aaa9bc4b747569b1110",
+      "Id": "064bd7a65fcc48b3a4714001cb5ca2cf",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "520259d90e99483eaf7355efe5006d8b",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 797.0,
+        "Y": 318.0
+      },
+      {
+        "Id": "063368cee97e438e9b24a045700ba10d",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1055.0,
+        "Y": 321.0
+      },
+      {
+        "Id": "40cc2930b2f146f9932449679d3d1263",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 477.40000000000003,
+        "Y": 300.2
+      }
+    ],
+    "Annotations": [],
+    "X": -439.0,
+    "Y": -133.0,
+    "Zoom": 1.0
+  }
+}

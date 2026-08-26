@@ -1,0 +1,308 @@
+{
+  "Uuid": "98035b7f-3586-48cd-88b6-37b1485f5fd4",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Green-外殼開窗數量計算",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "abcec05e13fc4118a348c76295fcb057",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "產出開窗方位跟數量公EEWH使用--明細表\"EEWH 綠建築方位檢討表\"窗戶有修改宅型\r\noutdoor_keywords\r\n陽台, 花台, 露台,陽臺, 花臺, 露臺...算是室外 ",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "d170654e36b0426a9c3dbd0de0365ecc",
+      "Name": "1.選擇階段",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "",
+      "Description": "從作用中的文件選取現有的 Revit 階段。",
+      "SelectedIndex": -1
+    },
+    {
+      "Id": "4963091559dd43dabef01d61ee8110d7",
+      "Name": "2.產生明細表?",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "905b00e5b8e548d8bd41a8cd7117f1b2",
+      "Name": "Watch",
+      "Type": "string",
+      "InitialValue": "運算完成！已自動寫入方位，並完美建立含數量、排序、過濾的明細表。",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Dynamo 服務\r\nclr.AddReference(\"RevitServices\")\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 脫外套 (Unwrap) 處理 IN[0]\r\nphase = UnwrapElement(IN[0]) if isinstance(IN[0], list) else UnwrapElement(IN[0])\r\n\r\n# 16 方位計算\r\ndef get_16_direction(vector_x, vector_y):\r\n    angle_rad = math.atan2(vector_x, vector_y)\r\n    angle_deg = math.degrees(angle_rad)\r\n    if angle_deg < 0: angle_deg += 360\r\n    idx = int((angle_deg + 11.25) / 22.5) % 16\r\n    dirs = [\"北 (N)\", \"北北東 (NNE)\", \"東北 (NE)\", \"東北東 (ENE)\",\r\n            \"東 (E)\", \"東南東 (ESE)\", \"東南 (SE)\", \"南南東 (SSE)\",\r\n            \"南 (S)\", \"南南西 (SSW)\", \"西南 (SW)\", \"西南西 (WSW)\",\r\n            \"西 (W)\", \"西北西 (WNW)\", \"西北 (NW)\", \"北北西 (NNW)\"]\r\n    return dirs[idx]\r\n\r\n# 取得階段 ID 的兼容寫法 (Revit 2024+)\r\ndef get_phase_id(ph):\r\n    return ph.Id.Value if hasattr(ph.Id, \"Value\") else ph.Id.IntegerValue\r\n\r\n# 取得樓層參數\r\ndef get_level_param_id(doc):\r\n    params = [BuiltInParameter.SCHEDULE_LEVEL_PARAM, BuiltInParameter.FAMILY_LEVEL_PARAM, BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM]\r\n    for p in params:\r\n        param_id = ElementId(p)\r\n        if doc.GetElement(param_id) or True: # 確保不報錯\r\n            return param_id\r\n    return ElementId(BuiltInParameter.SCHEDULE_LEVEL_PARAM)\r\n\r\n# 執行運算\r\nall_windows = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Windows).WhereElementIsNotElementType().ToElements()\r\nproject_pos = doc.ActiveProjectLocation.GetProjectPosition(XYZ.Zero)\r\ntrue_north_rotation = Transform.CreateRotation(XYZ.BasisZ, project_pos.Angle)\r\n\r\n# 小明哥專屬的戶外關鍵字 (含異體字)\r\noutdoor_keywords = [\"陽台\", \"花台\", \"露台\", \"雨遮\", \"戶外\", \"陽臺\", \"花臺\", \"露臺\"]\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor win in all_windows:\r\n    # 檢查階段\r\n    if phase:\r\n        p_id = get_phase_id(phase)\r\n        c_id = win.CreatedPhaseId.Value if hasattr(win.CreatedPhaseId, \"Value\") else win.CreatedPhaseId.IntegerValue\r\n        if c_id != p_id: continue\r\n\r\n    # 改用 FacingOrientation (窗戶家族正面朝向) 解決牆角誤判問題\r\n    if not hasattr(win, \"FacingOrientation\"): continue\r\n    normal = win.FacingOrientation\r\n    \r\n    # 簡單室內外判斷\r\n    win_pt = win.Location.Point\r\n    win_level = doc.GetElement(win.LevelId)\r\n    if not win_level: continue\r\n    \r\n    pt1 = XYZ(win_pt.X + normal.X*2, win_pt.Y + normal.Y*2, win_level.Elevation + 1)\r\n    pt2 = XYZ(win_pt.X - normal.X*2, win_pt.Y - normal.Y*2, win_level.Elevation + 1)\r\n    \r\n    room1 = doc.GetRoomAtPoint(pt1, phase) if phase else None\r\n    room2 = doc.GetRoomAtPoint(pt2, phase) if phase else None\r\n    \r\n    r1_name = room1.get_Parameter(BuiltInParameter.ROOM_NAME).AsString() if room1 else \"\"\r\n    r2_name = room2.get_Parameter(BuiltInParameter.ROOM_NAME).AsString() if room2 else \"\"\r\n    \r\n    is_r1_out = (room1 is None) or any(kw in r1_name for kw in outdoor_keywords)\r\n    is_r2_out = (room2 is None) or any(kw in r2_name for kw in outdoor_keywords)\r\n    \r\n    # 無視語言，直接用 Revit 底層 ID 抓取「備註 (Comments)」參數\r\n    comments_param = win.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)\r\n    \r\n    if comments_param:\r\n        if not (is_r1_out or is_r2_out):\r\n            comments_param.Set(\"室內不計\")\r\n        else:\r\n            # 校正正北\r\n            true_v = true_north_rotation.OfVector(normal if is_r1_out else normal.Negate())\r\n            comments_param.Set(get_16_direction(true_v.X, true_v.Y))\r\n\r\n# 處理明細表 (如果沒有才建立)\r\nschedule_name = \"EEWH 綠建築方位檢討表\"\r\nschedules = FilteredElementCollector(doc).OfClass(ViewSchedule).ToElements()\r\ntarget_schedule = next((s for s in schedules if s.Name == schedule_name), None)\r\n\r\nif not target_schedule:\r\n    target_schedule = ViewSchedule.CreateSchedule(doc, ElementId(BuiltInCategory.OST_Windows))\r\n    target_schedule.Name = schedule_name\r\n    def_s = target_schedule.Definition\r\n    \r\n    # 取得明細表支援的所有可用欄位，確保絕對相容\r\n    sf_list = def_s.GetSchedulableFields()\r\n    def get_sf(param_id):\r\n        for sf in sf_list:\r\n            if sf.ParameterId == param_id:\r\n                return sf\r\n        return None\r\n        \r\n    sf_level = get_sf(get_level_param_id(doc))\r\n    sf_mark = get_sf(ElementId(BuiltInParameter.ALL_MODEL_TYPE_MARK))\r\n    sf_width = get_sf(ElementId(BuiltInParameter.WINDOW_WIDTH))\r\n    sf_height = get_sf(ElementId(BuiltInParameter.WINDOW_HEIGHT))\r\n    sf_comments = get_sf(ElementId(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)) or get_sf(ElementId(BuiltInParameter.ALL_MODEL_COMMENTS))\r\n    \r\n    # 依序加入欄位\r\n    f_level = def_s.AddField(sf_level) if sf_level else None\r\n    f_mark = def_s.AddField(sf_mark) if sf_mark else None\r\n    f_width = def_s.AddField(sf_width) if sf_width else None\r\n    f_height = def_s.AddField(sf_height) if sf_height else None\r\n    f_comments = def_s.AddField(sf_comments) if sf_comments else None\r\n    \r\n    # 【無視語系】強制加入「數量(Count)」欄位\r\n    f_count = def_s.AddField(ScheduleFieldType.Count)\r\n    \r\n    # 設定篩選、排序、群組與頁尾\r\n    if f_comments:\r\n        def_s.AddFilter(ScheduleFilter(f_comments.FieldId, ScheduleFilterType.NotEqual, \"室內不計\"))\r\n        \r\n    if f_level:\r\n        sort_level = ScheduleSortGroupField(f_level.FieldId)\r\n        sort_level.HasFooter = True\r\n        sort_level.HasBlankLine = True\r\n        def_s.AddSortGroupField(sort_level)\r\n        \r\n    if f_comments:\r\n        def_s.AddSortGroupField(ScheduleSortGroupField(f_comments.FieldId))\r\n        \r\n    if f_mark:\r\n        def_s.AddSortGroupField(ScheduleSortGroupField(f_mark.FieldId))\r\n        \r\n    # 取消逐項列舉，讓數量自動加總\r\n    def_s.IsItemized = False\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = \"運算完成！已自動寫入方位，並完美建立含數量、排序、過濾的明細表。\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "b616e230e12144829b08c19a5b498154",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "76079be5b9c64b938015bfacfcb8e5e8",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "98f202e762bd4735ba4775bcb6b82b8e",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "b7a7e9f459d440928b92d31a1517a32c",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 260.0,
+      "WatchHeight": 200.0,
+      "Id": "905b00e5b8e548d8bd41a8cd7117f1b2",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "4c09d6f61c7b4af5ab3486398e7ba0ef",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "31e283b349ec4f0b8a90bea636d20617",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "abcec05e13fc4118a348c76295fcb057",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b93c7f81a9644cb8a51a2f35a1cf6d26",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "產出開窗方位跟數量公EEWH使用--明細表\"EEWH 綠建築方位檢討表\"窗戶有修改宅型\r\noutdoor_keywords\r\n陽台, 花台, 露台,陽臺, 花臺, 露臺...算是室外 "
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.RevitPhases, DSRevitNodesUI",
+      "SelectedIndex": -1,
+      "SelectedString": "",
+      "Id": "d170654e36b0426a9c3dbd0de0365ecc",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1e6280b33c8545a89176b08e2aa019dd",
+          "Name": "Phase",
+          "Description": "選取的 Phase",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從作用中的文件選取現有的 Revit 階段。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "4963091559dd43dabef01d61ee8110d7",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d3337127a1af4380a40b80359b6a6a72",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "b7a7e9f459d440928b92d31a1517a32c",
+      "End": "4c09d6f61c7b4af5ab3486398e7ba0ef",
+      "Id": "34b33952c2434922bcbb2a4c174939ce",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1e6280b33c8545a89176b08e2aa019dd",
+      "End": "76079be5b9c64b938015bfacfcb8e5e8",
+      "Id": "7d7e8812f05c4f7b98353a14fdadf3fc",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "d3337127a1af4380a40b80359b6a6a72",
+      "End": "98f202e762bd4735ba4775bcb6b82b8e",
+      "Id": "1b71f56484304f97a6bc17a2407e7152",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.7.0.11777",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "b616e230e12144829b08c19a5b498154",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1144.0,
+        "Y": 377.0
+      },
+      {
+        "Id": "905b00e5b8e548d8bd41a8cd7117f1b2",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1389.0,
+        "Y": 337.0
+      },
+      {
+        "Id": "abcec05e13fc4118a348c76295fcb057",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 477.40000000000003,
+        "Y": 300.2
+      },
+      {
+        "Id": "d170654e36b0426a9c3dbd0de0365ecc",
+        "Name": "1.選擇階段",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 826.5,
+        "Y": 394.0
+      },
+      {
+        "Id": "4963091559dd43dabef01d61ee8110d7",
+        "Name": "2.產生明細表?",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 836.0,
+        "Y": 530.0
+      }
+    ],
+    "Annotations": [],
+    "X": -314.1524999824426,
+    "Y": 158.21351322656588,
+    "Zoom": 0.6956164413011147
+  }
+}

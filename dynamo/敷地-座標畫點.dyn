@@ -1,0 +1,498 @@
+{
+  "Uuid": "7cb8c766-a25c-447e-92e2-6cae9eca2b7c",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "敷地-座標畫點",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "b74f749066164a72aae70076f7b4ddba",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "將地籍圖做成EXCEL座標點匯入畫呈現跟十字點做成族群\r\n工作業要改\"座標點\"喔",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "134eedd513b041f7adc9d216b26d89f8",
+      "Name": "File Path",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "..\\..\\simon\\2026年度\\A10匹克球場\\案件資料\\座標點.xlsx",
+      "Description": "可讓您選取系統上的檔案，並傳回其檔案路徑"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "d9328d7d2219421a9d5d69bfef27052e",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport time\r\nfrom System.Collections.Generic import List\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- [參數解析] ---\r\nraw_data = IN[0]  \r\nactive_view = doc.ActiveView\r\n\r\n# 處理字體\r\ntext_types = FilteredElementCollector(doc).OfClass(TextNoteType)\r\nmy_text_type = next((t for t in text_types if \"3mm_Red\" in t.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString()), None)\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\nif not my_text_type:\r\n    base_type = text_types.FirstElement()\r\n    my_text_type = base_type.Duplicate(\"3mm_Red\")\r\n    my_text_type.get_Parameter(BuiltInParameter.LINE_COLOR).Set(255) \r\n    my_text_type.get_Parameter(BuiltInParameter.TEXT_SIZE).Set(3.0 / 304.8) \r\n\r\n# --- [暴力破解資料結構] ---\r\nclean_data = []\r\n\r\ndef extract_rows(data):\r\n    try:\r\n        for row in data:\r\n            try:\r\n                r = list(row)\r\n                if len(r) >= 3:\r\n                    pt_id = str(r[0]).strip()\r\n                    x_val = str(r[1]).strip()\r\n                    y_val = str(r[2]).strip()\r\n                    \r\n                    if \"點\" in pt_id or \"X\" in x_val or not pt_id or pt_id.lower() == \"null\":\r\n                        continue\r\n                        \r\n                    x = float(x_val) * 100\r\n                    y = float(y_val) * 100\r\n                    clean_data.append([pt_id, x, y])\r\n            except:\r\n                if hasattr(row, '__iter__') and not isinstance(row, str):\r\n                    extract_rows(row)\r\n    except:\r\n        pass\r\n\r\nextract_rows(raw_data)\r\n\r\n# --- [生成圖元與群組] ---\r\nif clean_data:\r\n    min_x = min(r[1] for r in clean_data)\r\n    min_y = min(r[2] for r in clean_data)\r\n    \r\n    base_x, base_y = min_x - 100.0, min_y - 100.0\r\n    \r\n    xyz_pts = [] \r\n    cross_size = 20.0 / 30.48 \r\n    \r\n    # 建立一個專門裝 ElementId 的籃子\r\n    element_ids = List[ElementId]()\r\n    \r\n    for pt_name, x, y in clean_data:\r\n        rev_x = (x - base_x) / 30.48\r\n        rev_y = (y - base_y) / 30.48\r\n        pos = XYZ(rev_x, rev_y, 0)\r\n        xyz_pts.append(pos)\r\n        \r\n        # 1. 建立文字標註並把 ID 丟進籃子\r\n        t_note = TextNote.Create(doc, active_view.Id, pos, pt_name, my_text_type.Id)\r\n        element_ids.Add(t_note.Id)\r\n        \r\n        # 2. 畫十字標記並把 ID 丟進籃子\r\n        p1 = XYZ(rev_x - cross_size/2, rev_y, 0)\r\n        p2 = XYZ(rev_x + cross_size/2, rev_y, 0)\r\n        p3 = XYZ(rev_x, rev_y - cross_size/2, 0)\r\n        p4 = XYZ(rev_x, rev_y + cross_size/2, 0)\r\n        \r\n        try:\r\n            line1 = doc.Create.NewDetailCurve(active_view, Line.CreateBound(p1, p2))\r\n            line2 = doc.Create.NewDetailCurve(active_view, Line.CreateBound(p3, p4))\r\n            element_ids.Add(line1.Id)\r\n            element_ids.Add(line2.Id)\r\n        except:\r\n            pass\r\n\r\n    # 3. 將點位依序連線並把 ID 丟進籃子\r\n    if len(xyz_pts) > 1:\r\n        for i in range(len(xyz_pts)):\r\n            ptA = xyz_pts[i]\r\n            ptB = xyz_pts[(i + 1) % len(xyz_pts)] \r\n            \r\n            try:\r\n                bound_line = doc.Create.NewDetailCurve(active_view, Line.CreateBound(ptA, ptB))\r\n                element_ids.Add(bound_line.Id)\r\n            except:\r\n                pass\r\n\r\n    # 4. 將籃子裡的所有東西打包成一個 2D 詳圖群組\r\n    if element_ids.Count > 0:\r\n        new_group = doc.Create.NewGroup(element_ids)\r\n        \r\n        # 給群組一個好辨識的名字 (加上 timestamp 防止重複報錯)\r\n        try:\r\n            group_name = \"地籍圖匯入_\" + str(int(time.time()))\r\n            new_group.GroupType.Name = group_name\r\n        except:\r\n            pass\r\n\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    OUT = \"完美殺青！畫了 {} 個點位，並已全部打包成群組！\\n原點偏移至(CM): X={}, Y={}\".format(len(clean_data), base_x, base_y)\r\nelse:\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    OUT = \"抓不到資料喔！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "40bf5e35d9ba48fc9ea06e821c48759d",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "84dc23cbd6a3433aad9033c5c52e1df9",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d35d5ba2ac7746178172a4f6094c3f70",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "d9328d7d2219421a9d5d69bfef27052e",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "7811f605c2724233a9f0ce4a794a909a",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2824e8a28a6d4c1cbf432df162160390",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "b74f749066164a72aae70076f7b4ddba",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "eb8f09329ccf40688a7e9743e6207671",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "將地籍圖做成EXCEL座標點匯入畫呈現跟十字點做成族群\r\n工作業要改\"座標點\"喔"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.Filename, CoreNodeModels",
+      "Id": "134eedd513b041f7adc9d216b26d89f8",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "0dcc0930decd48e29473fe1dbd297015",
+          "Name": "",
+          "Description": "檔案路徑",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "可讓您選取系統上的檔案，並傳回其檔案路徑",
+      "HintPath": "\\\\server\\simon\\2026年度\\A10匹克球場\\案件資料\\座標點.xlsx",
+      "InputValue": "..\\..\\simon\\2026年度\\A10匹克球場\\案件資料\\座標點.xlsx"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.FileObject, CoreNodeModels",
+      "Id": "a2deed5486424e07b0b83be0058186a0",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "8eff89d5243842148612217ae8c84d9c",
+          "Name": "path",
+          "Description": "檔案路徑，以字串表示。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "7e52b44ef7e7467983b75d3eb589dd8d",
+          "Name": "file",
+          "Description": "檔案物件",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從給定路徑建立檔案物件"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "56104c232422493b953f3fcd11962ec6",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "564738033933453b9795e809ef37a2d0",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "座標點"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "357a6b2729e040668af08dcac16d084e",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "4b3668891ecb4dbe813c3da8da101fde",
+          "Name": "filePath",
+          "Description": "string",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8819e4a28e05481a8a96df980b3e5eaf",
+          "Name": "sheetName",
+          "Description": "string",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "0b815f4735bd40978574d62114a21fef",
+          "Name": "startRow",
+          "Description": "int\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6e8a3c2121334c1f87200aff0edf0369",
+          "Name": "startColumn",
+          "Description": "int\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ad2cc3dbf735491abf26edb5343ac8cd",
+          "Name": "readAsString",
+          "Description": "bool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "92f1aebdcfd248dfb7d4e7839085dc6e",
+          "Name": "var[][]",
+          "Description": "var[][]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "DSOffice.Data.OpenXMLImportExcel@string,string,int,int,bool",
+      "Replication": "Auto",
+      "Description": "Data.OpenXMLImportExcel (filePath: string, sheetName: string, startRow: int = 0, startColumn: int = 0, readAsString: bool = false): var[][]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "2e27cb08acd34bafa442a7687542f4d4",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "2d51ce9b11ca4de7953e11912db6dba5",
+          "Name": "file",
+          "Description": "var",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "af5c5e68a20f438cbb711aaea8b78313",
+          "Name": "sheetName",
+          "Description": "string",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fd2c43b8b88b42a1a569841a8bfffc1f",
+          "Name": "readAsStrings",
+          "Description": "bool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "752acc7c1c93487b9035e41c149cf53e",
+          "Name": "showExcel",
+          "Description": "bool\n預設值 : true",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "303dbe65318f4836a18c2c42444f56aa",
+          "Name": "var[][]",
+          "Description": "var[][]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "DSOffice.Data.ImportExcel@var,string,bool,bool",
+      "Replication": "Auto",
+      "Description": "Data.ImportExcel (file: var, sheetName: string, readAsStrings: bool = false, showExcel: bool = true): var[][]"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "d35d5ba2ac7746178172a4f6094c3f70",
+      "End": "7811f605c2724233a9f0ce4a794a909a",
+      "Id": "a7a6ca53bed44361b4d432ff3d86e14b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "0dcc0930decd48e29473fe1dbd297015",
+      "End": "8eff89d5243842148612217ae8c84d9c",
+      "Id": "1277de724475490dad54569dae1dbc28",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "7e52b44ef7e7467983b75d3eb589dd8d",
+      "End": "4b3668891ecb4dbe813c3da8da101fde",
+      "Id": "a8fa91a0093a46279a87a0ae3d1cdedd",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "7e52b44ef7e7467983b75d3eb589dd8d",
+      "End": "2d51ce9b11ca4de7953e11912db6dba5",
+      "Id": "a6aeb2c621f14de096d6e6d4938c4000",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "564738033933453b9795e809ef37a2d0",
+      "End": "8819e4a28e05481a8a96df980b3e5eaf",
+      "Id": "4925d56e5f1c40ab856e804005048e31",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "564738033933453b9795e809ef37a2d0",
+      "End": "af5c5e68a20f438cbb711aaea8b78313",
+      "Id": "10c1e0f3b445415190902007e01dad52",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "303dbe65318f4836a18c2c42444f56aa",
+      "End": "84dc23cbd6a3433aad9033c5c52e1df9",
+      "Id": "7e4bd6cebb2d46278e810f51465923c1",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "40bf5e35d9ba48fc9ea06e821c48759d",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1037.999372574458,
+        "Y": 348.8718204537529
+      },
+      {
+        "Id": "d9328d7d2219421a9d5d69bfef27052e",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1397.5776205190646,
+        "Y": 332.9503821111302
+      },
+      {
+        "Id": "b74f749066164a72aae70076f7b4ddba",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -85.09099683657513,
+        "Y": -3.664754948288632
+      },
+      {
+        "Id": "134eedd513b041f7adc9d216b26d89f8",
+        "Name": "File Path",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -55.49122146835214,
+        "Y": 412.2300745948072
+      },
+      {
+        "Id": "a2deed5486424e07b0b83be0058186a0",
+        "Name": "File From Path",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 353.36565552905716,
+        "Y": 340.31838396159714
+      },
+      {
+        "Id": "56104c232422493b953f3fcd11962ec6",
+        "Name": "String",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 392.1002346086898,
+        "Y": 561.3945490362429
+      },
+      {
+        "Id": "357a6b2729e040668af08dcac16d084e",
+        "Name": "Data.OpenXMLImportExcel",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": true,
+        "ShowGeometry": true,
+        "X": 630.3653652727376,
+        "Y": 570.335387518288
+      },
+      {
+        "Id": "2e27cb08acd34bafa442a7687542f4d4",
+        "Name": "Data.ImportExcel",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 660.1125567153904,
+        "Y": 301.2491547810127
+      }
+    ],
+    "Annotations": [],
+    "X": 109.5782437806073,
+    "Y": 88.2636137757392,
+    "Zoom": 0.6015173685365272
+  }
+}

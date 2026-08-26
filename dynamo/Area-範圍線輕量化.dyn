@@ -1,0 +1,191 @@
+{
+  "Uuid": "09a5a85b-0356-4fef-85c4-5cc54abfddd0",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Area-範圍線輕量化",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "fc463c250c2049e49cebd14cd35bf8a4",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "Area-範圍線輕量化\r\n把斷續跟重疊的線整理清爽的邊界線",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\n\r\n# 加入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 加入 Revit 服務\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\n\r\ndef get_2d_line_eq(p1, p2):\r\n    \"\"\"取得 2D 直線方程式 Ax + By + C = 0\"\"\"\r\n    A = p2.Y - p1.Y\r\n    B = p1.X - p2.X\r\n    C = p2.X * p1.Y - p1.X * p2.Y\r\n    norm = math.hypot(A, B)\r\n    if norm < 1e-6: return None\r\n    return A/norm, B/norm, C/norm\r\n\r\ndef dist_to_2d_line(eq, p):\r\n    \"\"\"計算點到 2D 直線的距離\"\"\"\r\n    return abs(eq[0]*p.X + eq[1]*p.Y + eq[2])\r\n\r\n# 1. 取得目前視圖中所有的區域邊界線\r\nboundaries = FilteredElementCollector(doc, view.Id)\\\r\n    .OfCategory(BuiltInCategory.OST_AreaSchemeLines)\\\r\n    .WhereElementIsNotElementType().ToElements()\r\n\r\nif not boundaries:\r\n    OUT = \"報告哥哥：目前視圖中沒有找到區域邊界線喔！\"\r\nelse:\r\n    groups = []\r\n    \r\n    # 2. 提高顯微鏡倍率！(調整 Tolerance)\r\n    # 0.25cm 約等於 0.008 呎\r\n    DIST_TOLERANCE = 0.008 \r\n    \r\n    for b in boundaries:\r\n        curve = b.GeometryCurve\r\n        if not isinstance(curve, Line): continue\r\n        \r\n        p1 = curve.GetEndPoint(0)\r\n        p2 = curve.GetEndPoint(1)\r\n        if p1.DistanceTo(p2) < 0.001: continue\r\n        \r\n        eq = get_2d_line_eq(p1, p2)\r\n        if not eq: continue\r\n        \r\n        matched_group = None\r\n        for grp in groups:\r\n            # 檢查平行度 (角度誤差縮小到 0.001 弧度，約 0.05 度)\r\n            # 並檢查兩端點到基準線的距離是否都在 0.25cm 以內\r\n            if dist_to_2d_line(grp['eq'], p1) < DIST_TOLERANCE and \\\r\n               dist_to_2d_line(grp['eq'], p2) < DIST_TOLERANCE:\r\n                matched_group = grp\r\n                break\r\n                \r\n        if matched_group is not None:\r\n            matched_group['elems'].append(b)\r\n        else:\r\n            groups.append({'eq': eq, 'elems': [b]})\r\n\r\n    lines_to_create = []\r\n    elements_to_delete = set()\r\n\r\n    # 3. 處理每個群組\r\n    for grp in groups:\r\n        elems = grp['elems']\r\n        if len(elems) == 1: continue \r\n        \r\n        base_c = elems[0].GeometryCurve\r\n        p_base = base_c.GetEndPoint(0)\r\n        p_end = base_c.GetEndPoint(1)\r\n        \r\n        dir_x = p_end.X - p_base.X\r\n        dir_y = p_end.Y - p_base.Y\r\n        length = math.hypot(dir_x, dir_y)\r\n        if length < 1e-6: continue\r\n        dir_x /= length\r\n        dir_y /= length\r\n        \r\n        intervals = []\r\n        for e in elems:\r\n            c = e.GeometryCurve\r\n            ps = c.GetEndPoint(0)\r\n            pe = c.GetEndPoint(1)\r\n            t1 = (ps.X - p_base.X) * dir_x + (ps.Y - p_base.Y) * dir_y\r\n            t2 = (pe.X - p_base.X) * dir_x + (pe.Y - p_base.Y) * dir_y\r\n            intervals.append((min(t1, t2), max(t1, t2), e.Id))\r\n            \r\n        intervals.sort(key=lambda x: x[0])\r\n        \r\n        merged_intervals = []\r\n        curr_start, curr_end, curr_ids = intervals[0][0], intervals[0][1], [intervals[0][2]]\r\n        \r\n        # 縫合間隙也縮小：只有間隙小於 0.5cm (0.016 呎) 才會自動縫合\r\n        GAP_TOLERANCE = 0.016\r\n        \r\n        for i in range(1, len(intervals)):\r\n            t_start, t_end, e_id = intervals[i]\r\n            if t_start <= curr_end + GAP_TOLERANCE: \r\n                curr_end = max(curr_end, t_end)\r\n                curr_ids.append(e_id)\r\n            else:\r\n                merged_intervals.append((curr_start, curr_end, curr_ids))\r\n                curr_start, curr_end, curr_ids = t_start, t_end, [e_id]\r\n        merged_intervals.append((curr_start, curr_end, curr_ids))\r\n        \r\n        for start_t, end_t, ids in merged_intervals:\r\n            if len(ids) > 1: \r\n                for eid in ids:\r\n                    elements_to_delete.add(eid)\r\n                \r\n                # 保持 Z 軸高度，避免產生斜線\r\n                z_avg = sum([doc.GetElement(eid).GeometryCurve.GetEndPoint(0).Z for eid in ids]) / len(ids)\r\n                \r\n                new_start = XYZ(p_base.X + dir_x * start_t, p_base.Y + dir_y * start_t, z_avg)\r\n                new_end = XYZ(p_base.X + dir_x * end_t, p_base.Y + dir_y * end_t, z_avg)\r\n                \r\n                if new_start.DistanceTo(new_end) > 0.001:\r\n                    lines_to_create.append(Line.CreateBound(new_start, new_end))\r\n\r\n    # 4. 更新 Revit\r\n    if lines_to_create or elements_to_delete:\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        \r\n        deleted_count = 0\r\n        for e_id in elements_to_delete:\r\n            try:\r\n                elem = doc.GetElement(e_id)\r\n                if elem.Pinned: elem.Pinned = False\r\n                doc.Delete(e_id)\r\n                deleted_count += 1\r\n            except: pass\r\n                \r\n        sketch_plane = view.SketchPlane\r\n        if not sketch_plane:\r\n            try:\r\n                plane = Plane.CreateByNormalAndOrigin(view.ViewDirection, view.Origin)\r\n                sketch_plane = SketchPlane.Create(doc, plane)\r\n                view.SketchPlane = sketch_plane\r\n            except: pass\r\n            \r\n        created_count = 0\r\n        for geom in lines_to_create:\r\n            try:\r\n                doc.Create.NewAreaBoundaryLine(sketch_plane, geom, view)\r\n                created_count += 1\r\n            except: pass\r\n                \r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        msg = \"優喝！精準度調校完成！畫了 \" + str(created_count) + \" 條細緻長線，清除了 \" + str(deleted_count) + \" 條碎線。1.5cm 的間距現在會被視為『兩條平行線』囉！😎\"\r\n        OUT = msg\r\n    else:\r\n        OUT = \"檢查完畢！目前設定精度為 0.25cm，沒有發現需要合併的碎線。\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "e2acee38d2314aa1b916774a990723ef",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "a3fed5ac42414007b97c1fbbc767e346",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 420.0,
+      "WatchHeight": 200.0,
+      "Id": "3c1d347dd5064d058f9f0796f9ebd9dd",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "8c301afd91fc45578c59f41bd668629e",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "98a99aab357d45669244fd8fb5048558",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "fc463c250c2049e49cebd14cd35bf8a4",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1307754d7e1145a98e80b74406c34bbf",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "Area-範圍線輕量化\r\n把斷續跟重疊的線整理清爽的邊界線"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "a3fed5ac42414007b97c1fbbc767e346",
+      "End": "8c301afd91fc45578c59f41bd668629e",
+      "Id": "6c73391559b54867977f9b3c6ed3128f",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "e2acee38d2314aa1b916774a990723ef",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 907.9077750186129,
+        "Y": 80.0
+      },
+      {
+        "Id": "3c1d347dd5064d058f9f0796f9ebd9dd",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1170.0,
+        "Y": 81.0
+      },
+      {
+        "Id": "fc463c250c2049e49cebd14cd35bf8a4",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -85.79859019962646,
+        "Y": 382.0715695669266
+      }
+    ],
+    "Annotations": [],
+    "X": 111.0334165470282,
+    "Y": 227.04437484971442,
+    "Zoom": 0.9155622852812264
+  }
+}

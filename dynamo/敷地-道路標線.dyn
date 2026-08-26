@@ -1,0 +1,608 @@
+{
+  "Uuid": "7685a07c-9058-4b14-ab69-9f5164e4473c",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "敷地-道路標線",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "9368a5f92dae4a26ad3a84d1ad36ba9e",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "先用標註畫參考線長\r\n再選你標線的性質\r\n人行道跟待轉區要輸入寬度其長度是參考線長\r\n黃線材質名稱：標線_黃色\n白線材質名稱：標線_白色",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "7f69d51ffc35402b9e992e35355c81cd",
+      "Name": "1.標線厚度",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "2",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "a5791b4f6de44b0ca51490b902b34ff8",
+      "Name": "5.選取標線清單",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "ed97c677fdac427ea7a88f5cf8dfabe0",
+      "Name": "6.標線清單",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "\"單白實線\",\"單黃實線\",\"雙白線\",\"雙黃線\",\"單白虛線\",\"單黃虛線\",\"行人穿越道(斑馬線)\",\"停止線\",\"機車停等區\", \"直行箭頭\", \"左轉箭頭\", \"右轉箭頭\", \"直左箭頭\", \"直右箭頭\"",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "1b052ec03a5a4483a760de1e4ae4907e",
+      "Name": "3.選取道路平面",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "9c5c6e04-1922-4664-afde-4c37d3eb8c1e-000c529a:1:SURFACE",
+      "Description": "選取一個面。"
+    },
+    {
+      "Id": "4484c0fdaae24ee288e594f5c65cbb0e",
+      "Name": "4.機車待轉區寬或是人行道寬",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "200",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "09024a2dba6d41b2ae96d3ef77010101",
+      "Name": "2.選一或多條基準線",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "9c5c6e04-1922-4664-afde-4c37d3eb8c1e-000c57fd:0:LINEAR",
+      "Description": "選取多條邊緣。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "a7ca055c4b3f49789b8ad696a36b2ecf",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport traceback \r\nimport math\r\n\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\n# === 加入 Revit API 相關模組 ===\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import ElementId, BuiltInCategory, DirectShape, FilteredElementCollector\r\nfrom Autodesk.Revit.DB import FillPatternElement, OverrideGraphicSettings, Color as RvtColor\r\nfrom System.Collections.Generic import List\r\n\r\n# ==========================================\r\n# VER: 絕對無敵CAD原點直出_全線型版_v8.0_PRO\r\n# ==========================================\r\n\r\ntry:\r\n    doc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n    if len(IN) < 5:\r\n        raise Exception(\"節點輸入端不足！請確保有 IN[0]到IN[4]\")\r\n\r\n    thk_in = IN[0]\r\n    if isinstance(thk_in, list) and len(thk_in) > 0: thk_in = thk_in[0]\r\n    thickness = float(thk_in) if thk_in is not None else 0.2\r\n    \r\n    raw_curves = IN[1] if isinstance(IN[1], list) else [IN[1]]\r\n    line_type = IN[2]\r\n    raw_face = IN[3] \r\n    \r\n    width_in = IN[4]\r\n    if isinstance(width_in, list) and len(width_in) > 0: width_in = width_in[0]\r\n    custom_width = float(width_in) if width_in is not None else 300.0\r\n\r\n    ref_surface = None\r\n    \r\n    def extract_surface(obj):\r\n        if isinstance(obj, list):\r\n            if len(obj) > 0: return extract_surface(obj[0])\r\n            return None\r\n        if isinstance(obj, Surface): return obj\r\n        if hasattr(obj, \"SurfaceGeometry\"): return obj.SurfaceGeometry()\r\n        try:\r\n            for g in obj.Geometry():\r\n                if isinstance(g, Surface): return g\r\n        except: pass\r\n        return None\r\n\r\n    if raw_face is not None:\r\n        ref_surface = extract_surface(raw_face)\r\n        if not ref_surface: raise Exception(\"IN[3] 無法解析成有效平面！\")\r\n    else:\r\n        raise Exception(\"請務必在 IN[3] 輸入道路平面！\")\r\n\r\n    parsed_curves = []\r\n    for rc in raw_curves:\r\n        if rc is None: continue\r\n        if hasattr(rc, \"StartPoint\") and hasattr(rc, \"PointAtParameter\"):\r\n            parsed_curves.append(rc)\r\n            continue\r\n        if hasattr(rc, \"CurveGeometry\"):\r\n            try: parsed_curves.append(rc.CurveGeometry); continue\r\n            except: pass\r\n        if hasattr(rc, \"GeometryCurve\"):\r\n            try: parsed_curves.append(rc.GeometryCurve.ToProtoType()); continue\r\n            except: pass\r\n        try:\r\n            for g in rc.Geometry():\r\n                if hasattr(g, \"PointAtParameter\"): parsed_curves.append(g)\r\n        except: pass\r\n\r\n    if not parsed_curves: raise Exception(\"IN[1] 找不到有效線段！\")\r\n    if not line_type: raise Exception(\"IN[2] 找不到標線類型！\")\r\n\r\n    def chain_and_join_curves(curves, tol=0.01):\r\n        if not curves: return []\r\n        if len(curves) == 1: return curves\r\n        unprocessed = list(curves)\r\n        chains = []\r\n        while unprocessed:\r\n            current_chain = [unprocessed.pop(0)]\r\n            added = True\r\n            while added:\r\n                added = False\r\n                chain_start = current_chain[0].StartPoint\r\n                chain_end = current_chain[-1].EndPoint\r\n                for i in range(len(unprocessed)-1, -1, -1):\r\n                    c = unprocessed[i]\r\n                    c_start = c.StartPoint\r\n                    c_end = c.EndPoint\r\n                    if chain_end.DistanceTo(c_start) <= tol:\r\n                        current_chain.append(c); unprocessed.pop(i); added = True; break\r\n                    elif chain_end.DistanceTo(c_end) <= tol:\r\n                        current_chain.append(c.Reverse()); unprocessed.pop(i); added = True; break\r\n                    elif chain_start.DistanceTo(c_end) <= tol:\r\n                        current_chain.insert(0, c); unprocessed.pop(i); added = True; break\r\n                    elif chain_start.DistanceTo(c_start) <= tol:\r\n                        current_chain.insert(0, c.Reverse()); unprocessed.pop(i); added = True; break\r\n            chains.append(current_chain)\r\n        joined_curves = []\r\n        for chain in chains:\r\n            if len(chain) == 1: joined_curves.append(chain[0])\r\n            else:\r\n                try: joined_curves.append(PolyCurve.ByJoinedCurves(chain))\r\n                except: joined_curves.extend(chain)\r\n        return joined_curves\r\n\r\n    is_arrow = \"箭頭\" in line_type\r\n    input_curves = parsed_curves if is_arrow else chain_and_join_curves(parsed_curves)\r\n\r\n    line_width = 10.0           \r\n    dash_length = 400.0         \r\n    dash_gap = 600.0            \r\n    double_line_offset = 10.0   \r\n    stop_line_width = 40.0      \r\n    zebra_width = 40.0          \r\n    zebra_gap = 40.0            \r\n    zebra_length = custom_width        \r\n    moto_depth = custom_width          \r\n    segment_resolution = 20.0 \r\n\r\n    def get_arc_pts(p1, p2, r, sweep_left=True, steps=12):\r\n        x1, y1 = p1\r\n        x2, y2 = p2\r\n        d = math.sqrt((x2-x1)**2 + (y2-y1)**2)\r\n        if d == 0: return [p1]\r\n        if d > 2*r: r = (d / 2.0) + 0.1 \r\n        \r\n        mx, my = (x1+x2)/2.0, (y1+y2)/2.0\r\n        h = math.sqrt(max(0, r**2 - (d/2.0)**2))\r\n        vx, vy = (x2-x1)/d, (y2-y1)/d\r\n        \r\n        if sweep_left: nx, ny = -vy, vx\r\n        else: nx, ny = vy, -vx\r\n            \r\n        cx, cy = mx + h * nx, my + h * ny\r\n        a1, a2 = math.atan2(y1 - cy, x1 - cx), math.atan2(y2 - cy, x2 - cx)\r\n        \r\n        while a1 < 0: a1 += 2*math.pi\r\n        while a2 < 0: a2 += 2*math.pi\r\n        \r\n        diff = a2 - a1\r\n        if sweep_left:\r\n            if diff < 0: diff += 2*math.pi\r\n        else:\r\n            if diff > 0: diff -= 2*math.pi\r\n            \r\n        pts = []\r\n        for i in range(steps + 1):\r\n            a = a1 + diff * (i / float(steps))\r\n            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))\r\n        return pts\r\n\r\n    def get_arrow_pts(atype):\r\n        pts = []\r\n        if \"直行\" in atype:\r\n            pts = [(10,0), (10,250), (45,240), (0,500), (-45,240), (-10,250), (-10,0)]\r\n            \r\n        elif \"左轉\" in atype:\r\n            p1, p9 = (10, 0), (10, 270)\r\n            p8, p7, p6 = (-65, 425), (-45, 500), (-110, 425)\r\n            p5, p4 = (-65, 280), (-65, 364.387)\r\n            p3, p2 = (-10, 270), (-10, 0)\r\n            \r\n            pts = [p1, p9]\r\n            pts.extend(get_arc_pts(p9, p8, 200, sweep_left=True)[1:])\r\n            pts.extend([p7, p6, p5, p4])\r\n            pts.extend(get_arc_pts(p4, p3, 120, sweep_left=False)[1:])\r\n            pts.append(p2)\r\n            \r\n        elif \"直左\" in atype:\r\n            p1, p14, p13 = (15, 0), (15, 277.778), (50, 270)\r\n            p12, p11, p10 = (5, 500), (-40, 270), (-5, 277.778)\r\n            p9, p8, p7 = (-5, 95.719), (-70, 195), (-50, 270)\r\n            p6, p5, p4 = (-115, 195), (-70, 50), (-70, 134.387)\r\n            p3, p2 = (-15, 26.798), (-15, 0)\r\n            \r\n            pts = [p1, p14, p13, p12, p11, p10, p9]\r\n            pts.extend(get_arc_pts(p9, p8, 200, sweep_left=True)[1:])\r\n            pts.extend([p7, p6, p5, p4])\r\n            pts.extend(get_arc_pts(p4, p3, 120, sweep_left=False)[1:])\r\n            pts.append(p2)\r\n            \r\n        elif \"右轉\" in atype:\r\n            pts = [(-x, y) for x, y in reversed(get_arrow_pts(\"左轉\"))]\r\n            \r\n        elif \"直右\" in atype:\r\n            pts = [(-x, y) for x, y in reversed(get_arrow_pts(\"直左\"))]\r\n            \r\n        return pts\r\n\r\n    def safe_curve_from_pts(pts):\r\n        if len(pts) == 2: return Line.ByStartPointEndPoint(pts[0], pts[1])\r\n        lines = []\r\n        for i in range(len(pts) - 1):\r\n            if pts[i].DistanceTo(pts[i+1]) > 0.01:\r\n                lines.append(Line.ByStartPointEndPoint(pts[i], pts[i+1]))\r\n        if not lines: return None\r\n        if len(lines) == 1: return lines[0]\r\n        return PolyCurve.ByJoinedCurves(lines)\r\n\r\n    def get_offset_curve(curve, offset_dist, ref_surf):\r\n        length = curve.Length\r\n        if length < 0.1: return None \r\n        num_points = max(int(length / segment_resolution), 1)\r\n        pts = []\r\n        for i in range(num_points + 1):\r\n            param = i / float(num_points)\r\n            pt = curve.PointAtParameter(param)\r\n            tangent = curve.TangentAtParameter(param)\r\n            try:\r\n                proj_pt = ref_surf.ClosestPointTo(pt)\r\n                uv = ref_surf.UVParameterAtPoint(proj_pt)\r\n                normal = ref_surf.NormalAtParameter(uv.U, uv.V)\r\n                pt = proj_pt \r\n            except: normal = Vector.ZAxis()\r\n            offset_dir = normal.Cross(tangent).Normalized()\r\n            pts.append(pt.Translate(offset_dir, offset_dist))\r\n        return safe_curve_from_pts(pts)\r\n\r\n    def create_ribbon_solid(curve, width, thk, ref_surf):\r\n        try:\r\n            left_curve = get_offset_curve(curve, width / 2.0, ref_surf)\r\n            right_curve = get_offset_curve(curve, -width / 2.0, ref_surf)\r\n            if not left_curve or not right_curve: return None\r\n            ribbon_surf = Surface.ByLoft([left_curve, right_curve])\r\n            return ribbon_surf.Thicken(thk) if thk > 0 else ribbon_surf\r\n        except: return None\r\n\r\n    def create_arrow_solid(curve, atype, thk, ref_surf):\r\n        try:\r\n            start_pt = curve.StartPoint\r\n            forward_vec = curve.TangentAtParameter(0).Normalized()\r\n            \r\n            if ref_surf:\r\n                try:\r\n                    start_pt = ref_surf.ClosestPointTo(start_pt)\r\n                    uv = ref_surf.UVParameterAtPoint(start_pt)\r\n                    normal = ref_surf.NormalAtParameter(uv.U, uv.V)\r\n                except: normal = Vector.ZAxis()\r\n            else: normal = Vector.ZAxis()\r\n                \r\n            right_vec = forward_vec.Cross(normal).Normalized()\r\n            true_forward = normal.Cross(right_vec).Normalized()\r\n            \r\n            points_3d = []\r\n            pts = get_arrow_pts(atype)\r\n            \r\n            for x, y in pts:\r\n                pt_proj = start_pt.Translate(right_vec, x).Translate(true_forward, y)\r\n                if ref_surf:\r\n                    try: pt_proj = ref_surf.ClosestPointTo(pt_proj)\r\n                    except: pass\r\n                points_3d.append(pt_proj)\r\n                \r\n            clean_pts = []\r\n            for p in points_3d:\r\n                if not clean_pts or clean_pts[-1].DistanceTo(p) > 0.05:\r\n                    clean_pts.append(p)\r\n            if clean_pts and clean_pts[0].DistanceTo(clean_pts[-1]) < 0.05:\r\n                clean_pts.pop()\r\n                \r\n            clean_pts.append(clean_pts[0]) \r\n            \r\n            poly = safe_curve_from_pts(clean_pts)\r\n            if not poly: return []\r\n            \r\n            surf = Surface.ByPatch(poly)\r\n            if not surf: return []\r\n                \r\n            solid = surf.Thicken(thk) if thk > 0 else surf\r\n            return [solid] if solid else []\r\n        except Exception as e:\r\n            return []\r\n\r\n    output_solids = []\r\n\r\n    for curve in input_curves:\r\n        if is_arrow:\r\n            solids = create_arrow_solid(curve, line_type, thickness, ref_surface)\r\n            output_solids.extend(solids)\r\n            \r\n        elif line_type in [\"單黃實線\", \"單白實線\", \"單黃線\", \"單白線\"]:\r\n            solid = create_ribbon_solid(curve, line_width, thickness, ref_surface)\r\n            if solid: output_solids.append(solid)\r\n            \r\n        # 👉 在這裡加入了「雙白線」的判斷 👈\r\n        elif \"雙黃線\" in line_type or \"雙白線\" in line_type:\r\n            curve_left = get_offset_curve(curve, double_line_offset, ref_surface)\r\n            curve_right = get_offset_curve(curve, -double_line_offset, ref_surface)\r\n            if curve_left and curve_right:\r\n                solid_L = create_ribbon_solid(curve_left, line_width, thickness, ref_surface)\r\n                solid_R = create_ribbon_solid(curve_right, line_width, thickness, ref_surface)\r\n                if solid_L: output_solids.append(solid_L); output_solids.append(solid_R)\r\n            \r\n        elif \"虛線\" in line_type:\r\n            rem_curve = curve \r\n            while rem_curve.Length > 0.1: \r\n                if rem_curve.Length <= dash_length + 0.1:\r\n                    solid = create_ribbon_solid(rem_curve, line_width, thickness, ref_surface)\r\n                    if solid: output_solids.append(solid)\r\n                    break\r\n                t_dash = rem_curve.ParameterAtSegmentLength(dash_length)\r\n                parts = rem_curve.SplitByParameter(t_dash)\r\n                solid = create_ribbon_solid(parts[0], line_width, thickness, ref_surface)\r\n                if solid: output_solids.append(solid)\r\n                rem_curve = parts[1]\r\n                if rem_curve.Length <= dash_gap + 0.1: break\r\n                t_gap = rem_curve.ParameterAtSegmentLength(dash_gap)\r\n                rem_curve = rem_curve.SplitByParameter(t_gap)[1]\r\n\r\n        elif \"停止線\" in line_type:\r\n            solid = create_ribbon_solid(curve, stop_line_width, thickness, ref_surface)\r\n            if solid: output_solids.append(solid)\r\n\r\n        elif \"行人穿越道\" in line_type or \"斑馬線\" in line_type:\r\n            rem_curve = curve \r\n            while rem_curve.Length > 0.1: \r\n                if rem_curve.Length <= zebra_width + 0.1:\r\n                    solid = create_ribbon_solid(rem_curve, zebra_length, thickness, ref_surface)\r\n                    if solid: output_solids.append(solid)\r\n                    break\r\n                t_dash = rem_curve.ParameterAtSegmentLength(zebra_width)\r\n                parts = rem_curve.SplitByParameter(t_dash)\r\n                solid = create_ribbon_solid(parts[0], zebra_length, thickness, ref_surface)\r\n                if solid: output_solids.append(solid)\r\n                rem_curve = parts[1]\r\n                if rem_curve.Length <= zebra_gap + 0.1: break\r\n                t_gap = rem_curve.ParameterAtSegmentLength(zebra_gap)\r\n                rem_curve = rem_curve.SplitByParameter(t_gap)[1]\r\n\r\n        elif \"機車停等區\" in line_type:\r\n            half_w = line_width / 2.0\r\n            def extend_curve_on_surface(c, e_start, e_end, rs):\r\n                try:\r\n                    sp, ep = c.StartPoint, c.EndPoint\r\n                    ts, te = c.TangentAtParameter(0.01).Normalized(), c.TangentAtParameter(0.99).Normalized()\r\n                    ns, ne = sp.Translate(ts, -e_start), ep.Translate(te, e_end)\r\n                    if rs:\r\n                        try: ns = rs.ClosestPointTo(ns)\r\n                        except: pass\r\n                        try: ne = rs.ClosestPointTo(ne)\r\n                        except: pass\r\n                    return safe_curve_from_pts([ns, ne])\r\n                except: return c\r\n\r\n            back_curve = get_offset_curve(curve, moto_depth, ref_surface)\r\n            if back_curve:\r\n                front_ext = extend_curve_on_surface(curve, half_w, half_w, ref_surface)\r\n                back_ext = extend_curve_on_surface(back_curve, half_w, half_w, ref_surface)\r\n                solid_front = create_ribbon_solid(front_ext, line_width, thickness, ref_surface)\r\n                solid_back = create_ribbon_solid(back_ext, line_width, thickness, ref_surface)\r\n                if solid_front: output_solids.append(solid_front); output_solids.append(solid_back)\r\n                \r\n                left_line = safe_curve_from_pts([curve.StartPoint, back_curve.StartPoint])\r\n                right_line = safe_curve_from_pts([curve.EndPoint, back_curve.EndPoint])\r\n                if left_line:\r\n                    left_shrink = extend_curve_on_surface(left_line, -half_w, -half_w, ref_surface)\r\n                    solid_L = create_ribbon_solid(left_shrink, line_width, thickness, ref_surface)\r\n                    if solid_L: output_solids.append(solid_L)\r\n                if right_line:\r\n                    right_shrink = extend_curve_on_surface(right_line, -half_w, -half_w, ref_surface)\r\n                    solid_R = create_ribbon_solid(right_shrink, line_width, thickness, ref_surface)\r\n                    if solid_R: output_solids.append(solid_R)\r\n\r\n    if not output_solids: raise Exception(\"實體清單為空！\")\r\n\r\n    # === 5. Bake 轉換為 Revit 元件 (無痕 BIM 塗裝引擎) ===\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    \r\n    # 決定顏色代碼與植入的名稱\r\n    if \"黃\" in line_type:\r\n        mat_name = \"標線_黃色\"\r\n        cr, cg, cb = 255, 204, 0\r\n    else:\r\n        mat_name = \"標線_白色\"\r\n        cr, cg, cb = 255, 255, 255\r\n\r\n    # 尋找 Revit 專案內的「實體填滿 (Solid Fill)」樣式 ID\r\n    fill_pattern_id = None\r\n    collector = FilteredElementCollector(doc).OfClass(FillPatternElement)\r\n    for fp in collector:\r\n        if fp.GetFillPattern().IsSolidFill:\r\n            fill_pattern_id = fp.Id\r\n            break\r\n            \r\n    rvt_cat = doc.Settings.Categories.get_Item(BuiltInCategory.OST_GenericModel)\r\n    created_ids = List[ElementId]()\r\n    \r\n    for dyn_solid in output_solids:\r\n        try:\r\n            # 1. 回歸純淨：使用純 Revit API 生成 B-Rep 平滑實體 (無網格分割線)\r\n            rvt_solids = dyn_solid.ToRevitType() \r\n            ds = DirectShape.CreateElement(doc, rvt_cat.Id)\r\n            ds.SetShape(rvt_solids)\r\n            \r\n            # 2. 植入 BIM 資訊：將材質屬性寫入元件名稱，方便未來使用視圖篩選器管理\r\n            ds.Name = mat_name + \"_\" + line_type\r\n            \r\n            # 3. 視覺覆寫：自動將當前畫面中的標線塗上完美無瑕的黃色/白色\r\n            if fill_pattern_id:\r\n                ogs = OverrideGraphicSettings()\r\n                ogs.SetSurfaceForegroundPatternId(fill_pattern_id)\r\n                ogs.SetSurfaceForegroundPatternColor(RvtColor(cr, cg, cb))\r\n                doc.ActiveView.SetElementOverrides(ds.Id, ogs)\r\n                \r\n            created_ids.Add(ds.Id)\r\n        except: pass\r\n            \r\n    final_output = None\r\n    if created_ids.Count > 1:\r\n        group = doc.Create.NewGroup(created_ids)\r\n        group.GroupType.Name = \"標線群組_\" + line_type \r\n        final_output = group\r\n    elif created_ids.Count == 1:\r\n        final_output = doc.GetElement(created_ids[0])\r\n        \r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    OUT = final_output\r\n\r\nexcept Exception as e:\r\n    OUT = traceback.format_exc()",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "b7bf1d4841e84ed4806fb5000babc8a2",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "2e629f454e294b76913901d01437ba07",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "57e438f5f68f4f8c90d86abcab675ff7",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e7c859c6e0bf41d7ad84548c24faa49b",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a35739cc2cc14f2da98758e157dde6e1",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "558cbb8d05054f4f8306d68a47f0e7ae",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "3754a4ff6b774d0d8294e5caf23a4708",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 95.2,
+      "WatchHeight": 200.0,
+      "Id": "a7ca055c4b3f49789b8ad696a36b2ecf",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "aac5fff93f6d4d5dad0ac805932ced42",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "8cdadabae94642f9a550375d2501c8ad",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "9368a5f92dae4a26ad3a84d1ad36ba9e",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "3dca585712a4406eb0aafdc70abed6fd",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "先用標註畫參考線長\r\n再選你標線的性質\r\n人行道跟待轉區要輸入寬度其長度是參考線長\r\n黃線材質名稱：標線_黃色\n白線材質名稱：標線_白色"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "7f69d51ffc35402b9e992e35355c81cd",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c40ade9737054ff28619d21d3647b464",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 2.0
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSEdgeSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "c0cc3a64-adca-4cf6-8fc1-5551bf8e3a84-000d8b58:0:LINEAR"
+      ],
+      "Id": "d94d0e14ab1045a69ea03921e51a530d",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "ddd2fa8d2d2b442586a526c90ddd5fa7",
+          "Name": "曲線",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "選取一邊。"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n# 載入 Windows 原生的 Forms 與 Drawing 模組 (不需安裝任何套件)\r\nclr.AddReference(\"System.Windows.Forms\")\r\nclr.AddReference(\"System.Drawing\")\r\n\r\nimport System.Windows.Forms as WinForms\r\nfrom System.Drawing import Point, Size\r\n\r\n# 定義我們自己的彈出視窗類別\r\nclass DropdownForm(WinForms.Form):\r\n    def __init__(self, options):\r\n        # 視窗基本設定\r\n        self.Text = \"交通標線選擇器\"\r\n        self.Width = 320\r\n        self.Height = 180\r\n        self.StartPosition = WinForms.FormStartPosition.CenterScreen\r\n        self.MaximizeBox = False\r\n        self.MinimizeBox = False\r\n        self.FormBorderStyle = WinForms.FormBorderStyle.FixedDialog\r\n        self.TopMost = True # 確保視窗保持在最上層，不會被 Revit 擋住\r\n        \r\n        # 建立標籤 (Label)\r\n        self.label = WinForms.Label()\r\n        self.label.Text = \"請選擇要繪製的標線類型：\"\r\n        self.label.Location = Point(20, 20)\r\n        self.label.AutoSize = True\r\n        \r\n        # 建立下拉選單 (ComboBox)\r\n        self.combo = WinForms.ComboBox()\r\n        self.combo.Location = Point(20, 50)\r\n        self.combo.Width = 260\r\n        self.combo.DropDownStyle = WinForms.ComboBoxStyle.DropDownList # 限制只能下拉，不能亂輸入\r\n        \r\n        # 將選項加入 ComboBox (使用迴圈確保相容於 IronPython 與 CPython3)\r\n        for opt in options:\r\n            self.combo.Items.Add(opt)\r\n        \r\n        # 預設選擇第一個項目\r\n        if self.combo.Items.Count > 0:\r\n            self.combo.SelectedIndex = 0\r\n            \r\n        # 建立確定按鈕 (Button)\r\n        self.btn = WinForms.Button()\r\n        self.btn.Text = \"確認選取\"\r\n        self.btn.Location = Point(180, 95)\r\n        self.btn.Width = 100\r\n        self.btn.Click += self.button_clicked # 綁定點擊事件\r\n        \r\n        # 將控制項加入視窗\r\n        self.Controls.Add(self.label)\r\n        self.Controls.Add(self.combo)\r\n        self.Controls.Add(self.btn)\r\n        \r\n        # 儲存結果的變數\r\n        self.selected_value = None\r\n        \r\n    def button_clicked(self, sender, args):\r\n        # 按下按鈕後，記錄選到的值並關閉視窗\r\n        self.selected_value = self.combo.SelectedItem\r\n        self.Close()\r\n\r\n# --- 主程式執行區 ---\r\n\r\n# IN[0] 作為觸發開關\r\nrun_it = IN[0] \r\n\r\n# IN[1] 接收外部清單，如果沒有接，就給預設值\r\nif isinstance(IN[1], list) and len(IN[1]) > 0:\r\n    line_options = IN[1]\r\nelse:\r\n    line_options = [\r\n        \"單白實線\", \r\n        \"單黃實線\", \r\n        \"雙白線\", \r\n        \"雙黃線\", \r\n        \"單白虛線\", \r\n        \"單黃虛線\", \r\n        \"行人穿越道 (斑馬線)\", \r\n        \"停止線\",\r\n        \"機車停等區\",\r\n        \"直行箭頭\",\r\n        \"左轉箭頭\",\r\n        \"右轉箭頭\",\r\n        \"直左箭頭\",\r\n        \"直右箭頭\"\r\n    ]\r\n\r\n# 判斷是否彈出視窗\r\nif run_it:\r\n    # 實體化視窗\r\n    form = DropdownForm(line_options)\r\n    # 使用 ShowDialog() 阻塞執行，直到使用者選完關閉視窗\r\n    form.ShowDialog()\r\n    \r\n    # 輸出選取結果\r\n    OUT = form.selected_value\r\nelse:\r\n    OUT = \"請將 IN[0] 切換為 True 以開啟選單\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "7485c49a1a6345e0b01ee1f902e31049",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "6867de1a57ad441fb773376be26e44a3",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ebc06efc7ece42cb904c3c6ec4b72ea8",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "63899450521445a79a9c4584243b06ac",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "a5791b4f6de44b0ca51490b902b34ff8",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "06701cf3cb794bbc96af670477626a88",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "ed97c677fdac427ea7a88f5cf8dfabe0",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1f82c0578e6a40ffbe6f66f5e683bc65",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "\"單白實線\",\"單黃實線\",\"雙白線\",\"雙黃線\",\"單白虛線\",\"單黃虛線\",\"行人穿越道(斑馬線)\",\"停止線\",\"機車停等區\", \"直行箭頭\", \"左轉箭頭\", \"右轉箭頭\", \"直左箭頭\", \"直右箭頭\""
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSFaceSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "9c5c6e04-1922-4664-afde-4c37d3eb8c1e-000c529a:1:SURFACE"
+      ],
+      "Id": "1b052ec03a5a4483a760de1e4ae4907e",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "cc751a971ecc4a4786654ec14646fb64",
+          "Name": "曲面",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "選取一個面。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "4484c0fdaae24ee288e594f5c65cbb0e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "a6ef0c4d64c541ea958dd1d2bd9ca969",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 200.0
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.SelectEdges, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "9c5c6e04-1922-4664-afde-4c37d3eb8c1e-000c57fd:0:LINEAR"
+      ],
+      "Id": "09024a2dba6d41b2ae96d3ef77010101",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e72d2e41b4c24b0283e851e5fb5cef63",
+          "Name": "曲線",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "選取多條邊緣。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "3754a4ff6b774d0d8294e5caf23a4708",
+      "End": "aac5fff93f6d4d5dad0ac805932ced42",
+      "Id": "863996cebda745adb9d18c092c0312b1",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c40ade9737054ff28619d21d3647b464",
+      "End": "2e629f454e294b76913901d01437ba07",
+      "Id": "34435f997c504adda44145beec284c96",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "63899450521445a79a9c4584243b06ac",
+      "End": "e7c859c6e0bf41d7ad84548c24faa49b",
+      "Id": "a59e333c72fb422b9ee2a9606d32aa93",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "06701cf3cb794bbc96af670477626a88",
+      "End": "6867de1a57ad441fb773376be26e44a3",
+      "Id": "cfb9eca4ea2147a3bc35f47799d3357c",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1f82c0578e6a40ffbe6f66f5e683bc65",
+      "End": "ebc06efc7ece42cb904c3c6ec4b72ea8",
+      "Id": "1902617e462649499935d89bf37c3c2a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "cc751a971ecc4a4786654ec14646fb64",
+      "End": "a35739cc2cc14f2da98758e157dde6e1",
+      "Id": "db29ff80c2e0409c99f98faa9294152e",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "a6ef0c4d64c541ea958dd1d2bd9ca969",
+      "End": "558cbb8d05054f4f8306d68a47f0e7ae",
+      "Id": "a3bd07ec07774e2dafb60a6ac7156c35",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e72d2e41b4c24b0283e851e5fb5cef63",
+      "End": "57e438f5f68f4f8c90d86abcab675ff7",
+      "Id": "2fdcc274e9924ce0ace368c1ab160668",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "b7bf1d4841e84ed4806fb5000babc8a2",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 858.2042425168889,
+        "Y": 170.6558526242382
+      },
+      {
+        "Id": "a7ca055c4b3f49789b8ad696a36b2ecf",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1169.5821318699182,
+        "Y": 459.3081627035196
+      },
+      {
+        "Id": "9368a5f92dae4a26ad3a84d1ad36ba9e",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -85.09099683657513,
+        "Y": -3.664754948288632
+      },
+      {
+        "Id": "7f69d51ffc35402b9e992e35355c81cd",
+        "Name": "1.標線厚度",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 221.1360211731464,
+        "Y": -288.9121644518717
+      },
+      {
+        "Id": "d94d0e14ab1045a69ea03921e51a530d",
+        "Name": "2.選一條基準線",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": true,
+        "ShowGeometry": true,
+        "X": 282.31340987182887,
+        "Y": 60.65389844393437
+      },
+      {
+        "Id": "7485c49a1a6345e0b01ee1f902e31049",
+        "Name": "清單選單",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 576.1327399464825,
+        "Y": 510.85967775029354
+      },
+      {
+        "Id": "a5791b4f6de44b0ca51490b902b34ff8",
+        "Name": "5.選取標線清單",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 308.9182295996651,
+        "Y": 626.240756638131
+      },
+      {
+        "Id": "ed97c677fdac427ea7a88f5cf8dfabe0",
+        "Name": "6.標線清單",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 304.43576661554914,
+        "Y": 747.7540193850903
+      },
+      {
+        "Id": "1b052ec03a5a4483a760de1e4ae4907e",
+        "Name": "3.選取道路平面",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 311.95317482202256,
+        "Y": 300.54123805974524
+      },
+      {
+        "Id": "4484c0fdaae24ee288e594f5c65cbb0e",
+        "Name": "4.機車待轉區寬或是人行道寬",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 156.5594104176318,
+        "Y": 447.5680144045007
+      },
+      {
+        "Id": "09024a2dba6d41b2ae96d3ef77010101",
+        "Name": "2.選一或多條基準線",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 248.81360623375753,
+        "Y": -97.5461368052461
+      }
+    ],
+    "Annotations": [],
+    "X": -76.56608443423295,
+    "Y": -390.69425316493835,
+    "Zoom": 1.2510701961326567
+  }
+}

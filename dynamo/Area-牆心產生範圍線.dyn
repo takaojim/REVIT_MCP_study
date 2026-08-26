@@ -1,0 +1,199 @@
+{
+  "Uuid": "5d07e3de-b077-4621-b918-9afc715118b0",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Area-牆心產生範圍線",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "49b8d920a16240229b8609c7b810efe6",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "Area-牆心產生範圍線--\r\n選到你要計算面積的平面視圖(建地平面圖)，然後按下確定就會在各牆面中心線畫上面積的邊界線；注意陽臺是算在外皮所以你要移動一下面積邊界線的位置...",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "7395ec8163e64d3baf8a69c9b70d3584",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport sys\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Document Manager 和 Transaction Manager\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得當前文件與作用中的視圖\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\n# --- 1. 直接從當前視圖抓取牆元素 ---\r\n# 使用 FilteredElementCollector，限定只在 active_view 的範圍內搜尋\r\ncollector = FilteredElementCollector(doc, active_view.Id)\r\n\r\n# 過濾出類別為「牆」(OST_Walls) 且為「實體元素」(非類型) 的物件\r\nwalls = collector.OfCategory(BuiltInCategory.OST_Walls).WhereElementIsNotElementType().ToElements()\r\n\r\ncurves = []\r\n\r\n# --- 2. 收集所有牆心線 ---\r\nfor wall in walls:\r\n    if hasattr(wall, \"Location\"):\r\n        loc = wall.Location\r\n        if isinstance(loc, LocationCurve):\r\n            curves.append(loc.Curve)\r\n\r\ncreated_lines = []\r\n\r\n# --- 3. 開啟交易，生成區域邊界線 ---\r\n# 再次確認是否在面積平面圖\r\nif active_view.ViewType != ViewType.AreaPlan:\r\n    OUT = [\"錯誤：當前視圖不是「面積平面圖」。請切換視圖後再試。\"]\r\nelse:\r\n    if len(curves) > 0:\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        \r\n        try:\r\n            # 取得或自動生成當前視圖的工作平面\r\n            sketch_plane = active_view.SketchPlane\r\n            if sketch_plane is None:\r\n                level = active_view.GenLevel\r\n                plane = Plane.CreateByNormalAndOrigin(XYZ.BasisZ, XYZ(0, 0, level.Elevation))\r\n                sketch_plane = SketchPlane.Create(doc, plane)\r\n            \r\n            # 使用單數 NewAreaBoundaryLine，並用迴圈一條一條畫\r\n            for curve in curves:\r\n                # 語法：NewAreaBoundaryLine(工作平面, 單一線段, 面積平面圖)\r\n                new_line = doc.Create.NewAreaBoundaryLine(sketch_plane, curve, active_view)\r\n                created_lines.append(new_line)\r\n                \r\n            TransactionManager.Instance.TransactionTaskDone()\r\n            OUT = created_lines # 成功輸出\r\n            \r\n        except Exception as e:\r\n            TransactionManager.Instance.ForceCloseTransaction()\r\n            OUT = [\"發生錯誤: \" + str(e)]\r\n    else:\r\n        OUT = [\"在當前視圖沒有找到有效的牆心線\"]",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "ca5530f1f8694bec9c39e59ab5f9d686",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1d691c21e0524366a9fabd6af57ff444",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "7395ec8163e64d3baf8a69c9b70d3584",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "8215b3d1700249a4af7f692042a1eb47",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d2f291d478654aef8cfc9bde4762ae04",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "49b8d920a16240229b8609c7b810efe6",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8facc1d35519409d8b11cf3194649a9d",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "Area-牆心產生範圍線--\r\n選到你要計算面積的平面視圖(建地平面圖)，然後按下確定就會在各牆面中心線畫上面積的邊界線；注意陽臺是算在外皮所以你要移動一下面積邊界線的位置..."
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "1d691c21e0524366a9fabd6af57ff444",
+      "End": "8215b3d1700249a4af7f692042a1eb47",
+      "Id": "75e5a24aa570495b8761203b5b6ec58e",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "ca5530f1f8694bec9c39e59ab5f9d686",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 909.0,
+        "Y": 80.0
+      },
+      {
+        "Id": "7395ec8163e64d3baf8a69c9b70d3584",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1170.0,
+        "Y": 81.0
+      },
+      {
+        "Id": "49b8d920a16240229b8609c7b810efe6",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 625.9979149916194,
+        "Y": 77.75277386921994
+      }
+    ],
+    "Annotations": [],
+    "X": 18.10972788228628,
+    "Y": 157.55468214857996,
+    "Zoom": 1.0857035604471865
+  }
+}

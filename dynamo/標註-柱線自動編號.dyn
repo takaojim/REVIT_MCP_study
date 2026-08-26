@@ -1,0 +1,255 @@
+{
+  "Uuid": "3c9d0464-8643-5ffe-96e5-ab1769818209",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-柱線自動編號",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "943e6b8e27e6497eb3bfd7a82cfd5a2e",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "水平起始值（例如：1 或 A 或 Y1）\r\n垂直起始值（例如：1 或 A 或 X1）",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "1788cc85edc14939bf6d9fedc40dd51a",
+      "Name": "垂直柱線起始值",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "A",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "344598002056432eb2b487c8780a98bd",
+      "Name": "水平柱線起始值",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "1",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "943e6b8e27e6497eb3bfd7a82cfd5a2e",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "458d432b9e5a472b82d9187db7e8aea3",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "水平起始值（例如：1 或 A 或 Y1）\r\n垂直起始值（例如：1 或 A 或 X1）"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "1788cc85edc14939bf6d9fedc40dd51a",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b5fd2b3775034292ac95b2f88f089324",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "A"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "344598002056432eb2b487c8780a98bd",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6d6a813bebfb4865ad675e03b7fc5830",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "1"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport re\r\n\r\n# 匯入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 定義名稱遞增函式 ---\r\ndef get_next_name(start_val, index):\r\n    # 情況 1: 純數字 (1, 2, 3...)\r\n    if start_val.isdigit():\r\n        return str(int(start_val) + index)\r\n    \r\n    # 情況 2: 純字母 (A, B, C...)\r\n    elif start_val.isalpha() and len(start_val) == 1:\r\n        return chr(ord(start_val) + index)\r\n    \r\n    # 情況 3: 前綴 + 數字 (X1, Y1, Grid-1...)\r\n    else:\r\n        match = re.search(r'([a-zA-Z]+)(\\d+)', start_val)\r\n        if match:\r\n            prefix = match.group(1)\r\n            num = int(match.group(2))\r\n            return \"{}{}\".format(prefix, num + index)\r\n        return start_val + str(index)\r\n\r\n# 1. 抓取所有柱網\r\ngrids = FilteredElementCollector(doc).OfClass(Grid).ToElements()\r\n\r\nh_start = str(IN[0])\r\nv_start = str(IN[1])\r\n\r\nhorizontal_grids = []\r\nvertical_grids = []\r\n\r\n# 2. 判斷水平或垂直 (依據線段向量)\r\nfor g in grids:\r\n    curve = g.Curve\r\n    p1 = curve.GetEndPoint(0)\r\n    p2 = curve.GetEndPoint(1)\r\n    \r\n    dx = abs(p1.X - p2.X)\r\n    dy = abs(p1.Y - p2.Y)\r\n    \r\n    # 如果 Y 的變化量大於 X，代表它偏向垂直線；反之為水平線\r\n    if dy > dx:\r\n        vertical_grids.append(g)\r\n    else:\r\n        horizontal_grids.append(g)\r\n\r\n# 3. 排序\r\n# 垂直線：由左至右 (X 座標由小到大)\r\nvertical_grids.sort(key=lambda x: x.Curve.GetEndPoint(0).X + x.Curve.GetEndPoint(1).X)\r\n# 水平線：由下至上 (Y 座標由小到大)\r\nhorizontal_grids.sort(key=lambda x: x.Curve.GetEndPoint(0).Y + x.Curve.GetEndPoint(1).Y)\r\n\r\n# --- 開始執行變更 ---\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# Step A: 先全部改為臨時名稱 (避免名稱衝突)\r\nfor i, g in enumerate(grids):\r\n    try:\r\n        g.Name = \"TEMP_\" + str(1000 + i)\r\n    except:\r\n        pass\r\n\r\n# Step B: 依照排序重新編號\r\n# 處理水平 (IN[0])\r\nfor i, g in enumerate(horizontal_grids):\r\n    g.Name = get_next_name(h_start, i)\r\n\r\n# 處理垂直 (IN[1])\r\nfor i, g in enumerate(vertical_grids):\r\n    g.Name = get_next_name(v_start, i)\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = \"完成！已重新編號 {} 條水平柱網與 {} 條垂直柱網。\".format(len(horizontal_grids), len(vertical_grids))",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "6c0eacd42c514045bb0bbd34a32ebbff",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "9392b777857d48dba0313a3760f4de04",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ad9bbfc06e274782a115a7eab05dd712",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "02e7d309c4954d60901ebd966fb5a0bd",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "b5fd2b3775034292ac95b2f88f089324",
+      "End": "ad9bbfc06e274782a115a7eab05dd712",
+      "Id": "339af23a1e45470ca19ab057c2ac1632",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6d6a813bebfb4865ad675e03b7fc5830",
+      "End": "9392b777857d48dba0313a3760f4de04",
+      "Id": "be8f9523c58c461ca59fca2bec3589a2",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -7442.7880859375,
+      "EyeY": 26984.041015625,
+      "EyeZ": 36211.421875,
+      "LookX": 8291.4208984375,
+      "LookY": -8982.3720703125,
+      "LookZ": -40075.19921875,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "943e6b8e27e6497eb3bfd7a82cfd5a2e",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -750.6239482679993,
+        "Y": -1420.4591532865168
+      },
+      {
+        "Id": "1788cc85edc14939bf6d9fedc40dd51a",
+        "Name": "垂直柱線起始值",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -751.8930256753414,
+        "Y": -1029.086168230114
+      },
+      {
+        "Id": "344598002056432eb2b487c8780a98bd",
+        "Name": "水平柱線起始值",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -745.5126454127333,
+        "Y": -1221.784873524057
+      },
+      {
+        "Id": "6c0eacd42c514045bb0bbd34a32ebbff",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -419.32213126151316,
+        "Y": -1389.3922057862112
+      }
+    ],
+    "Annotations": [],
+    "X": 1244.2350601498003,
+    "Y": 2030.2516156232402,
+    "Zoom": 1.3813605745234474
+  }
+}

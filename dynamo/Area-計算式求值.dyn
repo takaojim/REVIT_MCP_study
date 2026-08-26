@@ -1,0 +1,336 @@
+{
+  "Uuid": "3a9a1beb-0d08-460e-8e5a-ef9a21cdf5b2",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Area-計算式求值",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "b58f54a7c80d44d9b48fc3d7b1074c24",
+      "Name": "要修改的計算式",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5336,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5366,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5368,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5369,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536a,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536b,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536c,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536d,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536e,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536f,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5370,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5371,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5372,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5373,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5374,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5375,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5376,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5377,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5378,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5379,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537a,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537b,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537c,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537d,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537f,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5380,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5381,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5382,9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5383",
+      "Description": "從 Revit 文件中選取多個元素。"
+    },
+    {
+      "Id": "c8826576a5aa462c8fc27f0d31808fe7",
+      "Name": "小數位數",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "4",
+      "MaximumValue": 6.0,
+      "MinimumValue": 0.0,
+      "StepValue": 1.0,
+      "NumberType": "Integer",
+      "Description": "產生整數值"
+    },
+    {
+      "Id": "8f929042504b44369724627441e6f272",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "要修改的計算式計算式後面最好帶\"=\"\r\n你的計算是跟一些描述文字在一起也沒關係\r\n***假如程式執行完，無法改字或加字切換視圖回來就好***",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport re\r\nimport math\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# === 接收 Dynamo 輸入 ===\r\ninputs = IN[0]\r\nif not isinstance(inputs, list):\r\n    inputs = [inputs]\r\n\r\n# 處理 IN[1] 的小數位數變數 (防呆機制：預設 2 位)\r\ntry:\r\n    if len(IN) > 1 and IN[1] is not None:\r\n        dec_places = int(IN[1])\r\n    else:\r\n        dec_places = 2 \r\nexcept:\r\n    dec_places = 2 \r\n\r\n# 安全的數學運算環境設定\r\nsafe_env = {\r\n    'sin': lambda x: math.sin(math.radians(x)),\r\n    'cos': lambda x: math.cos(math.radians(x)),\r\n    'tan': lambda x: math.tan(math.radians(x)),\r\n    'sqrt': math.sqrt\r\n}\r\n\r\ndef evaluate_math(expr_str):\r\n    try:\r\n        # 替換 Revit 的平方符號\r\n        safe_expr = expr_str.replace('^', '**')\r\n        safe_expr = safe_expr.strip()\r\n        ans = eval(safe_expr, {\"__builtins__\": None}, safe_env)\r\n        \r\n        if isinstance(ans, (int, float)):\r\n            # 依照 IN[1] 指定的位數強制格式化\r\n            format_str = f\"{{:.{dec_places}f}}\"\r\n            ans_str = format_str.format(ans)\r\n            \r\n            # 處理極小負數變成 \"-0.00\" 的顯示問題，以及【智能抑制零】\r\n            if float(ans_str) == 0.0:\r\n                ans_str = \"0\"\r\n            else:\r\n                # 妹妹特調：抑制小數點後多餘的 0 (與 CAD 的 DIMZIN=8 同步)\r\n                if '.' in ans_str:\r\n                    ans_str = ans_str.rstrip('0').rstrip('.')\r\n                    \r\n            return ans_str\r\n    except:\r\n        return None\r\n    return None\r\n\r\ndef process_line(line):\r\n    if not line.strip(): return line\r\n    \r\n    # 尋找算式的正則表達式\r\n    math_pattern = r'((?:[0-9\\.\\+\\-\\*\\/\\^\\(\\)\\s]|sin|cos|tan|sqrt)+)'\r\n    matches = list(re.finditer(math_pattern, line, re.IGNORECASE))\r\n    new_line = line\r\n    \r\n    for m in reversed(matches):\r\n        expr_str = m.group(1)\r\n        \r\n        nums = re.findall(r'\\d+(?:\\.\\d+)?', expr_str)\r\n        has_math_op = bool(re.search(r'[\\+\\-\\*\\/\\^]', expr_str))\r\n        has_parentheses = bool(re.search(r'[\\(\\)]', expr_str))\r\n        has_trig = bool(re.search(r'sin|cos|tan|sqrt', expr_str, re.IGNORECASE))\r\n        \r\n        # 判斷是否為有效算式\r\n        is_calc = (len(nums) >= 2 and (has_math_op or has_parentheses)) or has_trig\r\n        if not is_calc: continue\r\n            \r\n        ans_str = evaluate_math(expr_str)\r\n        if ans_str is None: continue\r\n            \r\n        expr_end_index = m.end()\r\n        equal_pattern = r'^\\s*=\\s*'\r\n        equal_match = re.match(equal_pattern, line[expr_end_index:])\r\n        \r\n        clean_expr = expr_str.rstrip()\r\n        \r\n        if equal_match:\r\n            equal_end_index = expr_end_index + equal_match.end()\r\n            old_ans_pattern = r'^([-+]?[0-9]+(\\.[0-9]+)?)'\r\n            old_ans_match = re.match(old_ans_pattern, line[equal_end_index:])\r\n            \r\n            if old_ans_match:\r\n                # 替換舊答案\r\n                old_ans_end_index = equal_end_index + old_ans_match.end()\r\n                new_full_expression = f\"{clean_expr}={ans_str}\"\r\n                new_line = new_line[:m.start()] + new_full_expression + new_line[old_ans_end_index:]\r\n            else:\r\n                # 只有等號沒答案，補上答案\r\n                new_full_expression = f\"{clean_expr}={ans_str}\"\r\n                new_line = new_line[:m.start()] + new_full_expression + new_line[equal_end_index:]\r\n        else:\r\n            # 沒有等號，補上等號與答案\r\n            new_full_expression = f\"{clean_expr}={ans_str}\"\r\n            new_line = new_line[:m.start()] + new_full_expression + new_line[m.end():]\r\n            \r\n    return new_line\r\n\r\ndef process_text(text):\r\n    if not text: return text\r\n    \r\n    # 分割所有可能的分行與控制符號 (\\n, \\r, \\v, \\x0b)\r\n    parts = re.split(r'(\\r\\n|\\n|\\r|\\v|\\x0b)', text)\r\n    processed_parts = []\r\n    \r\n    for part in parts:\r\n        if re.match(r'^(\\r\\n|\\n|\\r|\\v|\\x0b)$', part):\r\n            processed_parts.append(part)\r\n        else:\r\n            processed_parts.append(process_line(part))\r\n            \r\n    return ''.join(processed_parts)\r\n\r\n# === 執行更新邏輯 ===\r\noutput = []\r\nelements_to_update = []\r\n\r\nfor item in inputs:\r\n    try:\r\n        unwrapped = UnwrapElement(item)\r\n    except:\r\n        unwrapped = item\r\n\r\n    if isinstance(unwrapped, str):\r\n        output.append(process_text(unwrapped))\r\n    elif hasattr(unwrapped, \"Text\"):\r\n        elements_to_update.append(unwrapped)\r\n    else:\r\n        output.append(str(item))\r\n\r\n# 更新 Revit 物件並強制重生畫面\r\nif elements_to_update:\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    \r\n    for elem in elements_to_update:\r\n        try:\r\n            old_text = elem.Text\r\n            new_text = process_text(old_text)\r\n            if old_text != new_text:\r\n                elem.Text = new_text \r\n            output.append(new_text)\r\n        except Exception as e:\r\n            output.append(f\"Error updating element {elem.Id}: {str(e)}\")\r\n            \r\n    # 強制 Revit 進行全域資料刷新，解除文字鎖定狀態\r\n    doc.Regenerate()\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = output",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "2c9348a8332b477e8e7702b1ea1c5c55",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "b9d4bd5f8b4e4ac78987fc1536ff689d",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "3d48bc94287b4213ab9d0476fabdab97",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "bd65e7322af74b108e7e5cd1bea5cf34",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5336",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5366",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5368",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5369",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536a",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536b",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536c",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536d",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536e",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a536f",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5370",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5371",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5372",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5373",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5374",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5375",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5376",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5377",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5378",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5379",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537a",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537b",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537c",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537d",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a537f",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5380",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5381",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5382",
+        "9f587479-4def-46cb-a4e8-ddc0e4057c67-000a5383"
+      ],
+      "Id": "b58f54a7c80d44d9b48fc3d7b1074c24",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "4e0cfd3fa6c0440896fcd8651134f75c",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "ea107b4b7dad4dadad76309bcdb36603",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "5d4c8f28e3a7438bb825c696fbe7b16d",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "91290fc3a0834d3aaacfc2e758090b1a",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.IntegerSlider, CoreNodeModels",
+      "NumberType": "Integer",
+      "MaximumValue": 6,
+      "MinimumValue": 0,
+      "StepValue": 1,
+      "Id": "c8826576a5aa462c8fc27f0d31808fe7",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f94975340fde46d591583c0f654559e5",
+          "Name": "",
+          "Description": "Int64",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "產生整數值",
+      "InputValue": 4
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "8f929042504b44369724627441e6f272",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "11cdf316956441ebacf00d8eff8d46d0",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "要修改的計算式計算式後面最好帶\"=\"\r\n你的計算是跟一些描述文字在一起也沒關係\r\n***假如程式執行完，無法改字或加字切換視圖回來就好***"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "bd65e7322af74b108e7e5cd1bea5cf34",
+      "End": "5d4c8f28e3a7438bb825c696fbe7b16d",
+      "Id": "1d235417b2004a97a0ed051b4d993487",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4e0cfd3fa6c0440896fcd8651134f75c",
+      "End": "b9d4bd5f8b4e4ac78987fc1536ff689d",
+      "Id": "6c0a231873754201b5305ae9aeeadf59",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f94975340fde46d591583c0f654559e5",
+      "End": "3d48bc94287b4213ab9d0476fabdab97",
+      "Id": "da17dee7971d4dafbadf9cf99639f765",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "2c9348a8332b477e8e7702b1ea1c5c55",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 793.0,
+        "Y": 329.0
+      },
+      {
+        "Id": "b58f54a7c80d44d9b48fc3d7b1074c24",
+        "Name": "要修改的計算式",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 371.0,
+        "Y": 314.0
+      },
+      {
+        "Id": "ea107b4b7dad4dadad76309bcdb36603",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1055.0,
+        "Y": 321.0
+      },
+      {
+        "Id": "c8826576a5aa462c8fc27f0d31808fe7",
+        "Name": "小數位數",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 303.0,
+        "Y": 624.6
+      },
+      {
+        "Id": "8f929042504b44369724627441e6f272",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 343.40000000000003,
+        "Y": 35.19999999999999
+      }
+    ],
+    "Annotations": [],
+    "X": 686.2808764832481,
+    "Y": 28.851236842284237,
+    "Zoom": 0.7843693280448272
+  }
+}

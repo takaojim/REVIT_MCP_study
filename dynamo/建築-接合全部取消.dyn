@@ -1,0 +1,143 @@
+{
+  "Uuid": "2a5727f3-b82d-43f2-bb9f-f11de39690f1",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-全部取消接合",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "1e776e9f155c42a9a3d8e5487dd25b57",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "取消所有物件的接合",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\nunjoined_count = 0\r\n\r\n# 🌟 開門密語\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# 妹妹的防呆過濾網：直接在內部撈出「所有不是類型(Type)」的實體物件\r\nall_elements = FilteredElementCollector(doc).WhereElementIsNotElementType().ToElements()\r\n\r\nfor el in all_elements:\r\n    # 效能優化：如果這個物件連 Category (類別) 都沒有，通常是系統隱藏物件，直接跳過不處理\r\n    if el.Category is None: continue \r\n    \r\n    try:\r\n        # 直接問 Revit：這個物件現在跟誰接合在一起？\r\n        joined_ids = JoinGeometryUtils.GetJoinedElements(doc, el)\r\n        \r\n        # 如果沒有跟別人接合，就換下一個\r\n        if not joined_ids: continue\r\n        \r\n        for j_id in joined_ids:\r\n            joined_el = doc.GetElement(j_id)\r\n            if joined_el is not None:\r\n                # 無情地把它們切開！\r\n                JoinGeometryUtils.UnjoinGeometry(doc, el, joined_el)\r\n                unjoined_count += 1\r\n    except:\r\n        # 遇到天生不支援接合的物件（例如文字、線條），直接忽略，保護腳本不崩潰\r\n        continue\r\n\r\n# 🌟 關門密語\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = \"報告哥哥！全域無差別大掃除完成！共無情拆散了 {} 組接合關係。\".format(unjoined_count)",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "a73401567893400d8e6c10538ea2f1fc",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "71cd47cdaa0f42519860798eab7331ef",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "1e776e9f155c42a9a3d8e5487dd25b57",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "67f8ab498fe443ada1b4c2caa84c9e5f",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "取消所有物件的接合"
+    }
+  ],
+  "Connectors": [],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "1.10",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -15276.03515625,
+      "EyeY": 14249.318359375,
+      "EyeZ": 5129.89208984375,
+      "LookX": 10114.0146484375,
+      "LookY": -12999.318359375,
+      "LookZ": -12186.990234375,
+      "UpX": 0.28992971777915955,
+      "UpY": 0.8910065293312073,
+      "UpZ": -0.3493539094924927
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "a73401567893400d8e6c10538ea2f1fc",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -613.4099918757212,
+        "Y": -344.13469969767505
+      },
+      {
+        "Id": "1e776e9f155c42a9a3d8e5487dd25b57",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -879.472886783598,
+        "Y": -346.9564929370932
+      }
+    ],
+    "Annotations": [],
+    "X": 1156.8263725956947,
+    "Y": 653.3256013453149,
+    "Zoom": 1.0356503154142278
+  }
+}

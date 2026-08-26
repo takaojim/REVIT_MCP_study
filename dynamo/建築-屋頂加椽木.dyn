@@ -1,0 +1,755 @@
+{
+  "Uuid": "e7c2b9f3-3a85-49ca-9234-5874ea028003",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-屋頂加椽木",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "3bb56f19636f457a8a62653e75d9fd4d",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "選幾個屋頂的表面然後再選一個參考平面做洩水的方向畫出圓形條狀的筒瓦\r\n屋頂為單片或多片用選集組合存成\"000\"選集作處理",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "cc392ba7718a4f4fba9fc16e3f950257",
+      "Name": "1.洩水分線-選參考平面",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "4f447991-4ea9-47ba-804f-3588e835dc47-000c558c",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "8638badd8ab54eabbe166bbbbb943fcb",
+      "Name": "7.椽木間距",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "15",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "0b486441f9fb41a3ace22142505cf59a",
+      "Name": "6.椽木邊長度",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "7.5",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "3ffecf72aba243969e2214effc8b9a30",
+      "Name": "8.材質",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "椽木",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "c13731ab06b74b9a97edd9813b8b8858",
+      "Name": "3.定義上段界線",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "f35500fcd3ad41fe9dfaa4dd94847555",
+      "Name": "2.上段界線-選參考平面",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "86ad6ae5-67d6-484d-a7e6-2157b8ab556a-000c686f",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "f06bac8d0d194b6b98992f0cbce8a28e",
+      "Name": "4.做2層椽木?",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "892522aec82048a08c1c484fe881abcd",
+      "Name": "5.第2層椽木長度比",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.9",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "760a5708af7e46bb9f13734a1e2ea974",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport System\r\nimport math\r\nimport time\r\nfrom System.Collections.Generic import List\r\n\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\ndef flatten_list(lst):\r\n    result = []\r\n    for i in lst:\r\n        if isinstance(i, list) or type(i).__name__ == 'list':\r\n            result.extend(flatten_list(i))\r\n        else:\r\n            result.append(i)\r\n    return result\r\n\r\n# 💡 絕對弧長均分重建器：徹底解決參差不齊的 Fuzzy 終極手段\r\ndef get_safe_subcurve(crv, is_start_high, ratio):\r\n    try:\r\n        total_len = crv.Length\r\n        if total_len < 1.0: return None # 太短忽略\r\n        \r\n        target_len = total_len * ratio\r\n        pts = []\r\n        steps = 15 # 取15個控制點確保弧度平滑\r\n        for i in range(steps + 1):\r\n            # 關鍵 Fuzzy 手段：使用「真實長度(SegmentLength)」來取點，無視曲線接縫造成的參數扭曲！\r\n            current_step_len = (target_len * float(i)) / float(steps)\r\n            \r\n            if is_start_high:\r\n                eval_len = current_step_len\r\n            else:\r\n                eval_len = total_len - current_step_len\r\n                \r\n            # 防呆，避免浮點數誤差超過總長\r\n            if eval_len < 0: eval_len = 0.0\r\n            if eval_len > total_len: eval_len = total_len\r\n            \r\n            pts.append(crv.PointAtSegmentLength(eval_len))\r\n            \r\n        return NurbsCurve.ByPoints(pts)\r\n    except:\r\n        try:\r\n            # 重建失敗的直線備案\r\n            if is_start_high:\r\n                pA = crv.PointAtSegmentLength(0)\r\n                pB = crv.PointAtSegmentLength(target_len)\r\n            else:\r\n                pA = crv.PointAtSegmentLength(total_len)\r\n                pB = crv.PointAtSegmentLength(total_len - target_len)\r\n            return Line.ByStartPointEndPoint(pA, pB)\r\n        except:\r\n            return None\r\n\r\n# --- 1. 取得所有輸入參數 (IN[0] ~ IN[7] 全面順推) ---\r\ntry: ref_plane_element = UnwrapElement(IN[0])\r\nexcept: ref_plane_element = None\r\n\r\nraw_bnd = IN[1] if len(IN) > 1 else False\r\nhas_upper_boundary = str(raw_bnd).lower() in ['true', '1', 't', 'yes']\r\n\r\nupper_boundary_el = UnwrapElement(IN[2]) if len(IN) > 2 and IN[2] else None\r\n\r\nraw_double = IN[3] if len(IN) > 3 else True\r\nis_double_layer = str(raw_double).lower() not in ['false', '0', 'f', 'no']\r\n\r\ntry: layer2_ratio = float(IN[4]) if len(IN) > 4 and IN[4] else 0.7\r\nexcept: layer2_ratio = 0.7\r\nif layer2_ratio > 1.0: layer2_ratio = layer2_ratio / 100.0\r\nif layer2_ratio <= 0.0 or layer2_ratio >= 1.0: layer2_ratio = 0.7\r\n\r\ntry: timber_size = float(IN[5]) if len(IN) > 5 and IN[5] else 7.5\r\nexcept: timber_size = 7.5\r\n\r\ntry: spacing = float(IN[6]) if len(IN) > 6 and IN[6] else 15.0\r\nexcept: spacing = 15.0\r\n\r\nmat_name = IN[7] if len(IN) > 7 and IN[7] else \"椽木\"\r\nif not isinstance(mat_name, str): mat_name = \"椽木\"\r\n\r\nif spacing <= 0: spacing = 15.0\r\nif timber_size <= 0: timber_size = 7.5\r\n\r\nsolids = []\r\ndebug_log = [\"--- 妹妹的木構椽條「Fuzzy 齊平版」報告 ---\"] \r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# 💡 全自動強制抓取 Revit 儲存選集 \"000\"\r\ncollector = FilteredElementCollector(doc).OfClass(SelectionFilterElement)\r\nsel_filter = None\r\nfor f in collector:\r\n    if f.Name == \"000\":\r\n        sel_filter = f\r\n        break\r\n\r\ninput_objs = []\r\nif sel_filter is not None:\r\n    input_objs = [doc.GetElement(e_id) for e_id in sel_filter.GetElementIds()]\r\nelse:\r\n    debug_log.append(\"❌ [錯誤] 找不到名為 '000' 的儲存選集！\")\r\n\r\n# --- 2. 底層表面過濾器 ---\r\nsurfaces = []\r\nif len(input_objs) > 0:\r\n    for obj_idx, obj in enumerate(input_objs):\r\n        if obj is None: continue\r\n        revit_el = UnwrapElement(obj)\r\n        if hasattr(revit_el, \"get_Geometry\"):\r\n            opt = Options()\r\n            opt.ComputeReferences = True\r\n            opt.DetailLevel = ViewDetailLevel.Fine\r\n            geom_element = revit_el.get_Geometry(opt)\r\n            \r\n            el_srf_count = 0\r\n            if geom_element is not None:\r\n                def extract_solids(geom_sel):\r\n                    res = []\r\n                    for g in geom_sel:\r\n                        if type(g).__name__ == \"Solid\" and g.Faces.Size > 0: res.append(g)\r\n                        elif type(g).__name__ == \"GeometryInstance\": res.extend(extract_solids(g.GetInstanceGeometry()))\r\n                    return res\r\n                \r\n                all_solids = extract_solids(geom_element)\r\n                for solid in all_solids:\r\n                    is_closed = solid.Volume > 0\r\n                    solid_success = False\r\n                    try:\r\n                        proto_solid = solid.ToProtoType()\r\n                        if proto_solid is not None:\r\n                            for pf in proto_solid.Faces:\r\n                                norm = pf.NormalAtParameter(0.5, 0.5)\r\n                                if (is_closed and norm.Z < -0.1) or (not is_closed and norm.Z < -0.1):\r\n                                    surfaces.append((pf, norm))\r\n                                    el_srf_count += 1\r\n                            solid_success = True\r\n                    except: pass\r\n                    \r\n                    if solid_success: continue\r\n                    \r\n                    for f in solid.Faces:\r\n                        try:\r\n                            uv_box = f.GetBoundingBox()\r\n                            uv_center = Autodesk.Revit.DB.UV((uv_box.Min.U + uv_box.Max.U) / 2.0, (uv_box.Min.V + uv_box.Max.V) / 2.0)\r\n                            native_norm = f.ComputeNormal(uv_center)\r\n                            if native_norm.Z >= -0.1: continue\r\n                            \r\n                            try:\r\n                                proto_res = f.ToProtoType()\r\n                                srfs_to_test = proto_res if isinstance(proto_res, list) else [proto_res]\r\n                                for srf_geo in srfs_to_test:\r\n                                    surfaces.append((srf_geo, srf_geo.NormalAtParameter(0.5, 0.5)))\r\n                                    el_srf_count += 1\r\n                            except:\r\n                                curves = []\r\n                                for loop in f.EdgeLoops:\r\n                                    for edge in loop: curves.append(edge.AsCurve().ToProtoType())\r\n                                if curves:\r\n                                    joined_poly = PolyCurve.ByJoinedCurves(curves)\r\n                                    patched_srf = Surface.ByPatch(joined_poly)\r\n                                    surfaces.append((patched_srf, patched_srf.NormalAtParameter(0.5, 0.5)))\r\n                                    el_srf_count += 1\r\n                        except: pass\r\n\r\nif len(surfaces) > 0:\r\n    # --- 3. 處理材質 ---\r\n    mat_id = ElementId.InvalidElementId\r\n    mat_collector = FilteredElementCollector(doc).OfClass(Material)\r\n    for m in mat_collector:\r\n        if m.Name == mat_name:\r\n            mat_id = m.Id\r\n            break\r\n    if mat_id == ElementId.InvalidElementId:\r\n        try:\r\n            mat_id = Material.Create(doc, mat_name)\r\n            new_mat = doc.GetElement(mat_id)\r\n            new_mat.Color = Color(205, 170, 125) \r\n        except: pass\r\n\r\n    # --- 4. 建立全域切刀陣列 ---\r\n    try:\r\n        if ref_plane_element:\r\n            base_plane = ref_plane_element.GetPlane().ToPlane()\r\n            plane_normal = base_plane.Normal\r\n            \r\n            min_pts, max_pts = [], []\r\n            for srf, _ in surfaces:\r\n                bbox = srf.BoundingBox\r\n                min_pts.append(bbox.MinPoint)\r\n                max_pts.append(bbox.MaxPoint)\r\n                \r\n            min_x, min_y, min_z = min([p.X for p in min_pts]), min([p.Y for p in min_pts]), min([p.Z for p in min_pts])\r\n            max_x, max_y, max_z = max([p.X for p in max_pts]), max([p.Y for p in max_pts]), max([p.Z for p in max_pts])\r\n            corners = [\r\n                Point.ByCoordinates(min_x, min_y, min_z), Point.ByCoordinates(max_x, min_y, min_z),\r\n                Point.ByCoordinates(max_x, max_y, min_z), Point.ByCoordinates(min_x, max_y, min_z),\r\n                Point.ByCoordinates(min_x, min_y, max_z), Point.ByCoordinates(max_x, min_y, max_z),\r\n                Point.ByCoordinates(max_x, max_y, max_z), Point.ByCoordinates(min_x, max_y, max_z)\r\n            ]\r\n            \r\n            max_dist, min_dist = 0.0, 0.0\r\n            for pt in corners:\r\n                vec = Vector.ByTwoPoints(base_plane.Origin, pt)\r\n                dist = vec.Dot(plane_normal)\r\n                if dist > max_dist: max_dist = dist\r\n                if dist < min_dist: min_dist = dist\r\n            \r\n            d_values = []\r\n            d = 0.0\r\n            while d <= max_dist + spacing:\r\n                d_values.append(d)\r\n                d += spacing\r\n            d = -spacing\r\n            while d >= min_dist - spacing:\r\n                d_values.append(d)\r\n                d -= spacing\r\n            d_values.sort()\r\n            \r\n            cutting_planes = []\r\n            for d in d_values:\r\n                cutting_planes.append(Plane.ByOriginNormal(base_plane.Origin.Translate(plane_normal, d), plane_normal))\r\n                \r\n            bnd_geom = None\r\n            if has_upper_boundary and upper_boundary_el:\r\n                try:\r\n                    if hasattr(upper_boundary_el, \"Intersect\"): bnd_geom = upper_boundary_el\r\n                    elif hasattr(upper_boundary_el, \"GetPlane\"): bnd_geom = upper_boundary_el.GetPlane().ToPlane()\r\n                    elif hasattr(upper_boundary_el, \"ToPlane\"): bnd_geom = upper_boundary_el.ToPlane()\r\n                    elif hasattr(upper_boundary_el, \"get_Geometry\"):\r\n                        opt = Options()\r\n                        opt.ComputeReferences = True\r\n                        for g in upper_boundary_el.get_Geometry(opt):\r\n                            if type(g).__name__ == \"Solid\":\r\n                                proto_solids = g.ToProtoType()\r\n                                bnd_geom = proto_solids[0] if isinstance(proto_solids, list) else proto_solids\r\n                                break\r\n                except: pass\r\n\r\n            # --- 5. 全域基準線切割與邊界裁剪 ---\r\n            global_rafter_curves = []\r\n            for srf_idx, (srf, srf_norm) in enumerate(surfaces):\r\n                for cp in cutting_planes:\r\n                    intersections = srf.Intersect(cp)\r\n                    try: intersections = list(intersections) if not isinstance(intersections, list) else intersections\r\n                    except: intersections = [intersections]\r\n                    \r\n                    for geom in intersections:\r\n                        try:\r\n                            z_diff = abs(geom.StartPoint.Z - geom.EndPoint.Z)\r\n                            if z_diff < 0.1: continue\r\n                            \r\n                            trimmed_curve = geom\r\n                            \r\n                            if bnd_geom:\r\n                                inter_res = geom.Intersect(bnd_geom)\r\n                                if inter_res and len(inter_res) > 0:\r\n                                    split_curves = geom.Split(inter_res[0])\r\n                                    bottom_pt = geom.StartPoint if geom.StartPoint.Z < geom.EndPoint.Z else geom.EndPoint\r\n                                    best_segment = None\r\n                                    min_d = 999999.0\r\n                                    for seg in split_curves:\r\n                                        seg_end = seg.StartPoint if seg.StartPoint.Z < seg.EndPoint.Z else seg.EndPoint\r\n                                        d_to_bottom = seg_end.DistanceTo(bottom_pt)\r\n                                        if d_to_bottom < min_d:\r\n                                            min_d = d_to_bottom\r\n                                            best_segment = seg\r\n                                    if best_segment: trimmed_curve = best_segment\r\n                            \r\n                            sort_val = Vector.ByTwoPoints(base_plane.Origin, trimmed_curve.StartPoint).Dot(plane_normal)\r\n                            global_rafter_curves.append((sort_val, trimmed_curve, srf_norm))\r\n                        except: pass\r\n\r\n            # --- 6. 雙層角木生成區 (依附弧度版) ---\r\n            global_rafter_curves.sort(key=lambda x: x[0])\r\n            layer1_count = 0\r\n            layer2_count = 0\r\n            \r\n            for _, curve, srf_norm in global_rafter_curves:\r\n                downward_vec = srf_norm.Normalized()\r\n                if downward_vec.Z > 0:\r\n                    downward_vec = downward_vec.Reverse()\r\n                \r\n                # 🛠️ 第一層：檐椽\r\n                try:\r\n                    offset_vec_layer1 = downward_vec.Scale(timber_size / 2.0)\r\n                    crv_layer1 = curve.Translate(offset_vec_layer1)\r\n                    \r\n                    p_start1 = crv_layer1.PlaneAtParameter(0.0)\r\n                    profile1 = Rectangle.ByWidthLength(p_start1, timber_size, timber_size)\r\n                    solids.append(Solid.BySweep(profile1, crv_layer1))\r\n                    layer1_count += 1\r\n                except: pass\r\n                \r\n                # 🛠️ 第二層：飛椽 (修正：精準從上段界線起算往下長，Fuzzy 均分齊平)\r\n                if is_double_layer:\r\n                    try:\r\n                        # 判定哪一端是高處 (起點)\r\n                        is_start_high = (curve.StartPoint.Z > curve.EndPoint.Z)\r\n                        \r\n                        # 呼叫無敵重建器，用絕對長度算出齊平的弧線\r\n                        sub_curve = get_safe_subcurve(curve, is_start_high, layer2_ratio)\r\n                        \r\n                        if sub_curve:\r\n                            offset_vec_layer2 = downward_vec.Scale(timber_size * 1.5)\r\n                            crv_layer2 = sub_curve.Translate(offset_vec_layer2)\r\n                            \r\n                            p_start2 = crv_layer2.PlaneAtParameter(0.0)\r\n                            profile2 = Rectangle.ByWidthLength(p_start2, timber_size, timber_size)\r\n                            solids.append(Solid.BySweep(profile2, crv_layer2))\r\n                            layer2_count += 1\r\n                    except: pass\r\n                        \r\n            debug_log.append(\"🌟 椽條大功告成：成功生成 第一層 {} 根 / 第二層 {} 根 完美的木構架！\".format(layer1_count, layer2_count))\r\n\r\n    except Exception as e:\r\n        debug_log.append(\"❌ 木構計算發生重大錯誤: \" + str(e))\r\n\r\n# --- 7. 寫入 Revit 並自動群組 ---\r\nrevit_elements = []\r\ncat_id = ElementId(BuiltInCategory.OST_Roofs) \r\n\r\nfor d_solid in solids:\r\n    if d_solid is None or isinstance(d_solid, str): continue\r\n    try:\r\n        r_geom = d_solid.ToRevitType()\r\n        geom_list = List[GeometryObject]()\r\n        if isinstance(r_geom, list) or type(r_geom).__name__ in [\"Array[GeometryObject]\", \"tuple\"]:\r\n            for g in r_geom: \r\n                if mat_id != ElementId.InvalidElementId and hasattr(g, \"MaterialId\"): g.MaterialId = mat_id\r\n                geom_list.Add(g)\r\n        else: \r\n            if mat_id != ElementId.InvalidElementId and hasattr(r_geom, \"MaterialId\"): r_geom.MaterialId = mat_id\r\n            geom_list.Add(r_geom)\r\n            \r\n        ds = DirectShape.CreateElement(doc, cat_id)\r\n        ds.SetShape(geom_list)\r\n        ds.Name = \"Traditional_Timber_Rafter\"\r\n        revit_elements.append(ds)\r\n    except: pass\r\n\r\ngroup_element = None\r\nif revit_elements:\r\n    id_list = List[ElementId]()\r\n    for el in revit_elements: id_list.Add(el.Id)\r\n    try:\r\n        group_element = doc.Create.NewGroup(id_list)\r\n        group_element.GroupType.Name = \"傳統木構椽條系統_\" + str(int(time.time())) \r\n    except: pass\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\nOUT = [revit_elements if group_element is None else group_element, debug_log]",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "0e1798bc7122401e89e9eea3046b4ef0",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "d09510d2ea524731902362f802f4e1f1",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "095880b23ec44b21bfd121decaf8fb6a",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "87ca49b5036a4a73b96c9df562f6d83a",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a621755ec6c3436e8d74c38c4758cf22",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e8a76ec03a3f48759e4110bb2581df96",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "9fcaa2930d324494902d2962e55a1c6f",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "d99350f7c39642309ec0cfa0084fbf42",
+          "Name": "IN[6]",
+          "Description": "Input #6",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "aa9da1bd555c4d278abb1da43c6377d3",
+          "Name": "IN[7]",
+          "Description": "Input #7",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "1c24a7fb017044928ee745d901f3ca94",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 40.0,
+      "Id": "760a5708af7e46bb9f13734a1e2ea974",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "4484b8c9440a419699be759e5c6d8b78",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "dfea51f18f79458697b7a4e97905dd7c",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 287.98984976318275,
+      "SerializedHeight": 170.3850704136405,
+      "Id": "3bb56f19636f457a8a62653e75d9fd4d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8674370927304c25a80704811d07c2b0",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "選幾個屋頂的表面然後再選一個參考平面做洩水的方向畫出圓形條狀的筒瓦\r\n屋頂為單片或多片用選集組合存成\"000\"選集作處理"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "bba8cd500de94387a00bb8f3898eabc9",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "c60b612f6f7f4933b82316d305ff226b",
+          "Name": "list",
+          "Description": "要展開的清單。\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "3bbe466bf2a843478e3a8cba06251296",
+          "Name": "amount",
+          "Description": "要移除的清單巢狀層數 (-1 將移除所有清單巢狀)\n\nint\n預設值 : -1",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "11d440b2cbcd4b1e9b1d8725846af75b",
+          "Name": "list",
+          "Description": "依數量展開清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "DSCore.List.Flatten@var[]..[],int",
+      "Replication": "Auto",
+      "Description": "依特定數量展開清單的巢狀清單。\n\nList.Flatten (list: var[]..[], amount: int = -1): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "4f447991-4ea9-47ba-804f-3588e835dc47-000c558c"
+      ],
+      "Id": "cc392ba7718a4f4fba9fc16e3f950257",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "03b0351db8824d5ba1bc35eea578fe95",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "8638badd8ab54eabbe166bbbbb943fcb",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "415fa250666946e0be54f74ed8fa10aa",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 15.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "0b486441f9fb41a3ace22142505cf59a",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "eebb172593264f3183d9eaa473fa32a1",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 7.5
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "3ffecf72aba243969e2214effc8b9a30",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b152436ed31640f29619cab1d8e75837",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "椽木"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "c2848c47-a1cd-45b5-869c-a8764490e072-0009e1a1",
+        "c2848c47-a1cd-45b5-869c-a8764490e072-0009e1a4",
+        "ace0d3ff-f026-4133-b9c1-64fc956a7b13-0009e36a"
+      ],
+      "Id": "667f6ad3dfa444e2997f300df6f9d062",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6b5100323ea342bb9eda2e89701709d1",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "c8fb0253030a45d8834bfbad85105f9b",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "3f09edc5cae64e65ab8015564ac6f70b",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "c13731ab06b74b9a97edd9813b8b8858",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "148cc7440a99418f88beaf344b5b0634",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "86ad6ae5-67d6-484d-a7e6-2157b8ab556a-000c686f"
+      ],
+      "Id": "f35500fcd3ad41fe9dfaa4dd94847555",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1de433052f0242b1b8dffd808da889ca",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "f06bac8d0d194b6b98992f0cbce8a28e",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f82a65b82aca4f629f636bc4ab9fcb60",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "892522aec82048a08c1c484fe881abcd",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f634439da9744d21b7f9c39e30207083",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 0.9
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "1c24a7fb017044928ee745d901f3ca94",
+      "End": "4484b8c9440a419699be759e5c6d8b78",
+      "Id": "da288242aabe4c7097fc29d027466ebe",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "03b0351db8824d5ba1bc35eea578fe95",
+      "End": "d09510d2ea524731902362f802f4e1f1",
+      "Id": "7ed534f8f467479b924125e0baa074f8",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "415fa250666946e0be54f74ed8fa10aa",
+      "End": "d99350f7c39642309ec0cfa0084fbf42",
+      "Id": "6e87c723e8cd40099cac0eb69e6c6c56",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "eebb172593264f3183d9eaa473fa32a1",
+      "End": "9fcaa2930d324494902d2962e55a1c6f",
+      "Id": "1d3b4278d4c54df8b421ad495c6f7595",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b152436ed31640f29619cab1d8e75837",
+      "End": "aa9da1bd555c4d278abb1da43c6377d3",
+      "Id": "62b776b675a742658c367c91c7d566f7",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6b5100323ea342bb9eda2e89701709d1",
+      "End": "c60b612f6f7f4933b82316d305ff226b",
+      "Id": "fee246fd9c2e4041b7d424454ea2eb74",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "148cc7440a99418f88beaf344b5b0634",
+      "End": "095880b23ec44b21bfd121decaf8fb6a",
+      "Id": "4c7866e420f44f7ea34b0f5fb0e5eba9",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1de433052f0242b1b8dffd808da889ca",
+      "End": "87ca49b5036a4a73b96c9df562f6d83a",
+      "Id": "48abd5682a9c47cbbf53899f24282996",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f82a65b82aca4f629f636bc4ab9fcb60",
+      "End": "a621755ec6c3436e8d74c38c4758cf22",
+      "Id": "beeae5b0dfce4eb8b721897813da2ae1",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f634439da9744d21b7f9c39e30207083",
+      "End": "e8a76ec03a3f48759e4110bb2581df96",
+      "Id": "9d9edef724c04a18af5a83384808e0e8",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "0e1798bc7122401e89e9eea3046b4ef0",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 885.6007128523038,
+        "Y": -133.03750993906021
+      },
+      {
+        "Id": "760a5708af7e46bb9f13734a1e2ea974",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1157.3517592623264,
+        "Y": -198.6837974625771
+      },
+      {
+        "Id": "3bb56f19636f457a8a62653e75d9fd4d",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -136.66353087832522,
+        "Y": -86.794767189786
+      },
+      {
+        "Id": "bba8cd500de94387a00bb8f3898eabc9",
+        "Name": "List.Flatten",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 591.5040519645418,
+        "Y": -242.1855266761341
+      },
+      {
+        "Id": "cc392ba7718a4f4fba9fc16e3f950257",
+        "Name": "1.洩水分線-選參考平面",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 242.31131103370444,
+        "Y": -69.802142928791
+      },
+      {
+        "Id": "8638badd8ab54eabbe166bbbbb943fcb",
+        "Name": "7.椽木間距",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 326.3455499069802,
+        "Y": 763.3462526075921
+      },
+      {
+        "Id": "0b486441f9fb41a3ace22142505cf59a",
+        "Name": "6.椽木邊長度",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 311.27734529851546,
+        "Y": 635.059029607748
+      },
+      {
+        "Id": "3ffecf72aba243969e2214effc8b9a30",
+        "Name": "8.材質",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 361.96266328820553,
+        "Y": 894.1579321984873
+      },
+      {
+        "Id": "667f6ad3dfa444e2997f300df6f9d062",
+        "Name": "1.選你要放椽木的屋頂",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": true,
+        "ShowGeometry": true,
+        "X": 239.7158181983517,
+        "Y": -216.29037367978162
+      },
+      {
+        "Id": "c8fb0253030a45d8834bfbad85105f9b",
+        "Name": "0.是否要用選集\"000\"",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -42.673076818431355,
+        "Y": -372.93132252242214
+      },
+      {
+        "Id": "c13731ab06b74b9a97edd9813b8b8858",
+        "Name": "3.定義上段界線",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 264.1996576997573,
+        "Y": 79.79550951456793
+      },
+      {
+        "Id": "f35500fcd3ad41fe9dfaa4dd94847555",
+        "Name": "2.上段界線-選參考平面",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 242.05085934870323,
+        "Y": 201.5029250990067
+      },
+      {
+        "Id": "f06bac8d0d194b6b98992f0cbce8a28e",
+        "Name": "4.做2層椽木?",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 277.33885576417254,
+        "Y": 371.81486232181305
+      },
+      {
+        "Id": "892522aec82048a08c1c484fe881abcd",
+        "Name": "5.第2層椽木長度比",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 321.08248419367203,
+        "Y": 509.2063871324589
+      }
+    ],
+    "Annotations": [],
+    "X": -100.36363680038073,
+    "Y": 311.43481993157627,
+    "Zoom": 0.815220725701233
+  }
+}

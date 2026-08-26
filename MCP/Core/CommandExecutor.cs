@@ -118,6 +118,11 @@ namespace RevitMCP.Core
                         result = ModifyElementParameter(parameters);
                         break;
 
+                    case "align_and_dimension_elevation":
+                    case "auto_align_elevation_envelope_and_dimension":
+                        result = AutoAlignElevationEnvelopeAndDimension(parameters);
+                        break;
+
                     case "renumber_rooms_by_level":
                         result = RenumberRoomsByLevel(parameters);
                         break;

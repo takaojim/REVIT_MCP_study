@@ -1263,44 +1263,52 @@ namespace RevitMCP.Core
 
                 foreach (JObject lineObj in linesArray)
                 {
-                    double startX = lineObj["startX"].Value<double>() * MM_TO_FEET;
-                    double startY = lineObj["startY"].Value<double>() * MM_TO_FEET;
-                    double endX = lineObj["endX"].Value<double>() * MM_TO_FEET;
-                    double endY = lineObj["endY"].Value<double>() * MM_TO_FEET;
-
                     XYZ startPt;
                     XYZ endPt;
 
-                    if (view.ViewType == ViewType.Elevation || view.ViewType == ViewType.Section || view.ViewType == ViewType.Detail)
+                    if (lineObj["p0"] != null && lineObj["p1"] != null)
                     {
-                        XYZ vRight = view.RightDirection.Normalize();
-                        XYZ vUp = view.UpDirection.Normalize();
-                        XYZ origin = view.Origin;
-
-                        // startX 為模型水平座標 (X 或 Y)，startY 為模型高程 (Z)
-                        // 若視圖主要沿 X 展開，則橫軸為 X，縱軸為 Z；景深取 origin 的對應分量
-                        XYZ p1_world, p2_world;
-                        if (Math.Abs(vRight.X) >= Math.Abs(vRight.Y))
-                        {
-                            p1_world = new XYZ(startX, origin.Y, startY);
-                            p2_world = new XYZ(endX, origin.Y, endY);
-                        }
-                        else
-                        {
-                            p1_world = new XYZ(origin.X, startX, startY);
-                            p2_world = new XYZ(origin.X, endX, endY);
-                        }
-
-                        XYZ diff1 = p1_world - origin;
-                        XYZ diff2 = p2_world - origin;
-
-                        startPt = origin + vRight * diff1.DotProduct(vRight) + vUp * diff1.DotProduct(vUp);
-                        endPt = origin + vRight * diff2.DotProduct(vRight) + vUp * diff2.DotProduct(vUp);
+                        var p0Arr = lineObj["p0"].ToObject<double[]>();
+                        var p1Arr = lineObj["p1"].ToObject<double[]>();
+                        startPt = new XYZ(p0Arr[0] * MM_TO_FEET, p0Arr[1] * MM_TO_FEET, p0Arr[2] * MM_TO_FEET);
+                        endPt = new XYZ(p1Arr[0] * MM_TO_FEET, p1Arr[1] * MM_TO_FEET, p1Arr[2] * MM_TO_FEET);
                     }
                     else
                     {
-                        startPt = new XYZ(startX, startY, 0);
-                        endPt = new XYZ(endX, endY, 0);
+                        double startX = lineObj["startX"].Value<double>() * MM_TO_FEET;
+                        double startY = lineObj["startY"].Value<double>() * MM_TO_FEET;
+                        double endX = lineObj["endX"].Value<double>() * MM_TO_FEET;
+                        double endY = lineObj["endY"].Value<double>() * MM_TO_FEET;
+
+                        if (view.ViewType == ViewType.Elevation || view.ViewType == ViewType.Section || view.ViewType == ViewType.Detail)
+                        {
+                            XYZ vRight = view.RightDirection.Normalize();
+                            XYZ vUp = view.UpDirection.Normalize();
+                            XYZ origin = view.Origin;
+
+                            XYZ p1_world, p2_world;
+                            if (Math.Abs(vRight.X) >= Math.Abs(vRight.Y))
+                            {
+                                p1_world = new XYZ(startX, origin.Y, startY);
+                                p2_world = new XYZ(endX, origin.Y, endY);
+                            }
+                            else
+                            {
+                                p1_world = new XYZ(origin.X, startX, startY);
+                                p2_world = new XYZ(origin.X, endX, endY);
+                            }
+
+                            XYZ diff1 = p1_world - origin;
+                            XYZ diff2 = p2_world - origin;
+
+                            startPt = origin + vRight * diff1.DotProduct(vRight) + vUp * diff1.DotProduct(vUp);
+                            endPt = origin + vRight * diff2.DotProduct(vRight) + vUp * diff2.DotProduct(vUp);
+                        }
+                        else
+                        {
+                            startPt = new XYZ(startX, startY, 0);
+                            endPt = new XYZ(endX, endY, 0);
+                        }
                     }
 
                     if (startPt.DistanceTo(endPt) < 0.001) continue;

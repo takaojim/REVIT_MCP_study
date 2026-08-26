@@ -1,0 +1,302 @@
+{
+  "Uuid": "f536daf9-1b08-428c-815d-d20c3193452d",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "明細-房間編號",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "4535a14e31d94d5b825e4b1c590b6f9f",
+      "Name": "樓層流水號",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "1",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "cdb88168dc2347a28f858e2bb2c4950d",
+      "Name": "房間流水號",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "01",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "c721cc04708e4a0f84bc82b75f983c63",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "執行時開啟明細表然後會依照樓層編號每個房間面積大的他會排在前面 \r\nB:地下室\r\nF:地面層\r\nR:屋突層",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n# 引入 Revit API\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nimport re\r\n\r\n# 取得目前的 Revit 文件與視圖\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\n# 取得輸入格式\r\nlevel_format = str(IN[0])\r\nseq_format = str(IN[1])\r\nlvl_pad = len(level_format)\r\nseq_pad = len(seq_format)\r\n\r\n# --- 核心邏輯：自動從目前的明細表視圖抓取房間 ---\r\nrooms = []\r\nif isinstance(active_view, ViewSchedule):\r\n    collector = FilteredElementCollector(doc, active_view.Id)\r\n    rooms = collector.OfCategory(BuiltInCategory.OST_Rooms).ToElements()\r\nelse:\r\n    OUT = \"請先切換到『房間明細表』視圖再執行喔！\"\r\n    rooms = []\r\n\r\nif rooms:\r\n    data_list = []\r\n    for rm in rooms:\r\n        # 1. 取得樓層參數\r\n        lvl_param = rm.get_Parameter(BuiltInParameter.ROOM_LEVEL_ID)\r\n        \r\n        # ⚠️ 防呆機制 1：檢查是否真的有抓到樓層元件\r\n        level_elem = doc.GetElement(lvl_param.AsElementId()) if lvl_param else None\r\n        if not level_elem:\r\n            continue # 如果是幽靈房間 (沒有樓層)，就直接跳過不處理！\r\n            \r\n        lvl_name = level_elem.Name.upper()\r\n        \r\n        # 2. 取得面積參數\r\n        area_param = rm.get_Parameter(BuiltInParameter.ROOM_AREA)\r\n        area_val = area_param.AsDouble() if area_param else 0.0\r\n        \r\n        # ⚠️ 防呆機制 2：面積小於等於 0 的通常也是未放置房間，一併跳過\r\n        if area_val <= 0:\r\n            continue\r\n            \r\n        data_list.append({\r\n            'element': rm,\r\n            'lvl_name': lvl_name,\r\n            'area': area_val\r\n        })\r\n\r\n    # 依照「樓層名稱」分組\r\n    rooms_by_level = {}\r\n    for item in data_list:\r\n        lvl = item['lvl_name']\r\n        if lvl not in rooms_by_level:\r\n            rooms_by_level[lvl] = []\r\n        rooms_by_level[lvl].append(item)\r\n\r\n    # 開啟交易修改 Revit 資料\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    \r\n    count = 0\r\n    for lvl_name, group in rooms_by_level.items():\r\n        # 面積大的排前面\r\n        sorted_group = sorted(group, key=lambda x: x['area'], reverse=True)\r\n        \r\n        # 判斷前綴\r\n        if \"B\" in lvl_name: prefix = \"B\"\r\n        elif \"R\" in lvl_name: prefix = \"R\"\r\n        else: prefix = \"F\"\r\n        \r\n        # 提取樓層數字\r\n        match = re.search(r'\\d+', lvl_name)\r\n        lvl_num_str = match.group().zfill(lvl_pad) if match else \"0\".zfill(lvl_pad)\r\n        \r\n        for i, item in enumerate(sorted_group):\r\n            seq_num_str = str(i + 1).zfill(seq_pad)\r\n            new_number = prefix + lvl_num_str + seq_num_str\r\n            \r\n            # 寫入房間的「編號」參數\r\n            item['element'].get_Parameter(BuiltInParameter.ROOM_NUMBER).Set(new_number)\r\n            count += 1\r\n            \r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    OUT = \"成功！已閃避幽靈房間，並為 {} 個實體房間重新編號！\".format(count)\r\nelse:\r\n    if not isinstance(active_view, ViewSchedule):\r\n        OUT = \"錯誤：請開啟房間明細表視圖\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "4c52f4d48b374facbe304ba8d3ee3d0c",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "145b7b0b5dd545cd9d34f40884db91bb",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a5354971d3644b67b10d90c1d5d78cdb",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e9c3ff9188cc41c4b3e0fb01c9292953",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 222.4,
+      "WatchHeight": 40.0,
+      "Id": "b0d4101628f341d389db5ffc240a7600",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "f2ec29ec7cd042a9b9a9303107a3f3c1",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "039a364a110a42b3ba99094c0799cb05",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "4535a14e31d94d5b825e4b1c590b6f9f",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b241065a7c7f4e8187fb0de460130bde",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "1"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "cdb88168dc2347a28f858e2bb2c4950d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "56757f1f16af4f8eaaf2e275480621c5",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "01"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "c721cc04708e4a0f84bc82b75f983c63",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c50093706eda4f338407ad98c1e5d670",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "執行時開啟明細表然後會依照樓層編號每個房間面積大的他會排在前面 \r\nB:地下室\r\nF:地面層\r\nR:屋突層"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "e9c3ff9188cc41c4b3e0fb01c9292953",
+      "End": "f2ec29ec7cd042a9b9a9303107a3f3c1",
+      "Id": "dc9b128dffb143f5ad0f9ec509acd0c8",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b241065a7c7f4e8187fb0de460130bde",
+      "End": "145b7b0b5dd545cd9d34f40884db91bb",
+      "Id": "50ed4e4dc0c44aebbfb77377af0affe1",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "56757f1f16af4f8eaaf2e275480621c5",
+      "End": "a5354971d3644b67b10d90c1d5d78cdb",
+      "Id": "0b159fcf23804169af59220a6c0ac324",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "4c52f4d48b374facbe304ba8d3ee3d0c",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "b0d4101628f341d389db5ffc240a7600",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 908.0,
+        "Y": 103.0
+      },
+      {
+        "Id": "4535a14e31d94d5b825e4b1c590b6f9f",
+        "Name": "樓層流水號",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 314.0,
+        "Y": 140.0
+      },
+      {
+        "Id": "cdb88168dc2347a28f858e2bb2c4950d",
+        "Name": "房間流水號",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 308.0,
+        "Y": 281.0
+      },
+      {
+        "Id": "c721cc04708e4a0f84bc82b75f983c63",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 272.0,
+        "Y": 424.0
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

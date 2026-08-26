@@ -1,0 +1,305 @@
+{
+  "Uuid": "5e50cf5a-e527-4ced-9e77-92dfe2a32b68",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-尺寸-文公尺查詢",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "Math": {
+        "Key": "DSCore.Math",
+        "Value": "DSCoreNodes.dll"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "6123d60b9647479db5e67cea431ea0ce",
+      "Name": "1.文公尺單位長(42.854)",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "42.854",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "f59deec93f2b4397845246851b82534b",
+      "Name": "2.查詢尺寸",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "105",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "7b3b077cc753479cb7a7198cd10120f5",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "b12bffd9781a4bb6ae4277460dfbffa2",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "642433d528704932825dab31f5853523",
+          "Name": "double",
+          "Description": "42.854",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼",
+      "Code": "42.854;"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "6123d60b9647479db5e67cea431ea0ce",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c8ec61a46b654c77971ecb5d115103c7",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 42.854
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "# 輸入參數\r\n# IN[0] = 文公尺單位長 (預設 42.854)\r\n# IN[1] = 欲查詢的長度 (公分，例如 557)\r\n\r\ncycle_len_cm = IN[0] if IN[0] else 42.854\r\ntarget_cm = IN[1]\r\n\r\n# 八字訣與吉數索引 (0:財, 3:義, 4:官, 7:本)\r\nlist_8 = [\"吉-財\", \"凶-病\", \"凶-離\", \"吉-義\", \"吉-官\", \"凶-劫\", \"凶-害\", \"吉-本\"]\r\ngood_indices = [0, 3, 4, 7]\r\n\r\n# 每個字訣的長度區間\r\nstep = cycle_len_cm / 8.0\r\n\r\ndef get_sector_info(abs_index):\r\n    \"\"\"根據絕對索引值，計算對應的字訣與公分區間\"\"\"\r\n    c = abs_index // 8\r\n    idx = abs_index % 8\r\n    start_cm = c * cycle_len_cm + idx * step\r\n    end_cm = c * cycle_len_cm + (idx + 1) * step\r\n    return list_8[idx], start_cm, end_cm\r\n\r\n# 1. 計算當前輸入長度所在的區間與字訣\r\ncurrent_abs_idx = int(target_cm / step)\r\ncurrent_name, current_start, current_end = get_sector_info(current_abs_idx)\r\n\r\n# 2. 往回找 2 個比這個數字小，且屬於「吉」的區間\r\nsmaller_results = []\r\nsmaller_idx = current_abs_idx - 1\r\nwhile smaller_idx >= 0 and len(smaller_results) < 2:\r\n    if (smaller_idx % 8) in good_indices:\r\n        s_name, s_start, s_end = get_sector_info(smaller_idx)\r\n        smaller_results.append(\"{} (長度區間: {:.2f} cm ~ {:.2f} cm)\".format(s_name, s_start, s_end))\r\n    smaller_idx -= 1\r\n\r\n# 3. 往前找 2 個比這個數字大，且屬於「吉」的區間\r\nlarger_results = []\r\nlarger_idx = current_abs_idx + 1\r\nwhile len(larger_results) < 2:\r\n    if (larger_idx % 8) in good_indices:\r\n        l_name, l_start, l_end = get_sector_info(larger_idx)\r\n        larger_results.append(\"{} (長度區間: {:.2f} cm ~ {:.2f} cm)\".format(l_name, l_start, l_end))\r\n    larger_idx += 1\r\n\r\n# 4. 整理輸出結果給哥哥\r\nout_text = \"文公查詢完畢：\\n\"\r\nout_text += \"▶ 輸入長度: {} cm = {}\\n\".format(target_cm, current_name)\r\nout_text += \"--------------------------------------\\n\"\r\n\r\nout_text += \"【 較小的「吉」數區間 】\\n\"\r\nif len(smaller_results) > 0:\r\n    for i, txt in enumerate(smaller_results):\r\n        out_text += \"   {}. {}\\n\".format(i+1, txt)\r\nelse:\r\n    out_text += \"   已經沒有更小的吉數區間囉！\\n\"\r\n\r\nout_text += \"\\n【 較大的「吉」數區間 】\\n\"\r\nfor i, txt in enumerate(larger_results):\r\n    out_text += \"   {}. {}\\n\".format(i+1, txt)\r\n\r\nOUT = out_text",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "38b5dec5699b4b1db3d8ccec467cecc0",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "ab3ecaf6e5374c8d81f6b9b3569f5d92",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "3c67b97d51ff401381cb438a97a3571b",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "20f86d952a104b6ea0335b7a8f359974",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 420.0,
+      "WatchHeight": 200.0,
+      "Id": "7b3b077cc753479cb7a7198cd10120f5",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "e7bcc0f8bb7641e7aa3c0d0254a345e7",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "06a9b0060db847bb8bd44b14156c38cf",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "f59deec93f2b4397845246851b82534b",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8f3d6b0fe330493f91a5aff4b7debaf2",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 105.0
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "c8ec61a46b654c77971ecb5d115103c7",
+      "End": "ab3ecaf6e5374c8d81f6b9b3569f5d92",
+      "Id": "10914f095eb04a76a714c1f1ffba81d0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "20f86d952a104b6ea0335b7a8f359974",
+      "End": "e7bcc0f8bb7641e7aa3c0d0254a345e7",
+      "Id": "d4b1d3d7cea04e6fb9199ea17e155fb9",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "8f3d6b0fe330493f91a5aff4b7debaf2",
+      "End": "3c67b97d51ff401381cb438a97a3571b",
+      "Id": "3135ec8ead04473d9b478544d1c096ce",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "b12bffd9781a4bb6ae4277460dfbffa2",
+        "Name": "文公尺單位長",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -237.66786421212123,
+        "Y": -132.2033164507361
+      },
+      {
+        "Id": "6123d60b9647479db5e67cea431ea0ce",
+        "Name": "1.文公尺單位長(42.854)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -37.25858732365606,
+        "Y": -633.3870862031778
+      },
+      {
+        "Id": "38b5dec5699b4b1db3d8ccec467cecc0",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 201.71096021271347,
+        "Y": -607.1488150868128
+      },
+      {
+        "Id": "7b3b077cc753479cb7a7198cd10120f5",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 736.3683132133688,
+        "Y": -653.9122349625097
+      },
+      {
+        "Id": "f59deec93f2b4397845246851b82534b",
+        "Name": "2.查詢尺寸",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -13.570336215754367,
+        "Y": -481.7954258350472
+      }
+    ],
+    "Annotations": [],
+    "X": 215.612939735713,
+    "Y": 920.6494236466808,
+    "Zoom": 1.124691333675452
+  }
+}

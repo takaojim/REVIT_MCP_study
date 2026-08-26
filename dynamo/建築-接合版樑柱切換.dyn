@@ -1,0 +1,191 @@
+{
+  "Uuid": "a2a8f28a-c928-4048-93be-e86399671651",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-版樑切換接合",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "dbafc07f69e643cf8c4a42bd4c8faea6",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "因為rvit的樓版非常有強勢會剪掉所有的物件我們就做切換接合模式把柱樑的主權抓回\r\n結構柱\r\n結構構架\r\n牆\r\n樓板",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport System\r\nfrom System.Collections.Generic import List\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 1. 鎖定目標大掃描\r\ncolumns = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns).WhereElementIsNotElementType().ToElements()\r\nbeams = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming).WhereElementIsNotElementType().ToElements()\r\nfloors = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Floors).WhereElementIsNotElementType().ToElements()\r\n\r\nfloor_ids = List[ElementId]([f.Id for f in floors])\r\n\r\nclean_cut_count = 0\r\njoined_count = 0\r\nswitch_count = 0\r\nfail_count = 0\r\nerror_log = []\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# 🛠️ 定義核心作戰流程\r\ndef process_pair(boss, sub):\r\n    global clean_cut_count, joined_count, switch_count, fail_count, error_log\r\n    \r\n    # 🔪 步驟 A：盲目解除實體剪切詛咒\r\n    try:\r\n        SolidSolidCutUtils.RemoveCutBetweenSolids(doc, boss, sub)\r\n        clean_cut_count += 1\r\n    except: pass\r\n        \r\n    try:\r\n        SolidSolidCutUtils.RemoveCutBetweenSolids(doc, sub, boss)\r\n        clean_cut_count += 1\r\n    except: pass\r\n\r\n    # 🤝 步驟 B：重新建立接合，並強制切換\r\n    try:\r\n        if not JoinGeometryUtils.AreElementsJoined(doc, boss, sub):\r\n            JoinGeometryUtils.JoinGeometry(doc, boss, sub)\r\n            joined_count += 1\r\n            \r\n        doc.Regenerate() # 強制刷新大腦\r\n        \r\n        # 👑 步驟 C：強制切換順序 (妹妹修正過 API 的版本！)\r\n        if JoinGeometryUtils.AreElementsJoined(doc, boss, sub):\r\n            if not JoinGeometryUtils.IsCuttingElementInJoin(doc, boss, sub):\r\n                JoinGeometryUtils.SwitchJoinOrder(doc, boss, sub)\r\n                switch_count += 1\r\n                \r\n    except Exception as e:\r\n        fail_count += 1\r\n        error_msg = str(e)\r\n        if error_msg not in error_log:\r\n            error_log.append(error_msg)\r\n\r\n# ==========================================\r\n# 🌟 全軍出擊\r\n# ==========================================\r\nif floor_ids.Count > 0:\r\n    for col in columns:\r\n        bbox = col.get_BoundingBox(None)\r\n        if not bbox: continue\r\n        outline = Outline(bbox.Min, bbox.Max)\r\n        filter = BoundingBoxIntersectsFilter(outline)\r\n        for f in FilteredElementCollector(doc, floor_ids).WherePasses(filter).ToElements():\r\n            process_pair(col, f)\r\n            \r\n    for beam in beams:\r\n        bbox = beam.get_BoundingBox(None)\r\n        if not bbox: continue\r\n        outline = Outline(bbox.Min, bbox.Max)\r\n        filter = BoundingBoxIntersectsFilter(outline)\r\n        for f in FilteredElementCollector(doc, floor_ids).WherePasses(filter).ToElements():\r\n            process_pair(beam, f)\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 整理錯誤訊息\r\nerror_summary = \"無\"\r\nif error_log:\r\n    error_summary = \"\\n   👉 \".join(error_log[:3])\r\n\r\n# 🌟 妹妹的防崩潰設計：改用逐行拼接，絕對不會再噴 EOL 錯誤！\r\nout_str = \"【終極解咒與篡位報告】\\n\"\r\nout_str += \"🧹 清除舊有詛咒：{}\\n\".format(clean_cut_count)\r\nout_str += \"🤝 成功重新牽手：{}\\n\".format(joined_count)\r\nout_str += \"👑 成功篡位奪權：{}\\n\".format(switch_count)\r\nout_str += \"💀 失敗次數：{}\\n\".format(fail_count)\r\nout_str += \"⚠️ Revit 殘留報錯：\\n   👉 {}\".format(error_summary)\r\n\r\nOUT = out_str",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "36e27e92f3e74a72aced862db10cb563",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "aa2d2b063ecd4c6cb3349a585bd45d2c",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "dbafc07f69e643cf8c4a42bd4c8faea6",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "55429017f69e4c0c916e977582e2ab49",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "因為rvit的樓版非常有強勢會剪掉所有的物件我們就做切換接合模式把柱樑的主權抓回\r\n結構柱\r\n結構構架\r\n牆\r\n樓板"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 420.0,
+      "WatchHeight": 200.0,
+      "Id": "dd1c8fa1875344b6a9f2dbf19f8a8149",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "0f8cf13a5e1e4fd0849c84b01467bb22",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "90f25487add14ff888cad708612fcdc0",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "aa2d2b063ecd4c6cb3349a585bd45d2c",
+      "End": "0f8cf13a5e1e4fd0849c84b01467bb22",
+      "Id": "057dae4bffbe4fac8cc85ef8c20509dd",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "1.10",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -15276.03515625,
+      "EyeY": 14249.318359375,
+      "EyeZ": 5129.89208984375,
+      "LookX": 10114.0146484375,
+      "LookY": -12999.318359375,
+      "LookZ": -12186.990234375,
+      "UpX": 0.28992971777915955,
+      "UpY": 0.8910065293312073,
+      "UpZ": -0.3493539094924927
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "36e27e92f3e74a72aced862db10cb563",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -730.5978886623526,
+        "Y": -353.29000413413064
+      },
+      {
+        "Id": "dbafc07f69e643cf8c4a42bd4c8faea6",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1043.7741406918096,
+        "Y": -374.2992353397131
+      },
+      {
+        "Id": "dd1c8fa1875344b6a9f2dbf19f8a8149",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -328.1284884848171,
+        "Y": -337.3007241402669
+      }
+    ],
+    "Annotations": [],
+    "X": 1600.4548748624152,
+    "Y": 681.2973254978341,
+    "Zoom": 1.0922629683597316
+  }
+}

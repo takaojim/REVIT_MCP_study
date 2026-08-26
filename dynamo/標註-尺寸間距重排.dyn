@@ -1,0 +1,258 @@
+{
+  "Uuid": "b4557785-3798-4ee5-9d42-947156f9ce01",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-尺寸間距重排",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "fb941350544a4c40b590e6fed9a1efd6",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "因為比例的不同會產生尺寸線的間距由所不同甚至尺寸重疊利用此程式來重新安排尺寸線的間距",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "f5f05de13fe34c96b0b8199af581c1b6",
+      "Name": "選取要重新安排的尺寸",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "bfbd8246-9d63-4f55-8ee3-adf55a511ea4-00107598,e16927e9-3e27-4bfd-8357-edc42ef3fb46-00138c5c,e16927e9-3e27-4bfd-8357-edc42ef3fb46-00138cf0,cacb6129-101e-4d1a-b409-dc2607255ccc-0014eb74",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "3662d9b809bc4a9ca6e57015d3c3fbdc",
+      "Name": "Watch",
+      "Type": "string",
+      "InitialValue": "平、立、剖面皆已支援，成功完美調整了 2 條尺寸線！",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\nfrom System.Collections.Generic import List\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\n\r\ndef to_list(obj):\r\n    if hasattr(obj, '__iter__') and not isinstance(obj, dict) and not isinstance(obj, str):\r\n        return obj\r\n    return [obj]\r\n\r\nif not IN[0]:\r\n    OUT = \"小明哥！Select 節點沒有抓到東西喔，請重新框選！\"\r\nelse:\r\n    dims = to_list(UnwrapElement(IN[0]))\r\n    valid_dims = [d for d in dims if isinstance(d, Dimension) and d.Curve and isinstance(d.Curve, Line)]\r\n\r\n    if not valid_dims:\r\n        OUT = \"沒有選到有效的線性標註喔！\"\r\n    else:\r\n        scale = view.Scale\r\n        dim_type = valid_dims[0].DimensionType\r\n        text_size_param = dim_type.get_Parameter(BuiltInParameter.TEXT_SIZE)\r\n        text_size_feet = text_size_param.AsDouble()\r\n        model_text_height = text_size_feet * scale\r\n\r\n        # === 💡 小明哥專屬設定區 ===\r\n        spacing_multiplier = 2.0\r\n        first_layer_clearance = spacing_multiplier * 2.0    # 第一層退讓 2 個間距 (約 3 條尺寸線)\r\n        # ==========================\r\n\r\n        target_gap = model_text_height * spacing_multiplier\r\n        base_clearance = model_text_height * first_layer_clearance\r\n\r\n        # 1. 【維度升級】：捨棄 Z 軸，改用當前視圖的法向量 (ViewDirection)\r\n        base_line = valid_dims[0].Curve\r\n        dim_dir = base_line.Direction\r\n        view_dir = view.ViewDirection\r\n        \r\n        # 利用視圖法向量與尺寸線方向做外積，確保推移方向絕對平貼在當前視圖畫布上！\r\n        normal = view_dir.CrossProduct(dim_dir).Normalize()\r\n\r\n        # 2. 【全區掃描】：擴充實體過濾器 (加入屋頂、天花板應付立剖面)\r\n        cats = List[BuiltInCategory]()\r\n        cats.Add(BuiltInCategory.OST_Walls)\r\n        cats.Add(BuiltInCategory.OST_StructuralColumns)\r\n        cats.Add(BuiltInCategory.OST_Columns)\r\n        cats.Add(BuiltInCategory.OST_Floors)\r\n        cats.Add(BuiltInCategory.OST_Roofs)\r\n        cats.Add(BuiltInCategory.OST_Ceilings)\r\n        \r\n        filter = ElementMulticategoryFilter(cats)\r\n        physical_elems = FilteredElementCollector(doc, view.Id).WherePasses(filter).WhereElementIsNotElementType().ToElements()\r\n\r\n        ref_pts = []\r\n        bb_pts = [] \r\n        \r\n        # 3. 【3D 包圍盒】：升級為 8 個角點，精準捕捉立剖面的高度與深度\r\n        for elem in physical_elems:\r\n            bb = elem.get_BoundingBox(view)\r\n            if bb:\r\n                ref_pts.append(XYZ((bb.Min.X + bb.Max.X)/2, (bb.Min.Y + bb.Max.Y)/2, (bb.Min.Z + bb.Max.Z)/2))\r\n                bb_pts.extend([\r\n                    XYZ(bb.Min.X, bb.Min.Y, bb.Min.Z), XYZ(bb.Max.X, bb.Min.Y, bb.Min.Z),\r\n                    XYZ(bb.Min.X, bb.Max.Y, bb.Min.Z), XYZ(bb.Max.X, bb.Max.Y, bb.Min.Z),\r\n                    XYZ(bb.Min.X, bb.Min.Y, bb.Max.Z), XYZ(bb.Max.X, bb.Min.Y, bb.Max.Z),\r\n                    XYZ(bb.Min.X, bb.Max.Y, bb.Max.Z), XYZ(bb.Max.X, bb.Max.Y, bb.Max.Z)\r\n                ])\r\n\r\n        # 計算模型與尺寸線重心的 3D 座標 (避開 XYZ 直接相減的蟲蟲)\r\n        if ref_pts:\r\n            avg_model_x = sum(p.X for p in ref_pts) / len(ref_pts)\r\n            avg_model_y = sum(p.Y for p in ref_pts) / len(ref_pts)\r\n            avg_model_z = sum(p.Z for p in ref_pts) / len(ref_pts)\r\n        else:\r\n            avg_model_x, avg_model_y, avg_model_z = 0, 0, 0\r\n\r\n        avg_dim_x = sum(d.Curve.Origin.X for d in valid_dims) / len(valid_dims)\r\n        avg_dim_y = sum(d.Curve.Origin.Y for d in valid_dims) / len(valid_dims)\r\n        avg_dim_z = sum(d.Curve.Origin.Z for d in valid_dims) / len(valid_dims)\r\n\r\n        to_dims_dir = XYZ(avg_dim_x - avg_model_x, avg_dim_y - avg_model_y, avg_dim_z - avg_model_z)\r\n\r\n        # 確保外推方向絕對遠離實體建築物\r\n        if to_dims_dir.DotProduct(normal) > 0:\r\n            outward_dir = normal\r\n        else:\r\n            outward_dir = normal.Multiply(-1)\r\n\r\n        # 🎯 找出實體建築物在「目前推移方向」上的最外側邊緣\r\n        if bb_pts:\r\n            model_edge_dist = max(p.DotProduct(outward_dir) for p in bb_pts)\r\n        else:\r\n            model_edge_dist = min(d.Curve.Origin.DotProduct(outward_dir) for d in valid_dims)\r\n\r\n        # 依照投影距離由內到外排序\r\n        dim_info = []\r\n        for d in valid_dims:\r\n            proj_dist = d.Curve.Origin.DotProduct(outward_dir)\r\n            dim_info.append({\"dim\": d, \"dist\": proj_dist})\r\n\r\n        dim_info.sort(key=lambda x: x[\"dist\"])\r\n\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        moved_count = 0\r\n\r\n        for i in range(len(dim_info)):\r\n            current_dist = dim_info[i][\"dist\"]\r\n            \r\n            # 目標 = 實體邊緣 + 完美退讓距離 + (層數 * 間距)\r\n            target_dist = model_edge_dist + base_clearance + (i * target_gap)\r\n            \r\n            move_amount = target_dist - current_dist\r\n\r\n            # 執行移動\r\n            if abs(move_amount) > 0.001:\r\n                translation = outward_dir.Multiply(move_amount)\r\n                ElementTransformUtils.MoveElement(doc, dim_info[i][\"dim\"].Id, translation)\r\n                moved_count += 1\r\n\r\n        TransactionManager.Instance.TransactionTaskDone()\r\n\r\n        OUT = \"平、立、剖面皆已支援，成功完美調整了 {} 條尺寸線！\".format(moved_count)",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "bf306d64c26a49d78dac3eb595675e60",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "9ae7c04abda1407f85b01db98dc78a74",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d7709b5db23c4e44a6242eb919ffc66c",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 215.2,
+      "WatchHeight": 200.0,
+      "Id": "3662d9b809bc4a9ca6e57015d3c3fbdc",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "5232051548bd448a87fbdf84a80ea609",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "10014bec35504ff9b4d6b3cc33b6ed33",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "fb941350544a4c40b590e6fed9a1efd6",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "34ef2624ef014d07b80b0ad3faba4c6e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "因為比例的不同會產生尺寸線的間距由所不同甚至尺寸重疊利用此程式來重新安排尺寸線的間距"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "bfbd8246-9d63-4f55-8ee3-adf55a511ea4-00107598",
+        "e16927e9-3e27-4bfd-8357-edc42ef3fb46-00138c5c",
+        "e16927e9-3e27-4bfd-8357-edc42ef3fb46-00138cf0",
+        "cacb6129-101e-4d1a-b409-dc2607255ccc-0014eb74"
+      ],
+      "Id": "f5f05de13fe34c96b0b8199af581c1b6",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "124e723154d04c388cd768328b3769cd",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "d7709b5db23c4e44a6242eb919ffc66c",
+      "End": "5232051548bd448a87fbdf84a80ea609",
+      "Id": "c0f8b57734f84cc081679e34761e5345",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "124e723154d04c388cd768328b3769cd",
+      "End": "9ae7c04abda1407f85b01db98dc78a74",
+      "Id": "dadfa4842cfb4409a3435d22148b4d1d",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "bf306d64c26a49d78dac3eb595675e60",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 797.0,
+        "Y": 318.0
+      },
+      {
+        "Id": "3662d9b809bc4a9ca6e57015d3c3fbdc",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1055.0,
+        "Y": 321.0
+      },
+      {
+        "Id": "fb941350544a4c40b590e6fed9a1efd6",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 368.3437222617802,
+        "Y": 181.30278780745073
+      },
+      {
+        "Id": "f5f05de13fe34c96b0b8199af581c1b6",
+        "Name": "選取要重新安排的尺寸",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 422.92056149299003,
+        "Y": 465.4994368631381
+      }
+    ],
+    "Annotations": [],
+    "X": -172.36168049287733,
+    "Y": -19.03007035232548,
+    "Zoom": 0.8033215934625977
+  }
+}

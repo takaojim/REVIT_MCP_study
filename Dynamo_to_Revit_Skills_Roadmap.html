@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>Dynamo 腳本轉化為 Revit AI 技能 (Skills) 規劃報告</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm 15mm 15mm 15mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang TC", "Microsoft JhengHei", "微軟正黑體", sans-serif;
+      color: #1e293b;
+      line-height: 1.6;
+      background-color: #ffffff;
+      margin: 0;
+      padding: 0;
+      font-size: 13px;
+    }
+    .header-container {
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+    .badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+      border: 1px solid #bfdbfe;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 6px 0;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+    }
+    .meta-bar {
+      display: flex;
+      justify-content: space-between;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 20px;
+      font-size: 12px;
+    }
+    .meta-item strong {
+      color: #334155;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      border-left: 4px solid #2563eb;
+      padding-left: 8px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+    p {
+      margin: 0 0 10px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+      font-size: 12px;
+      background: #ffffff;
+    }
+    th {
+      background-color: #1e293b;
+      color: #ffffff;
+      text-align: left;
+      padding: 8px 10px;
+      font-weight: 600;
+      font-size: 11.5px;
+      letter-spacing: 0.3px;
+    }
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background-color: #f8fafc;
+    }
+    .tag-p1 {
+      display: inline-block;
+      background: #fee2e2;
+      color: #991b1b;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      border: 1px solid #fecaca;
+    }
+    .tag-p2 {
+      display: inline-block;
+      background: #fef3c7;
+      color: #92400e;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      border: 1px solid #fde68a;
+    }
+    .tag-p3 {
+      display: inline-block;
+      background: #e0e7ff;
+      color: #3730a3;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      border: 1px solid #c7d2fe;
+    }
+    .skill-name {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      color: #0369a1;
+      font-size: 12px;
+    }
+    .file-list {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: #475569;
+      background: #f1f5f9;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .card-title {
+      font-weight: 700;
+      font-size: 13px;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #f1f5f9;
+      padding-bottom: 4px;
+    }
+    .card-desc {
+      font-size: 11.5px;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+    .footer {
+      margin-top: 30px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
+      text-align: center;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    ul {
+      margin: 4px 0 8px 18px;
+      padding: 0;
+    }
+    li {
+      margin-bottom: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-container">
+    <div class="badge">Revit MCP & AI Agent Architecture</div>
+    <h1>Dynamo 腳本轉化為 Revit AI 專用技能 (Skills) 盤點規劃報告</h1>
+    <div class="subtitle">針對專案內 75 個實務 Dynamo (.dyn) 腳本之架構分析、能力歸納與導入路線圖</div>
+  </div>
+
+  <div class="meta-bar">
+    <div class="meta-item"><strong>分析對象：</strong> <code>/dynamo</code> 目錄 (共 75 個 .dyn 腳本)</div>
+    <div class="meta-item"><strong>產出目標：</strong> 標準化 Agent Skills (.agents/skills)</div>
+    <div class="meta-item"><strong>報告版本：</strong> v1.0 (2026-08)</div>
+  </div>
+
+  <h2>1. 核心技能推薦矩陣 (Summary Matrix)</h2>
+  <p>依據台灣建築實務作業頻率、自動化難易度與出圖效益，將 75 個 Dynamo 腳本彙整為 8 大專屬 AI 技能：</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 8%;">優先度</th>
+        <th style="width: 24%;">建議技能名稱 (Skill Name)</th>
+        <th style="width: 32%;">涵蓋之主要 Dynamo 腳本</th>
+        <th style="width: 36%;">核心價值與業務效益</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="tag-p1">P1</span></td>
+        <td>
+          <div class="skill-name">area-calc-math</div>
+          <div>執照圖面積與計算式求值</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • Area-範圍自動切面積.dyn<br>
+            • Area-計算式求值.dyn / 求和.dyn<br>
+            • Area-牆心/天花板產生範圍線.dyn<br>
+            • Area-範圍線輕量化 / 標註長度.dyn
+          </div>
+        </td>
+        <td><strong>建照審查面積計算神器</strong>：自動依據牆心/空間切分區塊、自動產出長寬算式字串（例 <code>3.50*4.20+...</code>）、自動求值求和填寫至面積表。</td>
+      </tr>
+      <tr>
+        <td><span class="tag-p1">P1</span></td>
+        <td>
+          <div class="skill-name">feng-shui-dimension</div>
+          <div>文公尺吉凶尺寸系統</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • 標註-尺寸-文公尺查詢.dyn<br>
+            • 標註-尺寸-文公尺顯示下標.dyn<br>
+            • 標註-尺寸-文公尺顯示後標.dyn<br>
+            • 標註-尺寸-文公尺清除.dyn
+          </div>
+        </td>
+        <td><strong>台灣特色民俗/豪宅/門窗必備</strong>：依文公尺基準（42.854cm），自動辨識尺寸數值之「財/病/離/義/官/劫/害/本」八字吉凶，並批次標註下標或後綴。</td>
+      </tr>
+      <tr>
+        <td><span class="tag-p1">P1</span></td>
+        <td>
+          <div class="skill-name">geometry-join-governance</div>
+          <div>幾何接合與干涉扣除治理</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • 建築-接合批次.dyn<br>
+            • 建築-接合版樑柱切換.dyn<br>
+            • 建築-接合全部取消.dyn
+          </div>
+        </td>
+        <td><strong>BIM 算量精確度與圖面清理救星</strong>：批次執行「版-樑-柱-牆」幾何接合（Join Geometry），並智慧切換主從切割順序，消除重疊與剖面雜線。</td>
+      </tr>
+      <tr>
+        <td><span class="tag-p2">P2</span></td>
+        <td>
+          <div class="skill-name">sheet-batch-governance</div>
+          <div>圖冊與圖紙批次治理</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • F-圖紙張數總張編號.dyn<br>
+            • F-更改圖紙編號.dyn<br>
+            • 圖紙-由EXCEL增加圖紙.dyn<br>
+            • 視圖-修改名稱 / 複製視圖.dyn
+          </div>
+        </td>
+        <td><strong>出圖階段效率化</strong>：依圖紙目錄自動計算「A3-01 (共15張第3張)」等總張編號、從 Excel 批次生成圖紙與圖框、批次規範視圖命名。</td>
+      </tr>
+      <tr>
+        <td><span class="tag-p2">P2</span></td>
+        <td>
+          <div class="skill-name">smart-tagging-alignment</div>
+          <div>智慧標籤與註解文字整列</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • 標註-加標籤-梁柱.dyn / 門窗.dyn<br>
+            • 標註-文字位置重排 / 調水平.dyn<br>
+            • 標註-標註引線文字位置重排.dyn<br>
+            • G-引線改箭頭.dyn
+          </div>
+        </td>
+        <td><strong>施工圖面美化與自動出圖</strong>：自動對門窗、梁柱批次貼附獨立 Tag，並智慧偵測文字碰撞、引線自動齊頭整列與箭頭端點校正。</td>
+      </tr>
+      <tr>
+        <td><span class="tag-p2">P2</span></td>
+        <td>
+          <div class="skill-name">parking-space-renumber</div>
+          <div>車位編號與地下室劃設</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • 標註-停車位自動編號.dyn<br>
+            • 標註-停車位編號-雲行線.dyn<br>
+            • 建築-車位安排-還沒好.dyn
+          </div>
+        </td>
+        <td><strong>地下室車位編排自動化</strong>：沿著車道動線（雲行線/路徑曲線）依序自動為停車位寫入編號（例 B1-001, B1-002），並自動統計大/小車位數量。</td>
+      </tr>
+      <tr>
+        <td><span class="tag-p3">P3</span></td>
+        <td>
+          <div class="skill-name">site-earthwork-grade</div>
+          <div>山坡地坵塊與整地座標</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • 敷地-地形-坵塊圖.dyn<br>
+            • 敷地-地形樓板整地.dyn<br>
+            • 敷地-座標畫點.dyn<br>
+            • G-標座標並編號-基準點/測量點.dyn
+          </div>
+        </td>
+        <td><strong>水保與整地土方分析</strong>：依照地形網格生成「坵塊圖與平均坡度分析」、現場放樣座標標定（N, E, EL），以及基地道路標線輔助放樣。</td>
+      </tr>
+      <tr>
+        <td><span class="tag-p3">P3</span></td>
+        <td>
+          <div class="skill-name">traditional-roof-generator</div>
+          <div>傳統斜屋頂與瓦作系統</div>
+        </td>
+        <td>
+          <div class="file-list">
+            • 建築-屋頂人字垂脊收邊.dyn<br>
+            • 建築-屋頂加各形式屋脊.dyn<br>
+            • 建築-屋頂加圓筒瓦 / 溝頭滴水.dyn<br>
+            • 建築-屋頂加椽木.dyn
+          </div>
+        </td>
+        <td><strong>古蹟修復與中式傳統建築專用</strong>：沿著屋面邊界與面（Face）自動陣列生成圓筒瓦、溝頭滴水、人字垂脊收邊與椽木等複雜幾何元件。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="page-break"></div>
+
+  <h2>2. 8 大領域詳細能力拆解與技術方案</h2>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-title">
+        <span>1. 面積與法規計算 (area-calc-math)</span>
+        <span class="tag-p1">P1</span>
+      </div>
+      <div class="card-desc">
+        將建築平面空間或牆心外框自動細切為矩形/三角形面積區塊，並自動產生長度、寬度、周長之計算字串與總和。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>自動切面積、產生算式文字、計算式即時求值與求和驗證。</li>
+        <li><strong>適用階段：</strong>建照掛件、變更設計、容積/樓地板面積檢討。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>2. 文公尺吉凶尺寸 (feng-shui-dimension)</span>
+        <span class="tag-p1">P1</span>
+      </div>
+      <div class="card-desc">
+        針對大門、房門、開窗、神明桌、玄關等關鍵尺寸，依文公尺 42.854cm / 丁蘭尺進行吉凶八字判定與標註註記。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>單一/批次尺寸查詢、下標/後綴標註（例：<code>900 [寶庫-吉]</code>）、一鍵清除。</li>
+        <li><strong>適用階段：</strong>豪宅客變、室內設計、門窗表尺寸確認。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>3. 幾何接合治理 (geometry-join-governance)</span>
+        <span class="tag-p1">P1</span>
+      </div>
+      <div class="card-desc">
+        解決 Revit 建模常見的柱樑版牆幾何重疊干涉、剖面線條雜亂、混凝土算量重複計算等問題。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>全區/選取範圍批次 Join、柱樑版主從切割順序快速切換（Switch Join）。</li>
+        <li><strong>適用階段：</strong>結構建模完成、數量估算、剖立面施工圖產出前。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>4. 圖冊圖紙治理 (sheet-batch-governance)</span>
+        <span class="tag-p2">P2</span>
+      </div>
+      <div class="card-desc">
+        自動化管理施工圖冊目錄、圖號、圖名、版次與總張數統計。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>從 Excel 匯入圖冊清單建立 Sheets、自動計算「第 X 張/共 Y 張」、視圖命名批次化。</li>
+        <li><strong>適用階段：</strong>細部設計出圖、建照/發包圖冊整理。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>5. 智慧標籤與整列 (smart-tagging-alignment)</span>
+        <span class="tag-p2">P2</span>
+      </div>
+      <div class="card-desc">
+        大幅縮短人工貼門窗 Tag、梁柱 Tag 及拉引線的時間，並避免文字重疊。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>全自動按規則放 Tag、引線長度統一、引線端點改箭頭、文字水平整列。</li>
+        <li><strong>適用階段：</strong>平面施工圖、結構平面圖、大樣圖標註美化。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>6. 車位編號劃設 (parking-space-renumber)</span>
+        <span class="tag-p2">P2</span>
+      </div>
+      <div class="card-desc">
+        地下室車位常因動線複雜人工編號耗時且容易重複，透過動線導引自動編號。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>沿手繪模型線/曲線自動按順序編號、依樓層前綴、大/小/無障礙車位分類統計。</li>
+        <li><strong>適用階段：</strong>地下室規劃、建照法規車位檢討、銷售圖面編號。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>7. 水保坵塊與整地 (site-earthwork-grade)</span>
+        <span class="tag-p3">P3</span>
+      </div>
+      <div class="card-desc">
+        針對山坡地基地自動切割坵塊網格並計算平均坡度與土方高程。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>依網格採樣高程產出坵塊圖、測量點/基準點放樣座標自動標定、道路標線放樣。</li>
+        <li><strong>適用階段：</strong>山坡地水土保持計畫、整地土方計算、基地放樣。</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>8. 傳統屋頂瓦作 (traditional-roof-generator)</span>
+        <span class="tag-p3">P3</span>
+      </div>
+      <div class="card-desc">
+        解決 Revit 預設屋頂工具難以建立圓筒瓦、溝頭滴水、人字垂脊等複雜傳統裝飾的問題。
+      </div>
+      <ul>
+        <li><strong>主要功能：</strong>沿屋頂曲面/斜面自動佈設瓦壟、滴水瓦、垂脊收邊元件與椽木結構。</li>
+        <li><strong>適用階段：</strong>古蹟修復、仿古建築、宗教寺廟建築設計。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>3. Dynamo 轉譯為 Agent 技能的四部曲流程</h2>
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; font-size: 12px;">
+    <ol style="margin: 0 0 0 20px; padding: 0;">
+      <li style="margin-bottom: 6px;"><strong>節點解析 (Node Extraction)：</strong> 解析 <code>.dyn</code> 內 JSON 結構，提取關鍵 Python Script 演算法與 Revit API 呼叫方法。</li>
+      <li style="margin-bottom: 6px;"><strong>MCP 工具對齊 (Tool Alignment)：</strong> 將核心邏輯對接既有 RevitMCP Socket 指令（如 <code>create_dimension</code>, <code>query_elements</code>, <code>update_parameters</code> 等），或擴充專屬 MCP Command。</li>
+      <li style="margin-bottom: 6px;"><strong>定義技能規範 (Skill Specification)：</strong> 在 <code>.agents/skills/&lt;skill-name&gt;/SKILL.md</code> 建立標準自然語言觸發詞、操作工作流與參數規則。</li>
+      <li><strong>實機驗證 (Revit Verification)：</strong> 透過 Node.js 腳本在 Revit 實際專案中測試並確保執行效率與穩定性。</li>
+    </ol>
+  </div>
+
+  <div class="footer">
+    Revit MCP Study Group &bull; Antigravity AI Agent &bull; 專案資料夾: <code>REVIT_MCP_study/dynamo</code>
+  </div>
+
+</body>
+</html>

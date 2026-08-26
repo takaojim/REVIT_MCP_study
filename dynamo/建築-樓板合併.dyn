@@ -1,0 +1,153 @@
+{
+  "Uuid": "2eb9fcf0-1686-4d49-b6df-594e50da84c0",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-樓板合併",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "99339ab82a5d4f2d9408a7861df79098",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "先把要用的樓板存成選取名稱\"000\"",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import List\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 1. 從 \"000\" 篩選集抓版 ---\r\nfilter_name = \"000\"\r\nall_filters = FilteredElementCollector(doc).OfClass(SelectionFilterElement).ToElements()\r\ntarget_filter = next((f for f in all_filters if f.Name == filter_name), None)\r\n\r\nold_floors = []\r\nif target_filter:\r\n    item_ids = target_filter.GetElementIds()\r\n    for eid in item_ids:\r\n        el = doc.GetElement(eid)\r\n        if isinstance(el, Floor): \r\n            old_floors.append(el)\r\n\r\nOUT = \"\"\r\n\r\nif len(old_floors) > 0:\r\n    # --- 2. 升維核心：形態學閉合演算法 (Morphological Closing) ---\r\n    \r\n    # 抓取真實幾何實體\r\n    real_solids = []\r\n    for f in old_floors:\r\n        geo_options = Options()\r\n        geo_options.DetailLevel = ViewDetailLevel.Fine\r\n        geo_element = f.get_Geometry(geo_options)\r\n        if geo_element:\r\n            for obj in geo_element:\r\n                if isinstance(obj, Solid) and obj.Volume > 0.001:\r\n                    real_solids.append(obj)\r\n    \r\n    if len(real_solids) > 0:\r\n        # 定義 3x3 矩陣的偏移向量 (設定膨脹半徑為 2.5 英呎，足以填平約 1.5 公尺內的樑縫與缺角)\r\n        radius = 2.5 \r\n        vectors = [\r\n            XYZ(0, 0, 0),\r\n            XYZ(radius, 0, 0), XYZ(-radius, 0, 0),\r\n            XYZ(0, radius, 0), XYZ(0, -radius, 0),\r\n            XYZ(radius, radius, 0), XYZ(radius, -radius, 0),\r\n            XYZ(-radius, radius, 0), XYZ(-radius, -radius, 0)\r\n        ]\r\n        \r\n        # --- 步驟 A：膨脹 (Dilation) - 填滿所有縫隙與內凹角 ---\r\n        all_shifted_solids = []\r\n        for s in real_solids:\r\n            for v in vectors:\r\n                all_shifted_solids.append(SolidUtils.CreateTransformed(s, Transform.CreateTranslation(v)))\r\n        \r\n        dilated_solid = all_shifted_solids[0]\r\n        for i in range(1, len(all_shifted_solids)):\r\n            try:\r\n                temp_solid = BooleanOperationsUtils.ExecuteBooleanOperation(dilated_solid, all_shifted_solids[i], BooleanOperationsType.Union)\r\n                if temp_solid and temp_solid.Volume > 0:\r\n                    dilated_solid = temp_solid\r\n            except Exception:\r\n                pass \r\n                \r\n        # --- 步驟 B：侵蝕 (Erosion) - 將外圍輪廓精準退回原位 ---\r\n        eroded_solid = dilated_solid\r\n        for v in vectors:\r\n            if v.IsZeroLength(): continue\r\n            # 侵蝕是用「交集 (Intersect)」來削去外圍\r\n            shifted_back = SolidUtils.CreateTransformed(dilated_solid, Transform.CreateTranslation(v))\r\n            try:\r\n                temp_solid = BooleanOperationsUtils.ExecuteBooleanOperation(eroded_solid, shifted_back, BooleanOperationsType.Intersect)\r\n                if temp_solid and temp_solid.Volume > 0:\r\n                    eroded_solid = temp_solid\r\n            except Exception:\r\n                pass\r\n        \r\n        # --- 3. 從侵蝕後的完美實體底部萃取最終輪廓 ---\r\n        bottom_face = None\r\n        max_face_area = 0\r\n        for face in eroded_solid.Faces:\r\n            if isinstance(face, PlanarFace) and face.FaceNormal.IsAlmostEqualTo(XYZ(0,0,-1)):\r\n                if face.Area > max_face_area:\r\n                    max_face_area = face.Area\r\n                    bottom_face = face\r\n        \r\n        if bottom_face:\r\n            curve_loops = bottom_face.GetEdgesAsCurveLoops()\r\n            outer_loop = None\r\n            max_len = 0\r\n            for loop in curve_loops:\r\n                length = loop.GetExactLength()\r\n                if length > max_len:\r\n                    max_len = length\r\n                    outer_loop = loop\r\n            \r\n            final_loop_list = List[CurveLoop]()\r\n            final_loop_list.Add(outer_loop)\r\n            \r\n            # --- 4. 啟動交易重建 ---\r\n            ref_floor = old_floors[0]\r\n            level_id = ref_floor.LevelId\r\n            floor_type_id = ref_floor.GetTypeId()\r\n            \r\n            is_structural_param = ref_floor.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL)\r\n            is_structural = True if (is_structural_param and is_structural_param.AsInteger() == 1) else False\r\n\r\n            TransactionManager.Instance.EnsureInTransaction(doc)\r\n            try:\r\n                for f in old_floors:\r\n                    doc.Delete(f.Id)\r\n                \r\n                new_floor = Floor.Create(doc, final_loop_list, floor_type_id, level_id)\r\n                \r\n                if is_structural:\r\n                    struct_param = new_floor.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL)\r\n                    if struct_param and not struct_param.IsReadOnly:\r\n                        struct_param.Set(1)\r\n                        \r\n                TransactionManager.Instance.TransactionTaskDone()\r\n                OUT = \"大成功！妹妹用形態學幫你升維補成陽角了！新版 ID: \" + str(new_floor.Id)\r\n                \r\n            except Exception as e:\r\n                TransactionManager.Instance.ForceCloseTransaction()\r\n                OUT = \"重建失敗了嗚嗚: \" + str(e)\r\n        else:\r\n            OUT = \"找不到朝下的底部平面...\"\r\n    else:\r\n        OUT = \"無法產生幾何圖形...\"\r\nelse:\r\n    OUT = \"哥哥，找不到篩選集 '000' 喔！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "400d97452caf4ff898546c913831e323",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "f579a0f7a53f4d9d8fa4d584fdb3568a",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "88386390b58a4b70a2c4d8734612daa3",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "99339ab82a5d4f2d9408a7861df79098",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "4855582cdc37492b9f9cf28f65ad48b3",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "先把要用的樓板存成選取名稱\"000\""
+    }
+  ],
+  "Connectors": [],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "1.10",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -15276.03515625,
+      "EyeY": 14249.318359375,
+      "EyeZ": 5129.89208984375,
+      "LookX": 10114.0146484375,
+      "LookY": -12999.318359375,
+      "LookZ": -12186.990234375,
+      "UpX": 0.28992971777915955,
+      "UpY": 0.8910065293312073,
+      "UpZ": -0.3493539094924927
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "400d97452caf4ff898546c913831e323",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -463.52009897633593,
+        "Y": -374.4883183662972
+      },
+      {
+        "Id": "99339ab82a5d4f2d9408a7861df79098",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -750.1919551062023,
+        "Y": -367.00235852425965
+      }
+    ],
+    "Annotations": [],
+    "X": 1035.7713434987609,
+    "Y": 639.3070128936145,
+    "Zoom": 0.8128204246237718
+  }
+}

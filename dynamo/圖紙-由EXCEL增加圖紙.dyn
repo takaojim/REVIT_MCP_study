@@ -1,0 +1,616 @@
+{
+  "Uuid": "fbfee34b-a2de-479b-b0a4-4ebfc5f94397",
+  "IsCustomNode": false,
+  "Description": null,
+  "Name": "圖紙-由EXCEL增加圖紙",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "f178709b45b14889bf96e4aaaa117898",
+      "Name": "選取EXCEL資料(注意資料是文字還是數字)",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "C:\\Users\\Simon\\Desktop\\TODAY\\圖紙編號.xlsx",
+      "Description": "可讓您選取系統上的檔案，並傳回其檔案路徑"
+    },
+    {
+      "Id": "4ffd00b451794314996e19a1ade2e194",
+      "Name": "工作表明稱",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "參數表",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "953b654aad7341238ecc53b8e0621750",
+      "Name": "選取群族名稱",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "3LA1-2024:3LA1-2024",
+      "Description": "所有可在文件中取得的族群類型。",
+      "SelectedIndex": 10
+    },
+    {
+      "Id": "0b66da1664674aba9b79d5e8a355a2f4",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "注意:\r\nexcel的頁面名稱為\"參數表\"\r\n第一行為參數名稱",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "d8d60db33b83400c8f33e2cb1897faba",
+      "Name": "輸入圖紙關鍵字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "3LA1-2024",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "d93a4b330dc94ad49f5fd97e1e80cae8",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.Filename, CoreNodeModels",
+      "Id": "f178709b45b14889bf96e4aaaa117898",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "eefef34b4af343fe970c74c285cc2698",
+          "Name": "",
+          "Description": "Filename",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "可讓您選取系統上的檔案，並傳回其檔案路徑",
+      "HintPath": "C:\\Users\\Simon\\Desktop\\TODAY\\圖紙編號.xlsx",
+      "InputValue": "C:\\Users\\Simon\\Desktop\\TODAY\\圖紙編號.xlsx"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "4ffd00b451794314996e19a1ade2e194",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "49dd661d66d04045a64a4522ff0714a5",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "參數表"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.FileObject, CoreNodeModels",
+      "Id": "ef649a7a877c4ed48528bf5ec37b0926",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "34527978c3e54f56b912fad143e91137",
+          "Name": "path",
+          "Description": "Path to the file.",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d8c260b97c7748eea970a3fd870c6f2a",
+          "Name": "file",
+          "Description": "File object",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從給定路徑建立檔案物件"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.FamilyTypes, DSRevitNodesUI",
+      "SelectedIndex": 10,
+      "SelectedString": "3LA1-2024:3LA1-2024",
+      "Id": "953b654aad7341238ecc53b8e0621750",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "7ca994291dab46dcb4cb24cc4e495d0d",
+          "Name": "Family Type",
+          "Description": "選取的 Family Type",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在文件中取得的族群類型。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "0b66da1664674aba9b79d5e8a355a2f4",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "cbff0ef587d94d7ea9989147f7355f0a",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "注意:\r\nexcel的頁面名稱為\"參數表\"\r\n第一行為參數名稱"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 接收輸入 ---\r\n# IN[0]: 來自我們「橫著走萬用搜尋器」抓到的圖框 Element\r\ninput_element = UnwrapElement(IN[0]) if IN[0] else None\r\n# IN[1]: 來自 Excel 的資料\r\nexcel_data = IN[1]\r\n\r\ncreated_sheets = []\r\nerror_log = []\r\n\r\n# 直接提取圖框的 ID (我們百分之百信任哥哥搜出來的東西！)\r\ntb_id = ElementId.InvalidElementId\r\nif input_element:\r\n    try:\r\n        tb_id = input_element.Id\r\n    except:\r\n        error_log.append(\"⚠️ 無法讀取圖框 ID，將建立空白圖紙。\")\r\nelse:\r\n    error_log.append(\"⚠️ 沒有收到圖框，將建立空白圖紙。\")\r\n\r\n# 取得目前專案中所有的圖紙編號，避免重複當機\r\nexisting_sheets = FilteredElementCollector(doc).OfClass(ViewSheet).ToElements()\r\nexisting_numbers = [s.SheetNumber for s in existing_sheets]\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# 從第 2 列開始跑 (跳過標題)\r\nfor i in range(1, len(excel_data)):\r\n    row = excel_data[i]\r\n    if not row or len(row) < 2: continue\r\n        \r\n    sheet_num = str(row[0]).strip()\r\n    sheet_name = str(row[1]).strip()\r\n    \r\n    # 清理 Excel 可能帶來的 .0 尾巴\r\n    if sheet_num.endswith('.0'):\r\n        sheet_num = sheet_num[:-2]\r\n\r\n    # 防呆：如果圖紙已經存在，安全跳過\r\n    if sheet_num in existing_numbers:\r\n        error_log.append(\"跳過：編號 {} 已存在\".format(sheet_num))\r\n        continue\r\n\r\n    try:\r\n        # 🌟 建立圖紙 (強制掛上我們指定的圖框 ID)\r\n        new_sheet = ViewSheet.Create(doc, tb_id)\r\n        new_sheet.SheetNumber = sheet_num\r\n        new_sheet.Name = sheet_name\r\n        created_sheets.append(new_sheet)\r\n    except Exception as e:\r\n        error_log.append(\"編號 {} 建立失敗: {}\".format(sheet_num, str(e)))\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 輸出結果\r\nOUT = created_sheets, \"✅ 成功建立了 {} 張帶有圖框的圖紙！\".format(len(created_sheets)), error_log",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "7e31aa037b414663a05a17f2e1b3bd3f",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "20174803da2747858a309215b899bdbe",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f6fb78098aed4b4e9bea5c6a8436843d",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "1416a3d3191a46e3ae268f8c44a7d35e",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "eb6ced825f7e481597116fbeb3410d61",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "6f38f84bec9a4324a51f62a6c5408745",
+          "Name": "file",
+          "Description": "var",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "93ab492bf2f645d4972d07e0fbd6b9e4",
+          "Name": "sheetName",
+          "Description": "string",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e3664947bc3241de93ee088c20740b06",
+          "Name": "readAsStrings",
+          "Description": "bool\n預設值 : false",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "d32a32627775438d9a197808d2610de5",
+          "Name": "showExcel",
+          "Description": "bool\n預設值 : true",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5c671fbff1bf42ae92fbc1ca0e406947",
+          "Name": "var[][]",
+          "Description": "var[][]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "DSOffice.Data.ImportExcel@var,string,bool,bool",
+      "Replication": "Auto",
+      "Description": "Data.ImportExcel (file: var, sheetName: string, readAsStrings: bool = false, showExcel: bool = true): var[][]"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "524f1f1202c94cb5bceeaa32ff64074b",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "165263639b644831bb8efb173082e9cf",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "46946b24db8e4100a574e32e5880f6b1",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 1. 取得關鍵字，轉小寫、去空白\r\nraw_input = IN[0]\r\nif isinstance(raw_input, list): \r\n    raw_input = raw_input[0]\r\nkeyword = str(raw_input).replace(\" \", \"\").lower()\r\n\r\n# 2. 萬用大客廳：搜集所有 ElementType (無差別全搜，真正橫著走！)\r\ncollector = FilteredElementCollector(doc).WhereElementIsElementType().ToElements()\r\n\r\ntarget_elem = None\r\ndebug_msg = \"報告哥哥：還是沒找到😭\"\r\n\r\nfor elem in collector:\r\n    f_name = \"\"\r\n    t_name = \"\"\r\n    \r\n    # 🛡️ 獨立防護罩 A：只保護族群名稱\r\n    try:\r\n        f_name = str(elem.FamilyName)\r\n    except:\r\n        pass\r\n        \r\n    # 🛡️ 獨立防護罩 B：只保護類型名稱\r\n    try:\r\n        t_name = str(elem.Name)\r\n    except:\r\n        pass\r\n        \r\n    # 如果兩個都抓不到，才跳過這個隱形人\r\n    if not f_name and not t_name:\r\n        continue\r\n        \r\n    # 將名字組合、去空白、轉小寫，進行嚴酷比對\r\n    full_string = (f_name + t_name).replace(\" \", \"\").lower()\r\n    \r\n    if keyword in full_string:\r\n        # 找到了！馬上包裝成 Dynamo 綠色元件\r\n        target_elem = elem.ToDSType(True)\r\n        debug_msg = \"✅ 橫著走成功！抓到啦：{} : {} (ID: {})\".format(f_name, t_name, elem.Id)\r\n        break\r\n\r\n# 輸出 [0]目標元件, [1]妹妹的回報\r\nOUT = target_elem",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "201ad6d2c1c840df838076fdc869d4c7",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "254c0d02fdfd493396b3db64d4799b12",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e1769f9db104495e8f9c1fdcc6fab1cb",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "d8d60db33b83400c8f33e2cb1897faba",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "dece47068d92400d945ee543715404bc",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "3LA1-2024"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 328.0,
+      "WatchHeight": 200.0,
+      "Id": "d93a4b330dc94ad49f5fd97e1e80cae8",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "f493eb7ca2c744f5af1b8759b19c6eb4",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "153b4d3d5d40491eb77f4c01de287496",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "eefef34b4af343fe970c74c285cc2698",
+      "End": "34527978c3e54f56b912fad143e91137",
+      "Id": "79fe906f0be6487dad1a7852287a05fd",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "49dd661d66d04045a64a4522ff0714a5",
+      "End": "93ab492bf2f645d4972d07e0fbd6b9e4",
+      "Id": "a8d51e2e4dc549928b751f4d6b49d5b0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "d8c260b97c7748eea970a3fd870c6f2a",
+      "End": "6f38f84bec9a4324a51f62a6c5408745",
+      "Id": "a0e0ffebc6b84f9b84a400e0369e873a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1416a3d3191a46e3ae268f8c44a7d35e",
+      "End": "165263639b644831bb8efb173082e9cf",
+      "Id": "84573f1d68274f50a73a6bf689eeb2bf",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "5c671fbff1bf42ae92fbc1ca0e406947",
+      "End": "f6fb78098aed4b4e9bea5c6a8436843d",
+      "Id": "b5096490886e4996851d17a32b5e8315",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e1769f9db104495e8f9c1fdcc6fab1cb",
+      "End": "20174803da2747858a309215b899bdbe",
+      "Id": "5a32b71c6f284830a9192d9645742261",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e1769f9db104495e8f9c1fdcc6fab1cb",
+      "End": "f493eb7ca2c744f5af1b8759b19c6eb4",
+      "Id": "3012042fe20a4b338e1fea065a2fdb4a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "dece47068d92400d945ee543715404bc",
+      "End": "254c0d02fdfd493396b3db64d4799b12",
+      "Id": "94039a0a435b4969854c99a3c9dae2ce",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [
+    {
+      "Name": "圖紙編號.xlsx",
+      "ReferenceType": "External",
+      "Nodes": [
+        "f178709b45b14889bf96e4aaaa117898"
+      ]
+    }
+  ],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -23.629125595092773,
+      "EyeY": 31.18155288696289,
+      "EyeZ": 82.04078674316406,
+      "LookX": 18.629125595092773,
+      "LookY": -20.18155288696289,
+      "LookZ": -90.04078674316406,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "f178709b45b14889bf96e4aaaa117898",
+        "Name": "選取EXCEL資料(注意資料是文字還是數字)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -209.75323227104388,
+        "Y": -1578.4896056083232
+      },
+      {
+        "Id": "4ffd00b451794314996e19a1ade2e194",
+        "Name": "工作表明稱",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 399.12959016598404,
+        "Y": -1342.1376619060895
+      },
+      {
+        "Id": "ef649a7a877c4ed48528bf5ec37b0926",
+        "Name": "File From Path",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 398.154820171598,
+        "Y": -1541.6290191568194
+      },
+      {
+        "Id": "953b654aad7341238ecc53b8e0621750",
+        "Name": "選取群族名稱",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -21.165954047328228,
+        "Y": -1953.6896843693444
+      },
+      {
+        "Id": "0b66da1664674aba9b79d5e8a355a2f4",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -305.3677548017767,
+        "Y": -2109.128234410171
+      },
+      {
+        "Id": "7e31aa037b414663a05a17f2e1b3bd3f",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1138.3518367064164,
+        "Y": -1543.8134281068283
+      },
+      {
+        "Id": "eb6ced825f7e481597116fbeb3410d61",
+        "Name": "Data.ImportExcel",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 741.6922508214678,
+        "Y": -1475.9286116016376
+      },
+      {
+        "Id": "524f1f1202c94cb5bceeaa32ff64074b",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1456.4613472342344,
+        "Y": -1781.236893890775
+      },
+      {
+        "Id": "201ad6d2c1c840df838076fdc869d4c7",
+        "Name": "輸入關鍵字找出完整的family type",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 293.45363420235105,
+        "Y": -2108.129183433941
+      },
+      {
+        "Id": "d8d60db33b83400c8f33e2cb1897faba",
+        "Name": "輸入圖紙關鍵字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1.8990566921627305,
+        "Y": -2104.52696316104
+      },
+      {
+        "Id": "d93a4b330dc94ad49f5fd97e1e80cae8",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 755.1272920890387,
+        "Y": -2200.967182416549
+      }
+    ],
+    "Annotations": [],
+    "X": 372.72006984318153,
+    "Y": 1769.5615768148803,
+    "Zoom": 0.7577395477495528
+  }
+}

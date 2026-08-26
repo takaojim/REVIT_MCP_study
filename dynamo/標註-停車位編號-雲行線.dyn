@@ -1,0 +1,310 @@
+{
+  "Uuid": "d279ec1e-b024-411f-a1a6-19d6dbc87ce2",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-停車位編號-雲行線",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "3da3a277e10c47d8ab8b6607d3e9b16d",
+      "Name": "停車位群族名稱",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "法規停車位_V4",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "20c76ac048df47fda05220d5155c8cac",
+      "Name": "開始編號",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "1",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "de683799a8124f99b1159eaf75cb3c22",
+      "Name": "選一個雲行線",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "c45f5343-3d32-404c-ad9f-47f00c937e08-000c453a",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "ad0704c5f4dc41859322edd41d80dfea",
+      "Name": "編號的參數",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "備註",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "3da3a277e10c47d8ab8b6607d3e9b16d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "862f3ea8d8fb45d5892509b958f2787a",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "法規停車位_V4"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "20c76ac048df47fda05220d5155c8cac",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "7739fc607da24673865ee56219d9495d",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 1.0
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "c45f5343-3d32-404c-ad9f-47f00c937e08-000c453a"
+      ],
+      "Id": "de683799a8124f99b1159eaf75cb3c22",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "7c60859756c1425db4379200e169f620",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "ad0704c5f4dc41859322edd41d80dfea",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "fdfc5462c12847c29990c22ecc5bcd8f",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "備註"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport sys\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Revit 節點與幾何轉換\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\n# 載入事務管理\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 讀取 Dynamo 輸入 ---\r\n# 族群名稱的 IN 已經移除了，輸入端順序往前遞補！\r\nstart_num = int(IN[0])     # 起始編號 (原 IN[1])\r\ncurve_input = UnwrapElement(IN[1]) # 雲形線 (原 IN[2])\r\nparam_name = IN[2]         # 參數名稱 (原 IN[3])\r\n\r\n# --- 1. 取得 Revit 曲線幾何 ---\r\nrevit_curve = None\r\nif hasattr(curve_input, \"GeometryCurve\"):\r\n    revit_curve = curve_input.GeometryCurve\r\nelif hasattr(curve_input, \"Location\"):\r\n    revit_curve = curve_input.Location.Curve\r\n\r\nif not revit_curve:\r\n    OUT = \"錯誤：請確認 IN[1] 輸入的是 Revit 中的模型線或細部線。\"\r\n    sys.exit()\r\n\r\n# --- 2. 收集所有的停車位 (不限族群名稱) ---\r\n# 妹妹改用 Revit 內建的「停車 (OST_Parking)」品類來抓取\r\n# 這樣不管你有幾種大車、小車、機車的族群，只要品類是停車位就會被抓進來！\r\ncollector = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Parking).WhereElementIsNotElementType()\r\nparking_spaces = [e for e in collector if isinstance(e, FamilyInstance)]\r\n\r\n# --- 取得 Z 軸加厚範圍 ---\r\nz_values = []\r\nfor space in parking_spaces:\r\n    loc = space.Location\r\n    if isinstance(loc, LocationPoint):\r\n        z_values.append(loc.Point.Z)\r\n\r\nz_buffer = 0.5\r\nif not z_values:\r\n    OUT = \"模型中找不到任何『停車』品類的物件\"\r\n    sys.exit()\r\n\r\nmin_z = min(z_values) - z_buffer\r\nmax_z = max(z_values) + z_buffer\r\n\r\nintersecting_spaces = []\r\n\r\n# 🔴 關鍵修改：將 XY 平面的感應距離大幅增加到 30 英呎 (約 9 公尺)\r\n# 這樣即使線畫得比較偏或有大弧度，也能順利掃描到車位\r\nxy_tolerance = 30.0 \r\n\r\n# --- 3. 找出符合範圍的車位 ---\r\nfor space in parking_spaces:\r\n    loc = space.Location\r\n    if isinstance(loc, LocationPoint):\r\n        pt = loc.Point\r\n        \r\n        # Z 軸過濾\r\n        if pt.Z < min_z or pt.Z > max_z:\r\n            continue \r\n            \r\n        result = revit_curve.Project(pt)\r\n        \r\n        if result:\r\n            # 🔴 使用加大的容許距離\r\n            if result.Distance < xy_tolerance: \r\n                intersecting_spaces.append({\r\n                    \"param\": result.Parameter,\r\n                    \"space\": space\r\n                })\r\n\r\nintersecting_spaces.sort(key=lambda x: x[\"param\"])\r\n\r\n# --- 4. 寫入參數 ---\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\ncurrent_num = start_num\r\nsuccess_elements = []\r\n\r\nfor item in intersecting_spaces:\r\n    space = item[\"space\"]\r\n    p = space.LookupParameter(param_name)\r\n    \r\n    if p and not p.IsReadOnly:\r\n        if p.StorageType == StorageType.String:\r\n            p.Set(str(current_num))\r\n        elif p.StorageType == StorageType.Integer:\r\n            p.Set(current_num)\r\n        \r\n        success_elements.append(space)\r\n        current_num += 1\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# --- 輸出結果：加入總編號數量統計 ---\r\nOUT = {\r\n    \"1_總共編了多少車位\": str(len(success_elements)) + \" 個\",\r\n    \"2_成功處理的車位清單\": success_elements\r\n}",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "5846903ba825494d8a7cab80625d6ae2",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "0d0b8386493b45d7aa16c945b762b391",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c4434cae4b5f4c8b9bd7a98f2499c7b2",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "074df05aee0d4ecd839d9fb78936c94c",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d74cbccc310949759e1b7dd268565a96",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "7739fc607da24673865ee56219d9495d",
+      "End": "0d0b8386493b45d7aa16c945b762b391",
+      "Id": "0cc75ef9ea4046029f8c9403b88399af",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "7c60859756c1425db4379200e169f620",
+      "End": "c4434cae4b5f4c8b9bd7a98f2499c7b2",
+      "Id": "5bda3a0c2ae940be86255966f6bd451c",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "fdfc5462c12847c29990c22ecc5bcd8f",
+      "End": "074df05aee0d4ecd839d9fb78936c94c",
+      "Id": "829729b875cd46e78e14c6e53863714d",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "3da3a277e10c47d8ab8b6607d3e9b16d",
+        "Name": "停車位群族名稱",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 296.0,
+        "Y": 166.0
+      },
+      {
+        "Id": "20c76ac048df47fda05220d5155c8cac",
+        "Name": "開始編號",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 299.0,
+        "Y": 305.0
+      },
+      {
+        "Id": "de683799a8124f99b1159eaf75cb3c22",
+        "Name": "選一個雲行線",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 299.0,
+        "Y": 454.0
+      },
+      {
+        "Id": "ad0704c5f4dc41859322edd41d80dfea",
+        "Name": "編號的參數",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 317.18965902581533,
+        "Y": 617.1896590258154
+      },
+      {
+        "Id": "5846903ba825494d8a7cab80625d6ae2",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 749.0,
+        "Y": 285.0
+      }
+    ],
+    "Annotations": [],
+    "X": -160.16055142806908,
+    "Y": -21.960548903562255,
+    "Zoom": 1.1047642563030275
+  }
+}

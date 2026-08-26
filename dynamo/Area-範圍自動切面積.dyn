@@ -1,0 +1,501 @@
+{
+  "Uuid": "7eb611f8-bcd0-41d1-aa44-b53590c2ed98",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Area-範圍自動切面積",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "List": {
+        "Key": "List",
+        "Value": "BuiltIn.ds"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "9fd7733eb3f5436fb0167f558b155eb2",
+      "Name": "2.旋轉切割90度嗎?",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "6bf2d38f34d64148809a4f62fc82b385",
+      "Name": "3.是:編號列出算式 /否:只更改\"計算式\"參數",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "42e74c0620904d9d878fc040f7ca3b3f",
+      "Name": "4.分割線角度",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "81e167f49da44746b1ffa32870409344",
+      "Name": "1.自訂角度嗎?",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "1f804ee70d47486da320865ad981928e",
+      "Name": "5.數字位數",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "3",
+      "MaximumValue": 8.0,
+      "MinimumValue": 0.0,
+      "StepValue": 1.0,
+      "NumberType": "Integer",
+      "Description": "產生整數值"
+    },
+    {
+      "Id": "d2cf21a3fd524bcbac6b36728756080e",
+      "Name": "5.角度位數",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "3",
+      "MaximumValue": 8.0,
+      "MinimumValue": 0.0,
+      "StepValue": 1.0,
+      "NumberType": "Integer",
+      "Description": "產生整數值"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "d30f4a4557e24e56b0c6d22ebe10b2a3",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "# CREATAREA Script Version: 2026.05.14-V3.8-SmartAuto-Bulletproof\r\nimport clr\r\nimport math\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\n\r\n# --- 1. 工具函數 ---\r\ndef format_cm_label(val_m):\r\n    val_cm = round(val_m * 100, 1)\r\n    return str(int(val_cm)) if val_cm % 1 == 0 else str(val_cm)\r\n\r\ndef rotate_pt(pt, ang):\r\n    return [pt[0]*math.cos(ang) - pt[1]*math.sin(ang), pt[0]*math.sin(ang) + pt[1]*math.cos(ang)]\r\n\r\ndef get_readable_angle(dx, dy):\r\n    a = math.atan2(dy, dx) % (2*math.pi)\r\n    if a > math.pi/2 + 0.01 and a <= 1.5*math.pi + 0.01:\r\n        a -= math.pi\r\n    return a\r\n\r\n# --- 2. 取得控制參數 (加上超強防呆過濾器) ---\r\ndef get_num(idx, default):\r\n    if len(IN) > idx and IN[idx] is not None:\r\n        v = IN[idx]\r\n        if isinstance(v, list): v = v[0] if v else default\r\n        try: return float(v)\r\n        except: return default\r\n    return default\r\n\r\ndef get_bool(idx, default):\r\n    if len(IN) > idx and IN[idx] is not None:\r\n        v = IN[idx]\r\n        if isinstance(v, list): v = v[0] if v else default\r\n        if isinstance(v, str): return v.strip().lower() == 'true'\r\n        return bool(v)\r\n    return default\r\n\r\nform_dec = int(get_num(0, 2))\r\nang_dec = int(get_num(1, 4))\r\nrotate_90 = get_bool(2, False)\r\nenable_list = get_bool(3, False)\r\n\r\n# [防呆強化] 自訂角度開關與數值\r\nuse_custom_ang = get_bool(4, False)\r\ncustom_ang_deg = get_num(5, 0.0)\r\n\r\n# 自動抓取目前視圖中的所有面積物件\r\nall_areas = FilteredElementCollector(doc, view.Id).OfCategory(BuiltInCategory.OST_Areas).ToElements()\r\n\r\n# 單位轉換\r\nFT_TO_M = 0.3048 \r\nM_TO_FT = 1.0 / 0.3048\r\n\r\n# --- 3. 環境與樣式設定 ---\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nall_txt_types = FilteredElementCollector(doc).OfClass(TextNoteType).ToElements()\r\n\r\ndef get_or_create_text_type(name, size_mm, box=0):\r\n    tt_id = next((tt.Id for tt in all_txt_types if name in tt.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString()), None)\r\n    if not tt_id:\r\n        new_type = all_txt_types[0].Duplicate(name)\r\n        new_type.LookupParameter(\"文字大小\").Set(size_mm / 304.8)\r\n        if new_type.get_Parameter(BuiltInParameter.LINE_COLOR): new_type.get_Parameter(BuiltInParameter.LINE_COLOR).Set(255)\r\n        if new_type.get_Parameter(BuiltInParameter.TEXT_BOX_VISIBILITY): new_type.get_Parameter(BuiltInParameter.TEXT_BOX_VISIBILITY).Set(box)\r\n        return new_type.Id\r\n    return tt_id\r\n\r\ntargetTextTypeId = get_or_create_text_type(\"CREATAREA_Red_2.5\", 2.5)\r\nnumTextTypeId = get_or_create_text_type(\"CREATAREA_Num_4.0_Box\", 4.0, 1)\r\ncalcTextTypeId = get_or_create_text_type(\"CREATAREA_Calc_4.0\", 4.0, 0)\r\n\r\ncat_lines = doc.Settings.Categories.get_Item(BuiltInCategory.OST_Lines)\r\nsubcat_name = \"CREATAREA_分割線_綠0.25\"\r\nif cat_lines.SubCategories.Contains(subcat_name):\r\n    split_style_elem = cat_lines.SubCategories.get_Item(subcat_name)\r\nelse:\r\n    split_style_elem = doc.Settings.Categories.NewSubcategory(cat_lines, subcat_name)\r\n    split_style_elem.LineColor = Color(0, 150, 0)\r\n    split_style_elem.SetLineWeight(3, GraphicsStyleType.Projection)\r\nsplit_gs = split_style_elem.GetGraphicsStyle(GraphicsStyleType.Projection)\r\n\r\n# --- [自動淨化 Auto-Purge] ---\r\npurge_names = [\"CREATAREA_Red_2.5\", \"CREATAREA_Num_4.0_Box\", \"CREATAREA_Calc_4.0\"]\r\nexisting_texts = FilteredElementCollector(doc, view.Id).OfClass(TextNote).ToElements()\r\nfor txt in existing_texts:\r\n    if txt.TextNoteType.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString() in purge_names:\r\n        try: doc.Delete(txt.Id)\r\n        except: pass\r\n\r\nexisting_curves = FilteredElementCollector(doc, view.Id).OfClass(CurveElement).ToElements()\r\nfor c in existing_curves:\r\n    if hasattr(c, \"LineStyle\") and c.LineStyle is not None:\r\n        if c.LineStyle.Name == \"CREATAREA_分割線_綠0.25\":\r\n            try: doc.Delete(c.Id)\r\n            except: pass\r\n\r\n# --- 4. 執行主邏輯 ---\r\nresults = []\r\nglobal_shape_id = 1 \r\nglobal_max_x, global_max_y = -1e9, -1e9\r\ndashboard_data = []\r\n\r\nglobal_drawn_segments = [] \r\ndef is_segment_labeled(seg_x_ft, seg_y_ft, txt, threshold_ft):\r\n    for dx, dy, dtxt in global_drawn_segments:\r\n        if dtxt == txt and math.hypot(seg_x_ft-dx, seg_y_ft-dy) < threshold_ft: return True\r\n    return False\r\n\r\nglobal_drawn_lines = []\r\ndef draw_unique_split_line(ptA_ft, ptB_ft, z_val):\r\n    if math.hypot(ptA_ft[0]-ptB_ft[0], ptA_ft[1]-ptB_ft[1]) < 0.005: return\r\n    tol = 0.01 \r\n    for lA, lB in global_drawn_lines:\r\n        match1 = math.hypot(ptA_ft[0]-lA[0], ptA_ft[1]-lA[1]) < tol and math.hypot(ptB_ft[0]-lB[0], ptB_ft[1]-lB[1]) < tol\r\n        match2 = math.hypot(ptA_ft[0]-lB[0], ptA_ft[1]-lB[1]) < tol and math.hypot(ptB_ft[0]-lA[0], ptB_ft[1]-lA[1]) < tol\r\n        if match1 or match2: return \r\n    try:\r\n        dl = doc.Create.NewDetailCurve(view, Line.CreateBound(XYZ(ptA_ft[0], ptA_ft[1], z_val), XYZ(ptB_ft[0], ptB_ft[1], z_val)))\r\n        if split_gs: dl.LineStyle = split_gs\r\n        global_drawn_lines.append((ptA_ft, ptB_ft)) \r\n    except: pass\r\n\r\npaper_offset_mm = 2.5 \r\noffset_m = (paper_offset_mm / 1000.0) * view.Scale\r\nglobal_threshold_ft = (5.0 / 1000.0) * view.Scale * M_TO_FT\r\n\r\ntxt_opts = TextNoteOptions(targetTextTypeId)\r\ntxt_opts.HorizontalAlignment = HorizontalTextAlignment.Center\r\ntxt_opts.VerticalAlignment = VerticalTextAlignment.Middle \r\n\r\ntxt_opts_num = TextNoteOptions(numTextTypeId)\r\ntxt_opts_num.HorizontalAlignment = HorizontalTextAlignment.Center\r\ntxt_opts_num.VerticalAlignment = VerticalTextAlignment.Middle \r\n\r\ntxt_opts_calc = TextNoteOptions(calcTextTypeId)\r\ntxt_opts_calc.HorizontalAlignment = HorizontalTextAlignment.Left\r\ntxt_opts_calc.VerticalAlignment = VerticalTextAlignment.Top \r\n\r\nbound_opt = SpatialElementBoundaryOptions()\r\nbound_opt.SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish\r\n\r\nfor area_el in all_areas:\r\n    boundary_segs = area_el.GetBoundarySegments(bound_opt)\r\n    if not boundary_segs: continue\r\n    \r\n    pList_m, arcs_info = [], []\r\n    sumX, sumY, sumZ, count = 0, 0, 0, 0\r\n    \r\n    for loop in boundary_segs:\r\n        for seg in loop:\r\n            crv = seg.GetCurve()\r\n            pt1 = crv.GetEndPoint(0)\r\n            pt2 = crv.GetEndPoint(1)\r\n            \r\n            mx, my, mz = pt1.X * FT_TO_M, pt1.Y * FT_TO_M, pt1.Z * FT_TO_M\r\n            pList_m.append([mx, my]); sumX+=mx; sumY+=my; sumZ+=mz; count+=1\r\n            \r\n            if isinstance(crv, Arc) or \"Arc\" in crv.GetType().Name:\r\n                rad = crv.Radius * FT_TO_M\r\n                sweep = crv.Length / crv.Radius\r\n                mid_pt = crv.Evaluate(0.5, True)\r\n                arcs_info.append({\r\n                    'p1': [pt1.X * FT_TO_M, pt1.Y * FT_TO_M], \r\n                    'p2': [pt2.X * FT_TO_M, pt2.Y * FT_TO_M], \r\n                    'mid': [mid_pt.X * FT_TO_M, mid_pt.Y * FT_TO_M], \r\n                    'R': rad, \r\n                    'rad': sweep, \r\n                    'deg': math.degrees(sweep)\r\n                })\r\n    \r\n    if count == 0: continue\r\n    baseZ_ft = (sumZ/count)*M_TO_FT\r\n    if math.hypot(pList_m[0][0]-pList_m[-1][0], pList_m[0][1]-pList_m[-1][1]) > 1e-4: pList_m.append(pList_m[0])\r\n    \r\n    for p in pList_m:\r\n        if p[0] > global_max_x: global_max_x = p[0]\r\n        if p[1] > global_max_y: global_max_y = p[1]\r\n\r\n    # --- [核心邏輯修復] 自訂角度 vs 自動長軸 ---\r\n    if use_custom_ang:\r\n        bestAng = math.radians(custom_ang_deg)\r\n    else:\r\n        # 當取消自訂時，完美回歸長軸計算，並加上精準度收斂防止同角度誤判\r\n        angleDist = {}\r\n        for i in range(len(pList_m)-1):\r\n            p1, p2 = pList_m[i], pList_m[i+1]\r\n            curAng = round(math.atan2(p2[1]-p1[1], p2[0]-p1[0]) % math.pi, 5) # 小數點後五位收斂\r\n            angleDist[curAng] = angleDist.get(curAng, 0) + math.hypot(p2[0]-p1[0], p2[1]-p1[1])\r\n        bestAng = max(angleDist, key=angleDist.get) if angleDist else 0.0\r\n    \r\n    if rotate_90: bestAng += math.pi / 2\r\n\r\n    vList_rot = [rotate_pt(p, -bestAng) for p in pList_m]\r\n    segs_rot_raw = [[vList_rot[i], vList_rot[i+1]] for i in range(len(vList_rot)-1)]\r\n\r\n    sortedY = sorted(list(set([round(p[1], 4) for p in vList_rot])))\r\n    rawSlices = []\r\n    for i in range(len(sortedY)-1):\r\n        y1, y2 = sortedY[i], sortedY[i+1]\r\n        if (y2 - y1) > 0.005:\r\n            yMid = (y1 + y2) / 2.0\r\n            def get_x(s, y): return s[0][0] + (y-s[0][1])/(s[1][1]-s[0][1])*(s[1][0]-s[0][0]) if abs(s[0][1]-s[1][1]) > 1e-6 else s[0][0]\r\n            xInfo = sorted([[get_x(s, yMid), s] for s in segs_rot_raw if (s[0][1] <= yMid < s[1][1]) or (s[1][1] <= yMid < s[0][1])], key=lambda x: x[0])\r\n            for j in range(0, len(xInfo)-1, 2): rawSlices.append([get_x(xInfo[j][1], y1), get_x(xInfo[j+1][1], y1), get_x(xInfo[j][1], y2), get_x(xInfo[j+1][1], y2), y1, y2])\r\n\r\n    def is_collinear(x1, y1, x2, y2, x3, y3):\r\n        L = math.hypot(x3 - x1, y3 - y1)\r\n        if L < 1e-4: return True\r\n        d = abs((y3 - y1)*x2 - (x3 - x1)*y2 + x3*y1 - y3*x1) / L\r\n        return d < 0.005 \r\n\r\n    mergedSlices = []\r\n    for slice_raw in rawSlices:\r\n        merged = False\r\n        for m in mergedSlices:\r\n            if abs(m[5] - slice_raw[4]) < 0.005:\r\n                if abs(m[2] - slice_raw[0]) < 0.005 and abs(m[3] - slice_raw[1]) < 0.005:\r\n                    if is_collinear(m[0], m[4], m[2], m[5], slice_raw[2], slice_raw[5]) and \\\r\n                       is_collinear(m[1], m[4], m[3], m[5], slice_raw[3], slice_raw[5]):\r\n                        m[2] = slice_raw[2]\r\n                        m[3] = slice_raw[3]\r\n                        m[5] = slice_raw[5]\r\n                        merged = True\r\n                        break\r\n        if not merged:\r\n            mergedSlices.append(list(slice_raw))\r\n\r\n    formula_parts = []\r\n    area_formulas = [] \r\n\r\n    for s in mergedSlices:\r\n        xL_b, xR_b, xL_t, xR_t, y1, y2 = s\r\n        h, w1, w2 = y2 - y1, xR_b - xL_b, xR_t - xL_t\r\n        mid_y = (y1 + y2) / 2.0\r\n        slice_drawn_w = set() \r\n        \r\n        for y_val, w_val, xl, xr in [(y1, w1, xL_b, xR_b), (y2, w2, xL_t, xR_t)]:\r\n            if w_val < 0.05: continue\r\n            is_on_boundary = any(abs(b[0][1]-y_val)<1e-3 and abs(b[1][1]-y_val)<1e-3 and (min(xr, max(b[0][0], b[1][0])) - max(xl, min(b[0][0], b[1][0])) > 0.01) for b in segs_rot_raw)\r\n            if not is_on_boundary:\r\n                p1r, p2r = rotate_pt([xl, y_val], bestAng), rotate_pt([xr, y_val], bestAng)\r\n                draw_unique_split_line([p1r[0]*M_TO_FT, p1r[1]*M_TO_FT], [p2r[0]*M_TO_FT, p2r[1]*M_TO_FT], baseZ_ft)\r\n            \r\n            label = format_cm_label(w_val)\r\n            if label in slice_drawn_w: continue\r\n            seg_mid_world = rotate_pt([(xl+xr)/2.0, y_val], bestAng)\r\n            seg_x_ft, seg_y_ft = seg_mid_world[0]*M_TO_FT, seg_mid_world[1]*M_TO_FT\r\n            \r\n            if not is_segment_labeled(seg_x_ft, seg_y_ft, label, global_threshold_ft):\r\n                off_y = offset_m if abs(y_val - y1) < 1e-4 else -offset_m\r\n                tp_rot = [(xl+xr)/2.0, y_val + off_y]\r\n                tp_world = rotate_pt(tp_rot, bestAng)\r\n                note = TextNote.Create(doc, view.Id, XYZ(tp_world[0]*M_TO_FT, tp_world[1]*M_TO_FT, baseZ_ft), label, txt_opts)\r\n                ElementTransformUtils.RotateElement(doc, note.Id, Line.CreateBound(XYZ(tp_world[0]*M_TO_FT, tp_world[1]*M_TO_FT, baseZ_ft), XYZ(tp_world[0]*M_TO_FT, tp_world[1]*M_TO_FT, baseZ_ft+1)), bestAng)\r\n                global_drawn_segments.append((seg_x_ft, seg_y_ft, label))\r\n                slice_drawn_w.add(label)\r\n\r\n        is_left_v = abs(xL_b - xL_t) < 0.005\r\n        is_right_v = abs(xR_b - xR_t) < 0.005\r\n        candidates = []\r\n        if is_left_v: candidates.append((xL_b, 1))   \r\n        if is_right_v: candidates.append((xR_b, -1)) \r\n        h_label = format_cm_label(h)\r\n        h_x, h_offset_dir = None, 1\r\n        \r\n        for cx, cdir in candidates:\r\n            test_world = rotate_pt([cx, mid_y], bestAng)\r\n            if not is_segment_labeled(test_world[0]*M_TO_FT, test_world[1]*M_TO_FT, h_label, global_threshold_ft):\r\n                h_x, h_offset_dir = cx, cdir\r\n                break\r\n                \r\n        if h_x is None:\r\n            if candidates: h_x, h_offset_dir = candidates[0]\r\n            else:\r\n                h_x = (xL_b + xR_b + xL_t + xR_t) / 4.0 \r\n                h_offset_dir = 1\r\n                hp1r, hp2r = rotate_pt([h_x, y1], bestAng), rotate_pt([h_x, y2], bestAng)\r\n                draw_unique_split_line([hp1r[0]*M_TO_FT, hp1r[1]*M_TO_FT], [hp2r[0]*M_TO_FT, hp2r[1]*M_TO_FT], baseZ_ft)\r\n        else:\r\n            is_h_on_b = any(abs(b[0][0]-h_x)<1e-3 and abs(b[1][0]-h_x)<1e-3 and (min(y2, max(b[0][1], b[1][1])) - max(y1, min(b[0][1], b[1][1])) > 0.01) for b in segs_rot_raw)\r\n            if not is_h_on_b:\r\n                hp1r, hp2r = rotate_pt([h_x, y1], bestAng), rotate_pt([h_x, y2], bestAng)\r\n                draw_unique_split_line([hp1r[0]*M_TO_FT, hp1r[1]*M_TO_FT], [hp2r[0]*M_TO_FT, hp2r[1]*M_TO_FT], baseZ_ft)\r\n\r\n        seg_mid_world_h = rotate_pt([h_x, mid_y], bestAng)\r\n        seg_h_x_ft, seg_h_y_ft = seg_mid_world_h[0]*M_TO_FT, seg_mid_world_h[1]*M_TO_FT\r\n        \r\n        if not is_segment_labeled(seg_h_x_ft, seg_h_y_ft, h_label, global_threshold_ft):\r\n            h_tp_rot = [h_x + (offset_m * h_offset_dir), mid_y]\r\n            h_tp_world = rotate_pt(h_tp_rot, bestAng)\r\n            h_note = TextNote.Create(doc, view.Id, XYZ(h_tp_world[0]*M_TO_FT, h_tp_world[1]*M_TO_FT, baseZ_ft), h_label, txt_opts)\r\n            ElementTransformUtils.RotateElement(doc, h_note.Id, Line.CreateBound(XYZ(h_tp_world[0]*M_TO_FT, h_tp_world[1]*M_TO_FT, baseZ_ft), XYZ(h_tp_world[0]*M_TO_FT, h_tp_world[1]*M_TO_FT, baseZ_ft+1)), bestAng + math.pi/2)\r\n            global_drawn_segments.append((seg_h_x_ft, seg_h_y_ft, h_label))\r\n\r\n        sh, sw1, sw2 = round(h, form_dec), round(w1, form_dec), round(w2, form_dec)\r\n        \r\n        is_ghost = (sw1 <= 0 and sw2 <= 0)\r\n        f_str = \"\"\r\n        val = 0.0\r\n        \r\n        if is_ghost:\r\n            pass \r\n        elif is_left_v and is_right_v and sw1 > 0 and abs(sw1 - sw2) <= 0.01: \r\n            f_str = \"({}*{})\".format(sw1, sh) \r\n            val = sw1 * sh\r\n        elif sw1 <= 0 and sw2 > 0: \r\n            f_str = \"({}*{}/2)\".format(sw2, sh) \r\n            val = sw2 * sh / 2.0\r\n        elif sw2 <= 0 and sw1 > 0: \r\n            f_str = \"({}*{}/2)\".format(sw1, sh) \r\n            val = sw1 * sh / 2.0\r\n        else: \r\n            f_str = \"(({}+{})*{}/2)\".format(sw1 if sw1>0 else 0, sw2 if sw2>0 else 0, sh) \r\n            val = ((sw1 if sw1>0 else 0) + (sw2 if sw2>0 else 0)) * sh / 2.0\r\n\r\n        if not is_ghost:\r\n            formula_parts.append(f_str)\r\n            if enable_list:\r\n                sid = str(global_shape_id)\r\n                global_shape_id += 1\r\n                area_formulas.append((sid, f_str, val))\r\n                \r\n                cX = (xL_b + xR_b + xL_t + xR_t) / 4.0\r\n                cY = mid_y\r\n                c_world = rotate_pt([cX, cY], bestAng)\r\n                TextNote.Create(doc, view.Id, XYZ(c_world[0]*M_TO_FT, c_world[1]*M_TO_FT, baseZ_ft), sid, txt_opts_num)\r\n\r\n    # --- 3. 弧線與弓形 ---\r\n    first_arc = True\r\n    for arc in arcs_info:\r\n        p1, p2, mid, R, rad, deg = arc['p1'], arc['p2'], arc['mid'], arc['R'], arc['rad'], arc['deg']\r\n        mx, my = (p1[0]+p2[0])/2.0, (p1[1]+p2[1])/2.0\r\n        C, H = math.hypot(p2[0]-p1[0], p2[1]-p1[1]), math.hypot(mid[0]-mx, mid[1]-my)\r\n        if H > 0.005:\r\n            draw_unique_split_line([p1[0]*M_TO_FT, p1[1]*M_TO_FT], [p2[0]*M_TO_FT, p2[1]*M_TO_FT], baseZ_ft)\r\n            draw_unique_split_line([mx*M_TO_FT, my*M_TO_FT], [mid[0]*M_TO_FT, mid[1]*M_TO_FT], baseZ_ft)\r\n            c_label = format_cm_label(C)\r\n            c_pt_x_ft, c_pt_y_ft = mx*M_TO_FT, my*M_TO_FT\r\n            if not is_segment_labeled(c_pt_x_ft, c_pt_y_ft, c_label, global_threshold_ft):\r\n                out_v = [mid[0]-mx, mid[1]-my]; out_len = math.hypot(*out_v)\r\n                c_txt_x = mx + (out_v[0]/out_len) * offset_m\r\n                c_txt_y = my + (out_v[1]/out_len) * offset_m\r\n                note_C = TextNote.Create(doc, view.Id, XYZ(c_txt_x*M_TO_FT, c_txt_y*M_TO_FT, baseZ_ft), c_label, txt_opts)\r\n                ElementTransformUtils.RotateElement(doc, note_C.Id, Line.CreateBound(XYZ(c_txt_x*M_TO_FT, c_txt_y*M_TO_FT, baseZ_ft), XYZ(c_txt_x*M_TO_FT, c_txt_y*M_TO_FT, baseZ_ft+1)), get_readable_angle(p2[0]-p1[0], p2[1]-p1[1]))\r\n                global_drawn_segments.append((c_pt_x_ft, c_pt_y_ft, c_label))\r\n            \r\n            out_v = [mid[0]-mx, mid[1]-my]; out_len = math.hypot(*out_v)\r\n            txt_pt_arc = XYZ((mid[0]+out_v[0]/out_len*offset_m*2.5)*M_TO_FT, (mid[1]+out_v[1]/out_len*offset_m*2.5)*M_TO_FT, baseZ_ft)\r\n            sRad, sDeg, sR = round(rad, ang_dec), round(deg, ang_dec), round(R, form_dec)\r\n            label = \"R={}\\n∠{}°\".format(format_cm_label(R), sDeg)\r\n            if first_arc: label += \"\\n(R*R)*(rad-sin(ang))/2\"; first_arc = False\r\n            TextNote.Create(doc, view.Id, txt_pt_arc, label, txt_opts)\r\n            \r\n            f_str = \"(({}*{})*({}-sin({}))/2)\".format(sR, sR, sRad, sDeg)\r\n            formula_parts.append(f_str)\r\n            \r\n            if enable_list:\r\n                sid = str(global_shape_id)\r\n                global_shape_id += 1\r\n                val = (sR * sR) * (sRad - math.sin(math.radians(sDeg))) / 2.0\r\n                area_formulas.append((sid, f_str, val))\r\n                \r\n                cX = (mx + mid[0]) / 2.0\r\n                cY = (my + mid[1]) / 2.0\r\n                TextNote.Create(doc, view.Id, XYZ(cX*M_TO_FT, cY*M_TO_FT, baseZ_ft), sid, txt_opts_num)\r\n\r\n    pure_formula = \"+\".join(formula_parts).replace(\"+-\", \"-\")\r\n    if hasattr(area_el, \"LookupParameter\"):\r\n        p = area_el.LookupParameter(\"計算式\")\r\n        if p and not p.IsReadOnly: p.Set(pure_formula)\r\n    results.append(pure_formula)\r\n    \r\n    # 收集當前區域的明細表資料\r\n    if enable_list and area_formulas:\r\n        el_name = \"區域\"\r\n        if hasattr(area_el, \"get_Parameter\") and area_el.get_Parameter(BuiltInParameter.ROOM_NAME):\r\n            el_name = area_el.get_Parameter(BuiltInParameter.ROOM_NAME).AsString()\r\n        elif hasattr(area_el, \"Name\") and area_el.Name:\r\n            el_name = area_el.Name\r\n            \r\n        block_lines = [\"【{}】\".format(el_name)]\r\n        total_val = 0.0\r\n        val_strs = []\r\n        \r\n        for sid, f, v in area_formulas:\r\n            v_str = str(round(v, 3))\r\n            block_lines.append(\"({}) : {}={}\".format(sid, f, v_str))\r\n            val_strs.append(v_str)\r\n            total_val += v\r\n        \r\n        sum_str = \"總計 =\" + \"+\".join(val_strs) + \"=\" + str(round(total_val, 3))\r\n        block_lines.append(sum_str)\r\n        \r\n        block_text = \"\\n\".join(block_lines)\r\n        dashboard_data.append((block_text, len(block_lines)))\r\n\r\n# --- 自動生成全域極簡版計算明細表 ---\r\nif enable_list and dashboard_data:\r\n    offset_x_m = (15.0 / 1000.0) * view.Scale # 離圖形最右側 15mm 開始排版\r\n    current_y_m = global_max_y # 從所有圖形的最上方開始往下排\r\n    \r\n    line_height_m = (6.0 / 1000.0) * view.Scale \r\n    \r\n    for text, line_count in dashboard_data:\r\n        TextNote.Create(doc, view.Id, XYZ((global_max_x + offset_x_m)*M_TO_FT, current_y_m*M_TO_FT, baseZ_ft), text, txt_opts_calc)\r\n        current_y_m -= (line_count + 1) * line_height_m\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\nOUT = results",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "07975a6b92bd4064a6a7dbdb87e43380",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "0a77993fa79c440b9d9dfba8493cbc68",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6708e453ae904a468021c02ff817d90b",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "4c16d2bee9f7439b8ce684d4ecdc3fe8",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fea223fba13c4d31a964c7d3ab5665d2",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b3246484ae6d4510bf941f83f2b68417",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fee49d10d4334df19e4017b798f18cdb",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "a5517a5d4c154cbd822c4109cb0d15e7",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 40.0,
+      "Id": "d30f4a4557e24e56b0c6d22ebe10b2a3",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "62f8c36c6164448c929507debdbe079b",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2e069989322347f59db47e7e85ff67de",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "9fd7733eb3f5436fb0167f558b155eb2",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8223705a7c8c4da7adbfcf065dd977f9",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "6bf2d38f34d64148809a4f62fc82b385",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "75a942f533514ee9af242c68b061fc00",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "42e74c0620904d9d878fc040f7ca3b3f",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "27fc4878d8db47ec8a598224bcafaad2",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 0.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "81e167f49da44746b1ffa32870409344",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b21b8123dd3b424fbf82cf25efa2eabd",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.IntegerSlider, CoreNodeModels",
+      "NumberType": "Integer",
+      "MaximumValue": 8,
+      "MinimumValue": 0,
+      "StepValue": 1,
+      "Id": "1f804ee70d47486da320865ad981928e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "00be26170f6f49e49eb440b22cd13d4e",
+          "Name": "",
+          "Description": "Int64",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "產生整數值",
+      "InputValue": 3
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.IntegerSlider, CoreNodeModels",
+      "NumberType": "Integer",
+      "MaximumValue": 8,
+      "MinimumValue": 0,
+      "StepValue": 1,
+      "Id": "d2cf21a3fd524bcbac6b36728756080e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "31f8be8d7b444a5080cbc6beb1ca5397",
+          "Name": "",
+          "Description": "Int64",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "產生整數值",
+      "InputValue": 3
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "a5517a5d4c154cbd822c4109cb0d15e7",
+      "End": "62f8c36c6164448c929507debdbe079b",
+      "Id": "a3a7a6b24fde434eb26c4cbf012f0a41",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "8223705a7c8c4da7adbfcf065dd977f9",
+      "End": "4c16d2bee9f7439b8ce684d4ecdc3fe8",
+      "Id": "a1b88cda54b84b3da8aaf89151fb0050",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "75a942f533514ee9af242c68b061fc00",
+      "End": "fea223fba13c4d31a964c7d3ab5665d2",
+      "Id": "b94b837169ea4480b592ad4b42208aea",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "27fc4878d8db47ec8a598224bcafaad2",
+      "End": "fee49d10d4334df19e4017b798f18cdb",
+      "Id": "b368cd72169440c3a5e30c8c27bcdca3",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b21b8123dd3b424fbf82cf25efa2eabd",
+      "End": "b3246484ae6d4510bf941f83f2b68417",
+      "Id": "96ebfdab481143e990a7fcd0d21b12fe",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "00be26170f6f49e49eb440b22cd13d4e",
+      "End": "0a77993fa79c440b9d9dfba8493cbc68",
+      "Id": "35ef5b2cafd64e46a8bf02da56b16ec1",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "31f8be8d7b444a5080cbc6beb1ca5397",
+      "End": "6708e453ae904a468021c02ff817d90b",
+      "Id": "52ab8c1f628e46b7bfe198d9b02cc6ae",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.7.0.11777",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -156.8134307861328,
+      "EyeY": 197.33596801757812,
+      "EyeZ": 713.8496704101562,
+      "LookX": 150.48594665527344,
+      "LookY": -163.02642822265625,
+      "LookZ": -727.3488159179688,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "07975a6b92bd4064a6a7dbdb87e43380",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1126.9671601918794,
+        "Y": -117.08147085642463
+      },
+      {
+        "Id": "d30f4a4557e24e56b0c6d22ebe10b2a3",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 2019.6385184864953,
+        "Y": -93.55291519705514
+      },
+      {
+        "Id": "9fd7733eb3f5436fb0167f558b155eb2",
+        "Name": "2.旋轉切割90度嗎?",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 469.07899219500047,
+        "Y": -76.04880888632124
+      },
+      {
+        "Id": "6bf2d38f34d64148809a4f62fc82b385",
+        "Name": "3.是:編號列出算式 /否:只更改\"計算式\"參數",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 312.76983198031235,
+        "Y": 52.7722906257755
+      },
+      {
+        "Id": "42e74c0620904d9d878fc040f7ca3b3f",
+        "Name": "4.分割線角度",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 508.43303531563913,
+        "Y": 309.6090439839323
+      },
+      {
+        "Id": "81e167f49da44746b1ffa32870409344",
+        "Name": "1.自訂角度嗎?",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 466.84662525353974,
+        "Y": 174.68127682227828
+      },
+      {
+        "Id": "1f804ee70d47486da320865ad981928e",
+        "Name": "5.數字位數",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 67.16007284156689,
+        "Y": -375.48823557860896
+      },
+      {
+        "Id": "d2cf21a3fd524bcbac6b36728756080e",
+        "Name": "5.角度位數",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 76.01823899485788,
+        "Y": -252.6477116224064
+      }
+    ],
+    "Annotations": [],
+    "X": 34.72406609018185,
+    "Y": 378.38223768155376,
+    "Zoom": 0.8712518815847204
+  }
+}

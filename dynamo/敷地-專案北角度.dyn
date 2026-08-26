@@ -1,0 +1,199 @@
+{
+  "Uuid": "fffa35f8-6850-440f-aa5f-1aefb93fe72a",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "敷地-專案北角度",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "313c007972ed4f39b92939dbc65846b6",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "將專案北與正北角度寫到整體參數\"專案與正北角度\"中以利旋轉指北針",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "9a0c03aa3edd4fae9dac106bbbe8ede0",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Dynamo 的 Revit 節點與交易管理員\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得當前文件\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 你的整體參數名稱\r\nparam_name = \"專案與正北角度\"\r\n\r\n# 1. 取得專案北與正北的夾角\r\nproject_location = doc.ActiveProjectLocation\r\nproject_position = project_location.GetProjectPosition(XYZ.Zero)\r\nangle_rad = project_position.Angle\r\nangle_deg = math.degrees(angle_rad)\r\n\r\nresult_msg = \"\"\r\n\r\n# 2. 透過 GlobalParametersManager 處理整體參數\r\nif GlobalParametersManager.AreGlobalParametersAllowed(doc):\r\n    # 開啟交易以修改/建立文件元素\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    try:\r\n        # 尋找參數是否存在\r\n        gp_id = GlobalParametersManager.FindByName(doc, param_name)\r\n        \r\n        if gp_id != ElementId.InvalidElementId:\r\n            # 【狀況 A：參數已存在】取得該元件\r\n            gp = doc.GetElement(gp_id)\r\n            action_msg = \"已更新現有參數\"\r\n        else:\r\n            # 【狀況 B：參數不存在】讓程式自動建立\r\n            try:\r\n                # 嘗試 Revit 2022 (含) 以後版本的 API 寫法 (SpecTypeId)\r\n                gp = GlobalParameter.Create(doc, param_name, SpecTypeId.Angle)\r\n            except:\r\n                # 若報錯，則退回 Revit 2021 (含) 以前版本的 API 寫法 (ParameterType)\r\n                gp = GlobalParameter.Create(doc, param_name, ParameterType.Angle)\r\n            \r\n            action_msg = \"已自動建立新參數並寫入\"\r\n            \r\n        # 將數值寫入整體參數 (必須包裝為 DoubleParameterValue，且為弧度)\r\n        new_value = DoubleParameterValue(angle_rad)\r\n        gp.SetValue(new_value)\r\n        \r\n        # 提交交易\r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        result_msg = \"成功：{} (角度: {:.4f}°)。\".format(action_msg, angle_deg)\r\n        \r\n    except Exception as e:\r\n        # 若發生意外錯誤，退回交易\r\n        TransactionManager.Instance.ForceCloseTransaction()\r\n        result_msg = \"執行失敗發生錯誤：\" + str(e)\r\nelse:\r\n    result_msg = \"錯誤：當前的 Revit 專案檔案不支援整體參數功能。\"\r\n\r\n# 將度數與執行狀態輸出\r\nOUT = [angle_deg, result_msg]",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "c87aebd564d64baca81bf9e5024b7cd2",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f3757cdd679040179cf8ec8f7d139140",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "9a0c03aa3edd4fae9dac106bbbe8ede0",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "713bb3a7886b4b18801971d29b69d90a",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "52a00bdb58684559b0476d0cfdadb046",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "313c007972ed4f39b92939dbc65846b6",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "ab2818660527433c9b7f347af11e098b",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "將專案北與正北角度寫到整體參數\"專案與正北角度\"中以利旋轉指北針"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "f3757cdd679040179cf8ec8f7d139140",
+      "End": "713bb3a7886b4b18801971d29b69d90a",
+      "Id": "9c2143695129435bbd244d0b3ceff1fa",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "c87aebd564d64baca81bf9e5024b7cd2",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 858.4994927339097,
+        "Y": 170.6558526242382
+      },
+      {
+        "Id": "9a0c03aa3edd4fae9dac106bbbe8ede0",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1169.5821318699182,
+        "Y": 459.3081627035196
+      },
+      {
+        "Id": "313c007972ed4f39b92939dbc65846b6",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 470.63805299629104,
+        "Y": 164.25337521703784
+      }
+    ],
+    "Annotations": [],
+    "X": -73.83671650620863,
+    "Y": 45.41794577627638,
+    "Zoom": 0.8341447871548368
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "Uuid": "fcbc3c51-c7d7-4902-9140-3578c1bd059e",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "明細-牆面積列式",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "14d3ffb9d2a345e8823799b487080a53",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "必須有下列欄位:\r\n1.標記:牆的編碼\r\n2.長度(M)\r\n2.平均高度(M)\r\n3.開孔門窗:如W1*2,W2,D1\r\n4.計算式(平方公尺)=牆體長度*平均高度-(W1面積*2+W2面積+D1面積)\r\n",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\nfrom System.Collections.Generic import List\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\nif not isinstance(active_view, ViewSchedule):\r\n    OUT = \"【妹妹提示】哥哥，請確認目前 Revit 的作用中畫面是你的「牆明細表」喔！\"\r\nelse:\r\n    collector = FilteredElementCollector(doc, active_view.Id).OfCategory(BuiltInCategory.OST_Walls).WhereElementIsNotElementType()\r\n    walls = [w for w in collector]\r\n\r\n    if not walls:\r\n        OUT = \"明細表中沒有找到任何牆體資料。\"\r\n    else:\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n        ft_to_m = 0.3048\r\n        sqft_to_sqm = 0.09290304\r\n\r\n        # ------------------------------------------------\r\n        # 建立全域門窗快取 (把專案所有門窗的 2D 座標先記下來)\r\n        # ------------------------------------------------\r\n        cats = List[BuiltInCategory]()\r\n        cats.Add(BuiltInCategory.OST_Doors)\r\n        cats.Add(BuiltInCategory.OST_Windows)\r\n        multi_cat_filter = ElementMulticategoryFilter(cats)\r\n        all_dws = FilteredElementCollector(doc).WherePasses(multi_cat_filter).WhereElementIsNotElementType().ToElements()\r\n\r\n        dw_data_list = []\r\n        for dw in all_dws:\r\n            bb = dw.get_BoundingBox(None)\r\n            if not bb: continue\r\n            \r\n            # 取得中心點並壓平到 2D 座標 (Z=0)\r\n            loc = dw.Location\r\n            if loc and isinstance(loc, LocationPoint):\r\n                pt2d = XYZ(loc.Point.X, loc.Point.Y, 0)\r\n            else:\r\n                # 【抓蟲蟲修正】：避免 XYZ 直接相加除以 2 報錯，改用拆解寫法\r\n                cx = (bb.Min.X + bb.Max.X) / 2.0\r\n                cy = (bb.Min.Y + bb.Max.Y) / 2.0\r\n                pt2d = XYZ(cx, cy, 0)\r\n                \r\n            # 取得門窗的開口朝向\r\n            facing_2d = None\r\n            if hasattr(dw, \"FacingOrientation\") and dw.FacingOrientation:\r\n                try:\r\n                    facing_2d = XYZ(dw.FacingOrientation.X, dw.FacingOrientation.Y, 0).Normalize()\r\n                except:\r\n                    pass\r\n                    \r\n            host_id = None\r\n            try:\r\n                if dw.Host: host_id = dw.Host.Id\r\n            except:\r\n                pass\r\n                \r\n            dw_data_list.append({\r\n                \"elem\": dw,\r\n                \"pt2d\": pt2d,\r\n                \"min_z\": bb.Min.Z,\r\n                \"max_z\": bb.Max.Z,\r\n                \"facing_2d\": facing_2d,\r\n                \"host_id\": host_id\r\n            })\r\n\r\n        # ------------------------------------------------\r\n        # 將牆體依照樓層分組並排序\r\n        # ------------------------------------------------\r\n        walls_by_level = {}\r\n        for w in walls:\r\n            level_param = w.get_Parameter(BuiltInParameter.WALL_BASE_CONSTRAINT)\r\n            level_name = \"未命名樓層\"\r\n            if level_param:\r\n                level = doc.GetElement(level_param.AsElementId())\r\n                if level: level_name = level.Name\r\n\r\n            length_param = w.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH)\r\n            length_m = length_param.AsDouble() * ft_to_m if length_param else 0.0\r\n\r\n            if level_name not in walls_by_level:\r\n                walls_by_level[level_name] = []\r\n            \r\n            walls_by_level[level_name].append({\"wall\": w, \"length_m\": length_m})\r\n\r\n        def set_custom_parameter(elem, param_name, val_num, val_str):\r\n            p = elem.LookupParameter(param_name)\r\n            if p and not p.IsReadOnly:\r\n                if p.StorageType == StorageType.Double:\r\n                    p.Set(val_num)\r\n                elif p.StorageType == StorageType.String:\r\n                    p.Set(val_str)\r\n\r\n        def get_dimension(inst, typ, built_in_param, search_names):\r\n            p = inst.get_Parameter(built_in_param)\r\n            if p and p.HasValue: return p.AsDouble()\r\n            p = typ.get_Parameter(built_in_param)\r\n            if p and p.HasValue: return p.AsDouble()\r\n            for name in search_names:\r\n                p = inst.LookupParameter(name)\r\n                if p and p.HasValue: return p.AsDouble()\r\n            for name in search_names:\r\n                p = typ.LookupParameter(name)\r\n                if p and p.HasValue: return p.AsDouble()\r\n            return 0.0\r\n\r\n        width_keywords = [\"寬度\", \"Width\", \"粗略寬度\", \"Rough Width\", \"W\"]\r\n        height_keywords = [\"高度\", \"Height\", \"粗略高度\", \"Rough Height\", \"H\"]\r\n\r\n        # ------------------------------------------------\r\n        # 處理每一道牆 (核心辨識邏輯)\r\n        # ------------------------------------------------\r\n        for level_name, wall_list in walls_by_level.items():\r\n            wall_list.sort(key=lambda x: x[\"length_m\"], reverse=True)\r\n\r\n            for idx, item in enumerate(wall_list):\r\n                w = item[\"wall\"]\r\n                length_m = item[\"length_m\"]\r\n\r\n                mark_str = \"{}-{:02d}\".format(level_name, idx + 1)\r\n                mark_param = w.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)\r\n                if mark_param and not mark_param.IsReadOnly:\r\n                    mark_param.Set(mark_str)\r\n\r\n                openings_dict = {}\r\n                total_opening_area_sqm = 0.0\r\n                \r\n                w_bb = w.get_BoundingBox(None)\r\n                w_loc = w.Location\r\n                \r\n                if w_bb and isinstance(w_loc, LocationCurve):\r\n                    w_curve = w_loc.Curve\r\n                    # 把牆體兩端點壓平到 2D\r\n                    pt1 = XYZ(w_curve.GetEndPoint(0).X, w_curve.GetEndPoint(0).Y, 0)\r\n                    pt2 = XYZ(w_curve.GetEndPoint(1).X, w_curve.GetEndPoint(1).Y, 0)\r\n                    \r\n                    if pt1.DistanceTo(pt2) > 0.01:\r\n                        w_line_2d = Line.CreateBound(pt1, pt2)\r\n                        \r\n                        # 【抓蟲蟲修正】：用拆解座標相減的方式取得向量，取代 pt2 - pt1\r\n                        w_dir_2d = XYZ(pt2.X - pt1.X, pt2.Y - pt1.Y, 0).Normalize()\r\n                        \r\n                        # 把所有門窗拿來跟這道牆配對\r\n                        for dw_data in dw_data_list:\r\n                            dw = dw_data[\"elem\"]\r\n                            is_match = False\r\n                            \r\n                            # 條件一：如果是直接掛在這道牆上，無條件收入\r\n                            if dw_data[\"host_id\"] == w.Id:\r\n                                is_match = True\r\n                            else:\r\n                                # 條件二：Z 高度必須有交集 (防呆，避免抓到樓上樓下)\r\n                                if dw_data[\"min_z\"] <= w_bb.Max.Z + 0.1 and dw_data[\"max_z\"] >= w_bb.Min.Z - 0.1:\r\n                                    \r\n                                    # 條件三：2D 投影距離小於 1.5 呎 (約 45 公分，足以涵蓋主牆加粉刷牆)\r\n                                    res = w_line_2d.Project(dw_data[\"pt2d\"])\r\n                                    if res and res.Distance < 1.5:\r\n                                        \r\n                                        # 條件四：門窗開口方向必須跟牆體垂直 (避免抓到垂直轉角的另一道牆)\r\n                                        if dw_data[\"facing_2d\"]:\r\n                                            dot = abs(w_dir_2d.DotProduct(dw_data[\"facing_2d\"]))\r\n                                            # dot=0表示完美垂直，1表示平行。小於0.5代表偏向垂直\r\n                                            if dot <= 0.5: \r\n                                                is_match = True\r\n                                        else:\r\n                                            is_match = True\r\n\r\n                            # 配對成功，抓取尺寸算面積！\r\n                            if is_match:\r\n                                type_elem = doc.GetElement(dw.GetTypeId())\r\n                                type_mark_param = type_elem.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_MARK)\r\n                                type_mark = type_mark_param.AsString() if type_mark_param and type_mark_param.AsString() else \"未命名標記\"\r\n\r\n                                width = get_dimension(dw, type_elem, BuiltInParameter.FAMILY_WIDTH_PARAM, width_keywords)\r\n                                height = get_dimension(dw, type_elem, BuiltInParameter.FAMILY_HEIGHT_PARAM, height_keywords)\r\n\r\n                                area_sqm = width * height * sqft_to_sqm\r\n                                total_opening_area_sqm += area_sqm\r\n\r\n                                if type_mark not in openings_dict:\r\n                                    openings_dict[type_mark] = {\"count\": 0, \"single_area_sqm\": area_sqm}\r\n                                openings_dict[type_mark][\"count\"] += 1\r\n\r\n                opening_names = []\r\n                opening_calc_parts = []\r\n                for tm, data in openings_dict.items():\r\n                    count = data[\"count\"]\r\n                    single_area = data[\"single_area_sqm\"]\r\n                    \r\n                    if count > 1:\r\n                        opening_names.append(\"{}*{}\".format(tm, count))\r\n                        opening_calc_parts.append(\"{:.2f}*{}\".format(single_area, count))\r\n                    else:\r\n                        opening_names.append(tm)\r\n                        opening_calc_parts.append(\"{:.2f}\".format(single_area))\r\n\r\n                opening_str = \",\".join(opening_names)\r\n\r\n                net_area_param = w.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED)\r\n                net_area_sqm = net_area_param.AsDouble() * sqft_to_sqm if net_area_param else 0.0\r\n                gross_area_sqm = net_area_sqm + total_opening_area_sqm\r\n                avg_height_m = (gross_area_sqm / length_m) if length_m > 0 else 0.0\r\n\r\n                if opening_calc_parts:\r\n                    calc_str = \"{:.2f}*{:.2f}-({})\".format(length_m, avg_height_m, \"+\".join(opening_calc_parts))\r\n                else:\r\n                    calc_str = \"{:.2f}*{:.2f}\".format(length_m, avg_height_m)\r\n\r\n                set_custom_parameter(w, \"長度(M)\", length_m, \"{:.2f}\".format(length_m))\r\n                set_custom_parameter(w, \"平均高度(M)\", avg_height_m, \"{:.2f}\".format(avg_height_m))\r\n                set_custom_parameter(w, \"開孔門窗\", 0.0, opening_str)\r\n                set_custom_parameter(w, \"計算式\", 0.0, calc_str)\r\n\r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        OUT = \"【執行成功】優喝！討厭的蟲蟲抓完啦！雷達已經重新啟動，準備迎接滿滿的數據吧！啾咪\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "5c02b68605c94df3b6ebe2b480c4b305",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "71b4473661464e89a95e87b02de80c4c",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 320.0,
+      "WatchHeight": 40.0,
+      "Id": "8edb8e7345664fc6bef067646cdf75cc",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "61d702857538429aaeb2b28aa6fd752d",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "81896e7f448c4b7bb5e3fac22a276866",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 399.0,
+      "SerializedHeight": 378.0,
+      "Id": "14d3ffb9d2a345e8823799b487080a53",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f55d4c23674a46f7911b56169e42bd2e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "必須有下列欄位:\r\n1.標記:牆的編碼\r\n2.長度(M)\r\n2.平均高度(M)\r\n3.開孔門窗:如W1*2,W2,D1\r\n4.計算式(平方公尺)=牆體長度*平均高度-(W1面積*2+W2面積+D1面積)\r\n"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "71b4473661464e89a95e87b02de80c4c",
+      "End": "61d702857538429aaeb2b28aa6fd752d",
+      "Id": "0c8efaf27e7547cd937c83c47045671b",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "5c02b68605c94df3b6ebe2b480c4b305",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "8edb8e7345664fc6bef067646cdf75cc",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 908.0,
+        "Y": 103.0
+      },
+      {
+        "Id": "14d3ffb9d2a345e8823799b487080a53",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 90.0,
+        "Y": 115.0
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

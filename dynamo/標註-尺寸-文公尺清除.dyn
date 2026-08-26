@@ -1,0 +1,287 @@
+{
+  "Uuid": "e0f9067a-b7da-44f6-8a19-ad5d2de68357",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-清除文公尺",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "Math": {
+        "Key": "DSCore.Math",
+        "Value": "DSCoreNodes.dll"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "e9c6487a900f4662b0619236fb9bf36e",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "清除所有文公尺",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "12d7e6c790134b52b59e8a7ba4a60b0a",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "925302c3dba0466ba033cb26790e24db",
+          "Name": "double",
+          "Description": "42.854",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼",
+      "Code": "42.854;"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "cda2ed09eca54e3394e9217d3543be48",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "a3f8f8449e78424d932981b9f634d17a",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "42b4357883d346279fba4c9adbf55aa1",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d02343a424f143ca80ac5deaed14b0ad",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 42.854
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport System\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 暴力搜查所有尺寸標註\r\ndims = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Dimensions).WhereElementIsNotElementType().ToElements()\r\n\r\ncount = 0\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor dim in dims:\r\n    try:\r\n        dim_name = dim.Name\r\n        \r\n        # 只要不是文公尺，就不動它\r\n        if dim_name is None or \"文公尺\" not in dim_name:\r\n            continue\r\n            \r\n        is_multi = False\r\n        try:\r\n            if dim.Segments is not None and dim.Segments.Size > 0:\r\n                is_multi = True\r\n        except: pass\r\n            \r\n        if is_multi:\r\n            for seg in dim.Segments:\r\n                try:\r\n                    # 溫柔的暴力：上下左右的文字，全部擦掉！\r\n                    seg.Suffix = \"\"\r\n                    seg.Below = \"\"\r\n                    seg.Prefix = \"\"\r\n                    seg.Above = \"\"\r\n                    count += 1\r\n                except: pass\r\n        else:\r\n            try:\r\n                # 溫柔的暴力：上下左右的文字，全部擦掉！\r\n                dim.Suffix = \"\"\r\n                dim.Below = \"\"\r\n                dim.Prefix = \"\"\r\n                dim.Above = \"\"\r\n                count += 1\r\n            except: pass\r\n            \r\n    except: pass\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 霸氣回報\r\nif count > 0:\r\n    OUT = \"優喝！洗心革面大成功！妹妹幫你把 {} 個段落的文字全都擦得乾乾淨淨啦！啾咪！\".format(count)\r\nelse:\r\n    OUT = \"報告哥哥：畫面上已經很乾淨囉，找不到需要洗白的標註！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "21a5fcb76ce9410887fb3aae15c4d7c3",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "753a93f6e0d545e8a9a1948292442b57",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 305.0,
+      "WatchHeight": 200.0,
+      "Id": "818a67315f70498c90a3d16f2a4235a7",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "4e5540bbefb04378baeb113d609de236",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "0680a302cce14819b9a6f3613522806d",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "e9c6487a900f4662b0619236fb9bf36e",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b5071252e46842b88785798ee8d6f236",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "清除所有文公尺"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "753a93f6e0d545e8a9a1948292442b57",
+      "End": "4e5540bbefb04378baeb113d609de236",
+      "Id": "04a0eadb49a84ecab6b9c40e64f95173",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "12d7e6c790134b52b59e8a7ba4a60b0a",
+        "Name": "文公尺單位長",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -26.05424821472195,
+        "Y": -356.26479221268835
+      },
+      {
+        "Id": "cda2ed09eca54e3394e9217d3543be48",
+        "Name": "要不要細標",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -54.571844800435144,
+        "Y": -507.90480951014655
+      },
+      {
+        "Id": "42b4357883d346279fba4c9adbf55aa1",
+        "Name": "文公尺單位長",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -37.25858732365606,
+        "Y": -633.3870862031778
+      },
+      {
+        "Id": "21a5fcb76ce9410887fb3aae15c4d7c3",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 242.78889743573808,
+        "Y": -639.5132504746502
+      },
+      {
+        "Id": "818a67315f70498c90a3d16f2a4235a7",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 479.586748927449,
+        "Y": -596.2964269094364
+      },
+      {
+        "Id": "e9c6487a900f4662b0619236fb9bf36e",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 31.46379740354479,
+        "Y": -771.4555964535022
+      }
+    ],
+    "Annotations": [],
+    "X": 215.612939735713,
+    "Y": 920.6494236466808,
+    "Zoom": 1.124691333675452
+  }
+}

@@ -1,0 +1,724 @@
+{
+  "Uuid": "1f5a4fae-0dbd-4bda-ae7e-7bd60418797f",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-屋頂加個形式屋脊",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "22d52f503df345f596ee0c78f5f9b36d",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "bb476d76310449ae9fdcaabd9bdb8f11",
+      "Name": "1.選一條鞭界線",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "5d826468-37c3-41d2-bbce-8c9f82b13a03-000cb1e7:0:INSTANCE:5d826468-37c3-41d2-bbce-8c9f82b13a03-000cb1e5:19:LINEAR",
+      "Description": "選取一邊。"
+    },
+    {
+      "Id": "38f1120bdf084057b63bdddc5f70ddd5",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "\"正脊\",\"垂脊\",\"戧脊\",\"圍脊\",\"博脊\"",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "336ec2528ec14970898e978a184c3e01",
+      "Name": "3.比例",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0.75",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "66f12a493a6041e9ae32f4f8775ec9ac",
+      "Name": "Boolean",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "88520778692749b6868e7e7a33ca567f",
+      "Name": "4.開始位置0為原起點0.1為縮短1/10，-0.1唯一最後髮線延長1/10",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "0",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "2da2f78f64524e0eb13cfb16664e147b",
+      "Name": "5.]結束位置1為結束點0.9為縮短1/10，1.1依最後方向線延長1/10",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "1",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "1286280c43ea40d78c8d921d1ee69acb",
+      "Name": "6.材質名稱",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "屋頂",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "a5d7ae92d0b54d6db520771ef8c637ed",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "# ==============================================================================\r\n# 腳本名稱: 傳統建築中式屋脊 BIM 參數化生成器 (Dynamo to Revit API)\r\n# 版本編號: VER: 2026.07-V11.0-FINAL (絕對零三角形·純 B-Rep 平滑實體終極版)\r\n# 開發對象: 小明專屬 / 徹底拋棄 Dynamo 材質節點，保證 0% 三角碎線、線條完美流暢\r\n# ==============================================================================\r\n\r\nimport clr\r\nimport sys\r\n\r\n# 0. 引入 .NET 泛型列表\r\nfrom System.Collections.Generic import List\r\n\r\n# 1. 引入 Dynamo 幾何庫\r\nclr.AddReference('ProtoGeometry')\r\nfrom Autodesk.DesignScript.Geometry import *\r\n\r\n# 2. 引入 Revit 節點與幾何擴充庫\r\nclr.AddReference(\"RevitNodes\")\r\nimport Revit\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\n# 3. 引入 Revit API 核心庫 (絕對不碰任何會導致 Mesh 的材質封裝)\r\nclr.AddReference(\"RevitAPI\")\r\nfrom Autodesk.Revit.DB import BuiltInCategory, ElementId, DirectShape, GeometryObject\r\n\r\n# 4. 引入 Revit 交易與文件管理工具\r\nclr.AddReference(\"RevitServices\")\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# ==============================================================================\r\n# [輸入區] 讀取 Dynamo 前端參數\r\n# ==============================================================================\r\nif isinstance(IN[0], list):\r\n    curves = IN[0]\r\nelif IN[0] is not None:\r\n    curves = [IN[0]]\r\nelse:\r\n    curves = []\r\n\r\nridge_input = IN[1]\r\nif isinstance(ridge_input, list):\r\n    ridge_type = ridge_input[0] if (len(ridge_input) > 0 and isinstance(ridge_input[0], str)) else \"垂脊\"\r\nelif isinstance(ridge_input, str):\r\n    ridge_type = ridge_input\r\nelse:\r\n    ridge_type = \"垂脊\"\r\n\r\nscale = IN[2] if (IN[2] is not None and IN[2] > 0) else 1.0\r\nt_start = IN[3] if (len(IN) > 3 and IN[3] is not None) else 0.0\r\nt_end   = IN[4] if (len(IN) > 4 and IN[4] is not None) else 1.0\r\n\r\n# ==============================================================================\r\n# [資料庫] 傳統屋脊標準尺寸查表 (單位: cm)\r\n# ==============================================================================\r\nridge_db = {\r\n    \"正脊\": {\"bw\": 50, \"mw\": 40, \"tw\": 30, \"h\": 90},\r\n    \"垂脊\": {\"bw\": 40, \"mw\": 30, \"tw\": 20, \"h\": 60},\r\n    \"戧脊\": {\"bw\": 35, \"mw\": 26, \"tw\": 18, \"h\": 50},\r\n    \"圍脊\": {\"bw\": 35, \"mw\": 26, \"tw\": 20, \"h\": 45},\r\n    \"博脊\": {\"bw\": 30, \"mw\": 22, \"tw\": 16, \"h\": 40}\r\n}\r\n\r\ndim = ridge_db.get(ridge_type, ridge_db[\"垂脊\"])\r\nbw = dim[\"bw\"] * scale\r\nmw = dim[\"mw\"] * scale\r\ntw = dim[\"tw\"] * scale\r\nh  = dim[\"h\"] * scale\r\n\r\ngenerated_solids = []\r\nworld_z = Vector.ByCoordinates(0, 0, 1)\r\n\r\n# ==============================================================================\r\n# [運算區 1] 解析幾何一體純化 (維護絕對平滑軌跡)\r\n# ==============================================================================\r\nfor crv in curves:\r\n    if crv is None:\r\n        continue\r\n    \r\n    crv_length = crv.Length\r\n    if crv_length < 0.01:\r\n        continue\r\n    \r\n    start_pt = crv.StartPoint\r\n    end_pt   = crv.EndPoint\r\n    chord_len = start_pt.DistanceTo(end_pt)\r\n    \r\n    if abs(crv_length - chord_len) < (crv_length * 0.001) or isinstance(crv, Line):\r\n        tan_start = crv.TangentAtParameter(0.0).Normalized()\r\n        tan_end   = crv.TangentAtParameter(1.0).Normalized()\r\n        \r\n        if t_start < 0.0:\r\n            pure_start = start_pt.Subtract(tan_start.Scale(abs(t_start) * crv_length))\r\n        else:\r\n            pure_start = crv.PointAtParameter(min(t_start, 1.0))\r\n            \r\n        if t_end > 1.0:\r\n            pure_end = end_pt.Add(tan_end.Scale((t_end - 1.0) * crv_length))\r\n        else:\r\n            pure_end = crv.PointAtParameter(max(t_end, 0.0))\r\n            \r\n        new_path = Line.ByStartPointEndPoint(pure_start, pure_end)\r\n    else:\r\n        sample_pts = [crv.PointAtParameter(i / 35.0) for i in range(36)]\r\n        new_path = NurbsCurve.ByPoints(sample_pts, 3)\r\n        \r\n    pts = [\r\n        Point.ByCoordinates(-bw/2, 0, 0),\r\n        Point.ByCoordinates(-mw/2, h*0.3, 0),\r\n        Point.ByCoordinates(-tw/2, h, 0),\r\n        Point.ByCoordinates(tw/2, h, 0),\r\n        Point.ByCoordinates(mw/2, h*0.3, 0),\r\n        Point.ByCoordinates(bw/2, 0, 0)\r\n    ]\r\n    profile_poly = Polygon.ByPoints(pts)\r\n    tangent = new_path.TangentAtParameter(0)\r\n    \r\n    if abs(tangent.Z) > 0.999:\r\n        right_vec = tangent.Cross(Vector.ByCoordinates(1, 0, 0)).Normalized()\r\n    else:\r\n        right_vec = world_z.Cross(tangent).Normalized()\r\n        \r\n    up_vec = tangent.Cross(right_vec).Normalized()\r\n    corrected_cs = CoordinateSystem.ByOriginVectors(new_path.StartPoint, right_vec, up_vec)\r\n    oriented_profile = profile_poly.Transform(CoordinateSystem.Identity(), corrected_cs)\r\n    \r\n    ridge_solid = Solid.BySweep(oriented_profile, new_path)\r\n    if ridge_solid is not None:\r\n        generated_solids.append(ridge_solid)\r\n\r\n# ==============================================================================\r\n# [運算區 2] 純 Revit API 平滑烘焙 (100% 拒絕網格化，還原完美 B-Rep 外框)\r\n# ==============================================================================\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nrevit_baked_elements = []\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\ncat_id = ElementId(BuiltInCategory.OST_Roofs)\r\n\r\nfor sol in generated_solids:\r\n    if sol is None:\r\n        continue\r\n    try:\r\n        revit_geom = sol.ToRevitType()\r\n        if revit_geom is None:\r\n            continue\r\n            \r\n        geom_list = List[GeometryObject]()\r\n        if hasattr(revit_geom, \"__iter__\"):\r\n            for g in revit_geom:\r\n                geom_list.Add(g)\r\n        else:\r\n            geom_list.Add(revit_geom)\r\n        \r\n        # 建立最純淨的 DirectShape B-Rep 實體，絕不觸發網格化\r\n        ds = DirectShape.CreateElement(doc, cat_id)\r\n        ds.ApplicationId = \"Dynamo_Traditional_Ridge_V11.0\"\r\n        ds.ApplicationDataId = ridge_type\r\n        ds.Name = f\"傳統屋脊_{ridge_type}\"\r\n        ds.SetShape(geom_list)\r\n        \r\n        revit_baked_elements.append(ds)\r\n    except Exception as e:\r\n        revit_baked_elements.append(f\"建立失敗: {str(e)}\")\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# ==============================================================================\r\n# [輸出] 傳回 Revit 實體\r\n# ==============================================================================\r\nOUT = revit_baked_elements",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "15e2d9a525f9448486e35cb39d349689",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "f19ab9f5dbca46589495fb166063dc0f",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c257028696084d1a9ad930fe05ce605f",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "f4f6e83d36984a69afaaeb50b3ad94b4",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2b722e7d303647239b42640379f84f8e",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "01378d33090041a7bfecd218a4589c8b",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1a25fc78de6349deb642d3a147c47694",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5250c6c656c941a79e01cb574dfb1a8a",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 40.0,
+      "Id": "a5d7ae92d0b54d6db520771ef8c637ed",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "9f6f11f9ff7942f18240d0a06553da0d",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2132fcbc18044a81a3ce6e3273fc0c0a",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 287.98984976318275,
+      "SerializedHeight": 170.3850704136405,
+      "Id": "22d52f503df345f596ee0c78f5f9b36d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "78b576b060824ceda0f2b621e13c512f",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": ""
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSEdgeSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "5d826468-37c3-41d2-bbce-8c9f82b13a03-000cb1e7:0:INSTANCE:5d826468-37c3-41d2-bbce-8c9f82b13a03-000cb1e5:19:LINEAR"
+      ],
+      "Id": "bb476d76310449ae9fdcaabd9bdb8f11",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "77c00fa50ff54d5285946e11c9f02973",
+          "Name": "曲線",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "選取一邊。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "38f1120bdf084057b63bdddc5f70ddd5",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "dfe37fe4c9034f528a6013ea5e4691b0",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "\"正脊\",\"垂脊\",\"戧脊\",\"圍脊\",\"博脊\""
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "336ec2528ec14970898e978a184c3e01",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "54eb89ab332e401d81682a294fedf6fe",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 0.75
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n# 載入 Windows 原生的 Forms 與 Drawing 模組 (不需安裝任何套件)\r\nclr.AddReference(\"System.Windows.Forms\")\r\nclr.AddReference(\"System.Drawing\")\r\n\r\nimport System.Windows.Forms as WinForms\r\nfrom System.Drawing import Point, Size\r\n\r\n# 定義我們自己的彈出視窗類別\r\nclass DropdownForm(WinForms.Form):\r\n    def __init__(self, options):\r\n        # 視窗基本設定\r\n        self.Text = \"交通標線選擇器\"\r\n        self.Width = 320\r\n        self.Height = 180\r\n        self.StartPosition = WinForms.FormStartPosition.CenterScreen\r\n        self.MaximizeBox = False\r\n        self.MinimizeBox = False\r\n        self.FormBorderStyle = WinForms.FormBorderStyle.FixedDialog\r\n        self.TopMost = True # 確保視窗保持在最上層，不會被 Revit 擋住\r\n        \r\n        # 建立標籤 (Label)\r\n        self.label = WinForms.Label()\r\n        self.label.Text = \"請選擇要繪製的標線類型：\"\r\n        self.label.Location = Point(20, 20)\r\n        self.label.AutoSize = True\r\n        \r\n        # 建立下拉選單 (ComboBox)\r\n        self.combo = WinForms.ComboBox()\r\n        self.combo.Location = Point(20, 50)\r\n        self.combo.Width = 260\r\n        self.combo.DropDownStyle = WinForms.ComboBoxStyle.DropDownList # 限制只能下拉，不能亂輸入\r\n        \r\n        # 將選項加入 ComboBox (使用迴圈確保相容於 IronPython 與 CPython3)\r\n        for opt in options:\r\n            self.combo.Items.Add(opt)\r\n        \r\n        # 預設選擇第一個項目\r\n        if self.combo.Items.Count > 0:\r\n            self.combo.SelectedIndex = 0\r\n            \r\n        # 建立確定按鈕 (Button)\r\n        self.btn = WinForms.Button()\r\n        self.btn.Text = \"確認選取\"\r\n        self.btn.Location = Point(180, 95)\r\n        self.btn.Width = 100\r\n        self.btn.Click += self.button_clicked # 綁定點擊事件\r\n        \r\n        # 將控制項加入視窗\r\n        self.Controls.Add(self.label)\r\n        self.Controls.Add(self.combo)\r\n        self.Controls.Add(self.btn)\r\n        \r\n        # 儲存結果的變數\r\n        self.selected_value = None\r\n        \r\n    def button_clicked(self, sender, args):\r\n        # 按下按鈕後，記錄選到的值並關閉視窗\r\n        self.selected_value = self.combo.SelectedItem\r\n        self.Close()\r\n\r\n# --- 主程式執行區 ---\r\n\r\n# IN[0] 作為觸發開關\r\nrun_it = IN[0] \r\n\r\n# IN[1] 接收外部清單，如果沒有接，就給預設值\r\nif isinstance(IN[1], list) and len(IN[1]) > 0:\r\n    line_options = IN[1]\r\nelse:\r\n    line_options = [\r\n        \"正脊\", \"垂脊\", \"戧脊\", \"圍脊\", \"博脊\"\r\n    ]\r\n\r\n# 判斷是否彈出視窗\r\nif run_it:\r\n    # 實體化視窗\r\n    form = DropdownForm(line_options)\r\n    # 使用 ShowDialog() 阻塞執行，直到使用者選完關閉視窗\r\n    form.ShowDialog()\r\n    \r\n    # 輸出選取結果\r\n    OUT = form.selected_value\r\nelse:\r\n    OUT = \"請將 IN[0] 切換為 True 以開啟選單\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "7c9be5d6320d491dbe023c7fcd811244",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "f3129d34e94343aeaaa5ab4a2e4de7d0",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8fa572ce58fb4185a6e8283482f04e02",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "bec1d0a58cca499a8f52802053555bc4",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "66f12a493a6041e9ae32f4f8775ec9ac",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "87f8591edf874ada9dd99e5eca9a56ac",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 185.0,
+      "WatchHeight": 40.0,
+      "Id": "cedde7f91e5a4c4495a4db0fdc13bca6",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "bf11fb81e5a44a7585064989b39deb7e",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "cf9d0614f2b74af587e8d9a1a4381715",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "88520778692749b6868e7e7a33ca567f",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e27d8ef6f3ed411096a0689da9fd985f",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 0.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "2da2f78f64524e0eb13cfb16664e147b",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "559506642154458bb30251869dd980d8",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 1.0
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "Id": "11150d929a53464b8dab42cb43670c0f",
+      "NodeType": "FunctionNode",
+      "Inputs": [
+        {
+          "Id": "d72dc82b8563418f9b1bc37f998e337a",
+          "Name": "name",
+          "Description": "材料的名稱\n\nstring",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "50470646791c4d5489a5e11b01779142",
+          "Name": "Material",
+          "Description": "Material",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "FunctionSignature": "Revit.Elements.Material.ByName@string",
+      "Replication": "Auto",
+      "Description": "依名稱從目前文件中選取一種材料\n\nMaterial.ByName (name: string): Material"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "1286280c43ea40d78c8d921d1ee69acb",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "0a4367a80850419687c1d5b283059c95",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "屋頂"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "5250c6c656c941a79e01cb574dfb1a8a",
+      "End": "9f6f11f9ff7942f18240d0a06553da0d",
+      "Id": "459f9c4e72f14d168d0c23823141cc2f",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "77c00fa50ff54d5285946e11c9f02973",
+      "End": "f19ab9f5dbca46589495fb166063dc0f",
+      "Id": "be4fcf07bfc84641b94a83aa860f1649",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "77c00fa50ff54d5285946e11c9f02973",
+      "End": "bf11fb81e5a44a7585064989b39deb7e",
+      "Id": "244403bb1b9e4235a4df3e1dfe4efcd7",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "dfe37fe4c9034f528a6013ea5e4691b0",
+      "End": "8fa572ce58fb4185a6e8283482f04e02",
+      "Id": "384018b36a13455f848c648b59acad4b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "54eb89ab332e401d81682a294fedf6fe",
+      "End": "f4f6e83d36984a69afaaeb50b3ad94b4",
+      "Id": "5e853b58b55344eebbfb4aaa61af2345",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "bec1d0a58cca499a8f52802053555bc4",
+      "End": "c257028696084d1a9ad930fe05ce605f",
+      "Id": "ababcc715503466ca1703002810c2b93",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "87f8591edf874ada9dd99e5eca9a56ac",
+      "End": "f3129d34e94343aeaaa5ab4a2e4de7d0",
+      "Id": "22eb26ed0c9243f9ab19898ca9aa3036",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e27d8ef6f3ed411096a0689da9fd985f",
+      "End": "2b722e7d303647239b42640379f84f8e",
+      "Id": "e38930260b354174a4b4234a849b0422",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "559506642154458bb30251869dd980d8",
+      "End": "01378d33090041a7bfecd218a4589c8b",
+      "Id": "6e73ea17c6124532a5f9c2eaaad0ddd1",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "50470646791c4d5489a5e11b01779142",
+      "End": "1a25fc78de6349deb642d3a147c47694",
+      "Id": "fbecb2af3b8745a6a7c3802bc7c7154d",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "0a4367a80850419687c1d5b283059c95",
+      "End": "d72dc82b8563418f9b1bc37f998e337a",
+      "Id": "ea452113aa214692aea476508b46ef06",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "15e2d9a525f9448486e35cb39d349689",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 934.553198852766,
+        "Y": -469.388462135784
+      },
+      {
+        "Id": "a5d7ae92d0b54d6db520771ef8c637ed",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1237.1802426859183,
+        "Y": -409.43099370085946
+      },
+      {
+        "Id": "22d52f503df345f596ee0c78f5f9b36d",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -238.91201521607456,
+        "Y": -198.57802508423578
+      },
+      {
+        "Id": "bb476d76310449ae9fdcaabd9bdb8f11",
+        "Name": "1.選一條鞭界線",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 398.74477550991764,
+        "Y": -685.6526546488169
+      },
+      {
+        "Id": "38f1120bdf084057b63bdddc5f70ddd5",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 91.60958468439748,
+        "Y": -472.8265239009917
+      },
+      {
+        "Id": "336ec2528ec14970898e978a184c3e01",
+        "Name": "3.比例",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 397.53832515357124,
+        "Y": -292.483080437042
+      },
+      {
+        "Id": "7c9be5d6320d491dbe023c7fcd811244",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 426.6882133334723,
+        "Y": -505.7984445583289
+      },
+      {
+        "Id": "66f12a493a6041e9ae32f4f8775ec9ac",
+        "Name": "Boolean",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 83.6687981208824,
+        "Y": -622.7350661196372
+      },
+      {
+        "Id": "cedde7f91e5a4c4495a4db0fdc13bca6",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 862.2655933739626,
+        "Y": -623.5616272936709
+      },
+      {
+        "Id": "88520778692749b6868e7e7a33ca567f",
+        "Name": "4.開始位置0為原起點0.1為縮短1/10，-0.1唯一最後髮線延長1/10",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 198.90785281516094,
+        "Y": -147.25990953527588
+      },
+      {
+        "Id": "2da2f78f64524e0eb13cfb16664e147b",
+        "Name": "5.]結束位置1為結束點0.9為縮短1/10，1.1依最後方向線延長1/10",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 203.1204300836274,
+        "Y": -8.394291709254901
+      },
+      {
+        "Id": "11150d929a53464b8dab42cb43670c0f",
+        "Name": "Material.ByName",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 366.80106669362556,
+        "Y": 241.3381753811617
+      },
+      {
+        "Id": "1286280c43ea40d78c8d921d1ee69acb",
+        "Name": "6.材質名稱",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 169.839131375747,
+        "Y": 233.2241876263089
+      }
+    ],
+    "Annotations": [],
+    "X": 272.42430324329774,
+    "Y": 520.7207608072644,
+    "Zoom": 0.7602633213011045
+  }
+}

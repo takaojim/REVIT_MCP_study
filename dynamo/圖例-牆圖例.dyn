@@ -1,0 +1,247 @@
+{
+  "Uuid": "ac8ef0ca-2b3a-4091-9522-c308a08ac34c",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "圖例-牆圖例",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "d05cf1981ded4665a2074cf2f623202b",
+      "Name": "圖示間距",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "35",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "fea382c53415413da7a112e390b1f0de",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "放牆圖示之前要先放一個牆平面圖示的種子不然不會產生",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport traceback\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 安全讀取 IN[0] (支援 Dynamo 的單一數值或清單格式)\r\ntry:\r\n    if isinstance(IN[0], list):\r\n        spacing_cm = float(IN[0][0])\r\n    else:\r\n        spacing_cm = float(IN[0])\r\nexcept:\r\n    spacing_cm = 50.0  # 預設 50 cm\r\n\r\ndef safe_get_name(elem):\r\n    try:\r\n        param = elem.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM)\r\n        if param and param.AsString(): return param.AsString()\r\n    except: pass\r\n    try: return elem.Name\r\n    except: return \"未知名稱\"\r\n\r\ndef process_legend():\r\n    views = FilteredElementCollector(doc).OfClass(View).ToElements()\r\n    target_view = None\r\n    for v in views:\r\n        if v.ViewType == ViewType.Legend and v.Name == \"牆圖示\":\r\n            target_view = v\r\n            break\r\n            \r\n    if not target_view: return \"❌ 找不到名稱為「牆圖示」的視圖！\"\r\n\r\n    walls = FilteredElementCollector(doc).OfClass(Wall).WhereElementIsNotElementType().ToElements()\r\n    used_wall_type_ids = list(set([w.GetTypeId() for w in walls]))\r\n    if not used_wall_type_ids: return \"模型中沒有使用牆壁！\"\r\n\r\n    legend_comps = FilteredElementCollector(doc, target_view.Id).OfCategory(BuiltInCategory.OST_LegendComponents).WhereElementIsNotElementType().ToElements()\r\n    if len(legend_comps) == 0: return \"❌ 請放置一個圖例元件當種子！\"\r\n        \r\n    seed_comp = legend_comps[0]\r\n    \r\n    text_types = FilteredElementCollector(doc).OfClass(TextNoteType).ToElements()\r\n    target_text_type = None\r\n    for tt in text_types:\r\n        tt_name = safe_get_name(tt).lower()\r\n        if \"3mm\" in tt_name or \"3 mm\" in tt_name:\r\n            target_text_type = tt\r\n            break\r\n    if not target_text_type: target_text_type = text_types[0] # 找不到 3mm 就用預設第一個\r\n\r\n    try:\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        \r\n        length_ft = 1100.0 / 304.8\r\n        spacing_y_ft = (spacing_cm * 10.0) / 304.8\r\n        text_gap_ft = 100.0 / 304.8 # 文字距離牆壁右邊緣 10cm 的完美空隙\r\n        \r\n        count = 0\r\n        for i, w_type_id in enumerate(used_wall_type_ids):\r\n            wall_type = doc.GetElement(w_type_id)\r\n            if not wall_type: continue\r\n            \r\n            new_comp_ids = ElementTransformUtils.CopyElement(doc, seed_comp.Id, XYZ.Zero)\r\n            new_comp = doc.GetElement(new_comp_ids[0])\r\n            \r\n            param_type = new_comp.get_Parameter(BuiltInParameter.LEGEND_COMPONENT)\r\n            if param_type and not param_type.IsReadOnly: param_type.Set(w_type_id)\r\n                \r\n            param_length = new_comp.get_Parameter(BuiltInParameter.LEGEND_COMPONENT_LENGTH)\r\n            if not param_length: param_length = new_comp.LookupParameter(\"Host Length\")\r\n            if not param_length: param_length = new_comp.LookupParameter(\"主體長度\")\r\n            if param_length and not param_length.IsReadOnly: param_length.Set(length_ft)\r\n            \r\n            move_vec = XYZ(0, - (i + 1) * spacing_y_ft, 0)\r\n            ElementTransformUtils.MoveElement(doc, new_comp.Id, move_vec)\r\n            \r\n            # 【關鍵修復】：強制 Revit 更新畫面，取得這塊牆最新的長寬高！\r\n            doc.Regenerate() \r\n            \r\n            bbox = new_comp.get_BoundingBox(target_view)\r\n            if bbox:\r\n                # 絕對置中算法：(最高點 + 最低點) 除以 2\r\n                center_y = (bbox.Max.Y + bbox.Min.Y) / 2.0\r\n                # 絕對靠右算法：最右側邊緣 + 10cm 空隙\r\n                text_x = bbox.Max.X + text_gap_ft\r\n                text_loc = XYZ(text_x, center_y, 0)\r\n            else:\r\n                text_loc = XYZ(move_vec.X + (1200.0/304.8), move_vec.Y, 0)\r\n            \r\n            wall_name = safe_get_name(wall_type)\r\n            options = TextNoteOptions(target_text_type.Id)\r\n            options.HorizontalAlignment = HorizontalTextAlignment.Left\r\n            options.VerticalAlignment = VerticalTextAlignment.Middle\r\n            \r\n            TextNote.Create(doc, target_view.Id, text_loc, wall_name, options)\r\n            count += 1\r\n            \r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        return \"🎉 成功產生 {} 個圖例，間距已經設定為 {} cm。\".format(count, spacing_cm)\r\n        \r\n    except Exception as e:\r\n        if TransactionManager.Instance.ForceCloseTransaction(): pass\r\n        return \"❌ 錯誤：\\n\" + traceback.format_exc()\r\n\r\nOUT = process_legend()",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "e5f389385d7049c7a8e341ba3dba6366",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "88a0e58939e44745aea18a57468abd46",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "0ece9a1fdf4d414a97d9a06d049e0ad0",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 245.0,
+      "WatchHeight": 200.0,
+      "Id": "018694d8fab444ffac7fab4f697703a0",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "75aca8256af34de08810cd1fb4034273",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e228053eb4f14f53b6dade8b3c3588c4",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "d05cf1981ded4665a2074cf2f623202b",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "05e79ed4b06e466c880f9675b0d92530",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 35.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "fea382c53415413da7a112e390b1f0de",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "a6bf3b2adf334b68bfc5837d9348e472",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "放牆圖示之前要先放一個牆平面圖示的種子不然不會產生"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "0ece9a1fdf4d414a97d9a06d049e0ad0",
+      "End": "75aca8256af34de08810cd1fb4034273",
+      "Id": "f8825d2f9df74ca3a4885b6cacfdbbc7",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "05e79ed4b06e466c880f9675b0d92530",
+      "End": "88a0e58939e44745aea18a57468abd46",
+      "Id": "9f6a4a4c5d1f4202a94e3df48e0a47ae",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "e5f389385d7049c7a8e341ba3dba6366",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 720.0,
+        "Y": 344.0
+      },
+      {
+        "Id": "018694d8fab444ffac7fab4f697703a0",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 941.2534819620546,
+        "Y": 344.631256832555
+      },
+      {
+        "Id": "d05cf1981ded4665a2074cf2f623202b",
+        "Name": "圖示間距",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 434.0,
+        "Y": 357.0
+      },
+      {
+        "Id": "fea382c53415413da7a112e390b1f0de",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 321.96934530521503,
+        "Y": 185.3675416041321
+      }
+    ],
+    "Annotations": [],
+    "X": 312.4040287201899,
+    "Y": -46.18759273988701,
+    "Zoom": 1.3540878150105242
+  }
+}

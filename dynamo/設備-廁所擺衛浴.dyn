@@ -1,0 +1,549 @@
+{
+  "Uuid": "1b242cc5-f469-40bc-afc2-a3dc77012b92",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "設備-廁所擺衛浴",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "255b8013bafa431d86a61f46f0e3a1f9",
+      "Name": "選一個廁所房間的物件",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "c80fd093-feed-4546-b895-667403ae3e2a-000c65aa",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "350625cfbaad48e582d61d5829c2dbea",
+      "Name": "Family Types",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "面盆 (3)-檯面式:洗臉盆",
+      "Description": "所有可在文件中取得的族群類型。",
+      "SelectedIndex": 155
+    },
+    {
+      "Id": "a5b19c298c784cd3a8255eead69102f2",
+      "Name": "Family Types",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "馬桶 (4)-分離式:馬桶",
+      "Description": "所有可在文件中取得的族群類型。",
+      "SelectedIndex": 187
+    },
+    {
+      "Id": "4e7f4107b8dd4d0598cfe1fa270288fb",
+      "Name": "Family Types",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "水龍頭_淋浴_1:淋浴水龍頭",
+      "Description": "所有可在文件中取得的族群類型。",
+      "SelectedIndex": 42
+    },
+    {
+      "Id": "4ee6a1c7ae5747d2b64963e5ebce069c",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "左右位置微調：找 offsets_m = [0.6, 1.5, 2.4] 這行。這代表洗臉盆離起點 60cm，馬桶 150cm，淋浴間 240cm。房間變大變小就改這裡。\n\n前後靠牆微調：找 push_outs_m = [0.0, 0.35, 0.0] 這行。如果換了另一個牌子的馬桶，發現它又吃進牆裡或是離牆太遠，就調整中間那個 0.35（35公分）。",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "c80fd093-feed-4546-b895-667403ae3e2a-000c65aa"
+      ],
+      "Id": "255b8013bafa431d86a61f46f0e3a1f9",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "70479921591543b69e2483fd87f497f7",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 40.0,
+      "Id": "af994813d4ae4ff7b5d24e34fe97aaea",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "04eacf1261c24234bbe2acfa803e9ce6",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "064d03cd67694cf19195709c7668a1b7",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\nimport traceback\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\nroom = UnwrapElement(IN[0])\r\nsink_type = UnwrapElement(IN[1])    \r\ntoilet_type = UnwrapElement(IN[2])  \r\nshower_type = UnwrapElement(IN[3])  \r\n\r\nspacing_m = IN[4] if len(IN) > 4 and IN[4] else [0.6, 1.5, 2.4]\r\npush_outs_m = IN[5] if len(IN) > 5 and IN[5] else [0.0, 0.145, 0.0]\r\n\r\ndef get_room_door(rm):\r\n    all_doors = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Doors).WhereElementIsNotElementType().ToElements()\r\n    for d in all_doors:\r\n        if (d.ToRoom and d.ToRoom.Id == rm.Id) or (d.FromRoom and d.FromRoom.Id == rm.Id):\r\n            return d\r\n    return None\r\n\r\n# 🌟 修正點：解除了偏移的封印，讓外部數字可以寫入\r\ndef adjust_height_and_offset(instance, offset_val):\r\n    try:\r\n        # 將 IN[5] 的偏移值，正式寫入「距離主體的偏移」參數\r\n        p1 = instance.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM)\r\n        if p1 and not p1.IsReadOnly: p1.Set(offset_val)\r\n        \r\n        # 高度依然保持歸零，防飛天\r\n        p2 = instance.get_Parameter(BuiltInParameter.INSTANCE_ELEVATION_PARAM)\r\n        if p2 and not p2.IsReadOnly: p2.Set(0.0)\r\n        p3 = instance.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM)\r\n        if p3 and not p3.IsReadOnly: p3.Set(0.0)\r\n    except:\r\n        pass\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nresults = []\r\nlog_msgs = []\r\n\r\ntry:\r\n    types = [sink_type, toilet_type, shower_type]\r\n    names = [\"洗臉盆\", \"馬桶\", \"淋浴間\"]\r\n    for t in types:\r\n        if t and not t.IsActive:\r\n            t.Activate()\r\n            doc.Regenerate()\r\n\r\n    opt = SpatialElementBoundaryOptions()\r\n    boundary_segments = room.GetBoundarySegments(opt)[0]\r\n    \r\n    door = get_room_door(room)\r\n    door_loc = door.Location.Point if door else None\r\n    \r\n    wall_dict = {}\r\n    for seg in boundary_segments:\r\n        curve = seg.GetCurve()\r\n        if door_loc and curve.Distance(door_loc) < 1.6: \r\n            continue\r\n        eid = seg.ElementId\r\n        if str(eid) == \"-1\": continue \r\n        \r\n        if eid not in wall_dict:\r\n            wall_dict[eid] = []\r\n        wall_dict[eid].append(curve)\r\n        \r\n    best_wall_id = None\r\n    max_total_len = 0\r\n    for eid, curves in wall_dict.items():\r\n        total_len = sum([c.Length for c in curves])\r\n        if total_len > max_total_len:\r\n            max_total_len = total_len\r\n            best_wall_id = eid\r\n\r\n    if not best_wall_id:\r\n        raise Exception(\"找不到適合的靠背牆。\")\r\n\r\n    host_wall = doc.GetElement(best_wall_id)\r\n    best_curves = wall_dict[best_wall_id]\r\n    \r\n    pts = []\r\n    for c in best_curves:\r\n        pts.append(c.GetEndPoint(0))\r\n        pts.append(c.GetEndPoint(1))\r\n        \r\n    p0 = pts[0]\r\n    p1 = pts[0]\r\n    true_max_dist = 0\r\n    for i in range(len(pts)):\r\n        for j in range(i+1, len(pts)):\r\n            d = pts[i].DistanceTo(pts[j])\r\n            if d > true_max_dist:\r\n                true_max_dist = d\r\n                p0 = pts[i]\r\n                p1 = pts[j]\r\n\r\n    if door_loc and p1.DistanceTo(door_loc) < p0.DistanceTo(door_loc):\r\n        start_pt = p1\r\n        end_pt = p0\r\n    else:\r\n        start_pt = p0\r\n        end_pt = p1\r\n\r\n    direction = XYZ(end_pt.X - start_pt.X, end_pt.Y - start_pt.Y, end_pt.Z - start_pt.Z).Normalize()\r\n    wall_normal = XYZ(-direction.Y, direction.X, 0).Normalize()\r\n    \r\n    room_bb = room.get_BoundingBox(None)\r\n    room_center = XYZ((room_bb.Min.X + room_bb.Max.X)/2, (room_bb.Min.Y + room_bb.Max.Y)/2, 0)\r\n    mid_pt = start_pt.Add(direction.Multiply(true_max_dist/2))\r\n    to_center = XYZ(room_center.X - mid_pt.X, room_center.Y - mid_pt.Y, 0).Normalize()\r\n    \r\n    if wall_normal.DotProduct(to_center) < 0:\r\n        wall_normal = XYZ(-wall_normal.X, -wall_normal.Y, 0)\r\n\r\n    offsets_ft = [x * 3.28084 for x in spacing_m]\r\n    push_outs_ft = [x * 3.28084 for x in push_outs_m]\r\n    \r\n    level_z = room.Level.Elevation\r\n\r\n    for i, dist_ft in enumerate(offsets_ft):\r\n        if dist_ft < true_max_dist:\r\n            place_pt = start_pt.Add(direction.Multiply(dist_ft))\r\n            target_pt = XYZ(place_pt.X, place_pt.Y, level_z).Add(wall_normal.Multiply(push_outs_ft[i]))\r\n            \r\n            instance = None\r\n            try:\r\n                instance = doc.Create.NewFamilyInstance(target_pt, types[i], host_wall, room.Level, Structure.StructuralType.NonStructural)\r\n                log_msgs.append(names[i] + \" -> 成功(依附牆)\")\r\n            except Exception as e1:\r\n                try:\r\n                    instance = doc.Create.NewFamilyInstance(target_pt, types[i], room.Level, Structure.StructuralType.NonStructural)\r\n                    log_msgs.append(names[i] + \" -> 成功(依附樓層)\")\r\n                except Exception as e2:\r\n                    continue\r\n            \r\n            if instance:\r\n                # 🌟 呼叫更新版的神器，把偏移量傳進去\r\n                adjust_height_and_offset(instance, push_outs_ft[i])\r\n                \r\n                try:\r\n                    axis_line = Line.CreateBound(target_pt, target_pt.Add(XYZ.BasisZ))\r\n                    angle = XYZ.BasisY.AngleTo(wall_normal)\r\n                    cross = XYZ.BasisY.CrossProduct(wall_normal)\r\n                    if cross.Z < 0:\r\n                        angle = 2 * math.pi - angle\r\n                    \r\n                    angle = angle + math.pi\r\n                    ElementTransformUtils.RotateElement(doc, instance.Id, axis_line, angle)\r\n                except:\r\n                    pass \r\n                \r\n                results.append(instance)\r\n\r\n    OUT = [\"設備放置報告：\"] + log_msgs + [results]\r\n\r\nexcept Exception as e:\r\n    OUT = \"執行失敗: \" + str(e) + \"\\n\" + traceback.format_exc()\r\n\r\nTransactionManager.Instance.TransactionTaskDone()",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "9bde32e6582341ef9feb2d6b4a2eb86b",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "0655dac22da747dd874cd7f4c3f1e504",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8c23d2d0ee6d45ab893fefa5816dfcad",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8d0e5d6359ee4ae3a9c1c3ef4022c0a9",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "70a95d6ac20f44ae86dac693d3d2c34a",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "4ccd5530547a4546a581b48d64145117",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "48d71a4dc78744bca012c7f3a60d2459",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "c28bd1e9443d4dbe9b988ea0245951de",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.FamilyTypes, DSRevitNodesUI",
+      "SelectedIndex": 155,
+      "SelectedString": "面盆 (3)-檯面式:洗臉盆",
+      "Id": "350625cfbaad48e582d61d5829c2dbea",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e64d29b20eb140f4a9ad629a66796ecc",
+          "Name": "Family Type",
+          "Description": "選取的 Family Type",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在文件中取得的族群類型。"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.FamilyTypes, DSRevitNodesUI",
+      "SelectedIndex": 187,
+      "SelectedString": "馬桶 (4)-分離式:馬桶",
+      "Id": "a5b19c298c784cd3a8255eead69102f2",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6202bd2f03d442008360477c58f605e2",
+          "Name": "Family Type",
+          "Description": "選取的 Family Type",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在文件中取得的族群類型。"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.FamilyTypes, DSRevitNodesUI",
+      "SelectedIndex": 42,
+      "SelectedString": "水龍頭_淋浴_1:淋浴水龍頭",
+      "Id": "4e7f4107b8dd4d0598cfe1fa270288fb",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "ce307e1ba58b4a19ba6a9654eb2cdb90",
+          "Name": "Family Type",
+          "Description": "選取的 Family Type",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在文件中取得的族群類型。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "b826d3c884f64a7c85e913d832749099",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "d60be849e32b411d832a8c25d7188c9c",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "fe7bee8f696643ea8db015878ac84612",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "4ee6a1c7ae5747d2b64963e5ebce069c",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6f97eb7dfeb44b1596c03d2f7709402b",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "左右位置微調：找 offsets_m = [0.6, 1.5, 2.4] 這行。這代表洗臉盆離起點 60cm，馬桶 150cm，淋浴間 240cm。房間變大變小就改這裡。\n\n前後靠牆微調：找 push_outs_m = [0.0, 0.35, 0.0] 這行。如果換了另一個牌子的馬桶，發現它又吃進牆裡或是離牆太遠，就調整中間那個 0.35（35公分）。"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "be30d34e916c4f00a0e9f38918f0e4df",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e123d72294d44443810c9c1e0c1461b7",
+          "Name": "list",
+          "Description": "[0.6, 1.5, 2.4]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼",
+      "Code": "[0.6, 1.5, 2.4];"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "Id": "3a20185da3bc44f7a6ea1b88dcea1dbc",
+      "NodeType": "CodeBlockNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "89c69bd729794c8aa9ba46070a6f10e0",
+          "Name": "list",
+          "Description": "[0, 0.5, 0]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼",
+      "Code": "[0.0, 0.50, 0.0];"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "70479921591543b69e2483fd87f497f7",
+      "End": "04eacf1261c24234bbe2acfa803e9ce6",
+      "Id": "11cdf0dcc50e44e18d09182e99e744df",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "70479921591543b69e2483fd87f497f7",
+      "End": "0655dac22da747dd874cd7f4c3f1e504",
+      "Id": "b9a9219b193f4039a9b818dd388019da",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c28bd1e9443d4dbe9b988ea0245951de",
+      "End": "d60be849e32b411d832a8c25d7188c9c",
+      "Id": "f606068734544f33a002ce2d5e5dd086",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e64d29b20eb140f4a9ad629a66796ecc",
+      "End": "8c23d2d0ee6d45ab893fefa5816dfcad",
+      "Id": "8b4681b4cbe04d8c9d11100f6beffd75",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6202bd2f03d442008360477c58f605e2",
+      "End": "8d0e5d6359ee4ae3a9c1c3ef4022c0a9",
+      "Id": "d95ec8cd5edf45288d7515d0e2d96dcd",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ce307e1ba58b4a19ba6a9654eb2cdb90",
+      "End": "70a95d6ac20f44ae86dac693d3d2c34a",
+      "Id": "a3259df014034cb99e01d604854c5640",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e123d72294d44443810c9c1e0c1461b7",
+      "End": "4ccd5530547a4546a581b48d64145117",
+      "Id": "f558e011ad494637aab01d47fbe30a27",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "89c69bd729794c8aa9ba46070a6f10e0",
+      "End": "48d71a4dc78744bca012c7f3a60d2459",
+      "Id": "373a0d601ebc4d72acbbf4b1a46c7751",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": false,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "255b8013bafa431d86a61f46f0e3a1f9",
+        "Name": "選一個廁所房間的物件",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 292.0,
+        "Y": 182.0
+      },
+      {
+        "Id": "af994813d4ae4ff7b5d24e34fe97aaea",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 885.6109442901973,
+        "Y": 27.51029279504901
+      },
+      {
+        "Id": "9bde32e6582341ef9feb2d6b4a2eb86b",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 921.0513193883253,
+        "Y": 289.35911922670255
+      },
+      {
+        "Id": "350625cfbaad48e582d61d5829c2dbea",
+        "Name": "Family Types",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 290.0,
+        "Y": 345.0
+      },
+      {
+        "Id": "a5b19c298c784cd3a8255eead69102f2",
+        "Name": "Family Types",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 290.0,
+        "Y": 476.0
+      },
+      {
+        "Id": "4e7f4107b8dd4d0598cfe1fa270288fb",
+        "Name": "Family Types",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 292.0,
+        "Y": 611.0
+      },
+      {
+        "Id": "b826d3c884f64a7c85e913d832749099",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1262.762490646755,
+        "Y": 255.56729070137732
+      },
+      {
+        "Id": "4ee6a1c7ae5747d2b64963e5ebce069c",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -62.84847671742659,
+        "Y": 25.076710241802914
+      },
+      {
+        "Id": "be30d34e916c4f00a0e9f38918f0e4df",
+        "Name": "設備間距",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 315.7061909081423,
+        "Y": 740.4677759995104
+      },
+      {
+        "Id": "3a20185da3bc44f7a6ea1b88dcea1dbc",
+        "Name": "設備偏移量",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 352.4758121797863,
+        "Y": 880.9872212027528
+      }
+    ],
+    "Annotations": [],
+    "X": -67.8966946864964,
+    "Y": -413.1599147653162,
+    "Zoom": 1.3166182167425633
+  }
+}

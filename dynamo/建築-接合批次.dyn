@@ -1,0 +1,371 @@
+{
+  "Uuid": "bb2ef4bc-7a97-4be8-b1dd-4b2784e8daeb",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-批次接合",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "0369eefc5dd1473c8ee89f7adcc66f3b",
+      "Name": "順序1",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "結構柱",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "f85c618a62184916b34492ef45dfd5c0",
+      "Name": "順序2",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "結構構架",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "7cf9028eb62545adbd0820f7ffd1bff9",
+      "Name": "順序3",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "牆",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "f99e76f0ea464468ad45cff30d05cb79",
+      "Name": "順序4",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "樓板",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "0369eefc5dd1473c8ee89f7adcc66f3b",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6d74af8f6b074c35b6f9fbfa7c414995",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "結構柱"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "f85c618a62184916b34492ef45dfd5c0",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f3d1b587154c4fc7982e308696b24d0c",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "結構構架"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "7cf9028eb62545adbd0820f7ffd1bff9",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "4c786e2b14d541ce89b5d6e6a0de370b",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "牆"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "f99e76f0ea464468ad45cff30d05cb79",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1478a7891d6f45f588fa30e7a594b918",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "樓板"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.CreateList, CoreNodeModels",
+      "VariableInputPorts": true,
+      "Id": "d11fdb27e5c744a98a7cab81db6c6481",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "c9dac0f14f72471c8d8785924b30c70b",
+          "Name": "item0",
+          "Description": "項目索引 #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "7c7b796f7f7d420fa448729370a32f75",
+          "Name": "item1",
+          "Description": "項目索引 #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "02809ae3b25f4ac6b945dc4bb12a958a",
+          "Name": "item2",
+          "Description": "項目索引 #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "0a2fce65a3b446fca614f9cca5f7525f",
+          "Name": "item3",
+          "Description": "項目索引 #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "c23c0ef04c134d1a9630facb96bc2221",
+          "Name": "list",
+          "Description": "清單 (類型: var[]..[])",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從給定的輸入製作新清單"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport System\r\n# 引入 C# 的 List 資料結構\r\nfrom System.Collections.Generic import List\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 接收字串清單\r\ncategory_names = IN[0]\r\n\r\n# 建立 Revit 類別字典\r\ncategory_dict = {}\r\nfor c in doc.Settings.Categories:\r\n    category_dict[c.Name] = c.Id\r\n\r\nlist_of_groups = []\r\n\r\n# 把字串轉成實體物件\r\nfor name in category_names:\r\n    if name in category_dict:\r\n        cat_id = category_dict[name]\r\n        elements = FilteredElementCollector(doc).OfCategoryId(cat_id).WhereElementIsNotElementType().ToElements()\r\n        list_of_groups.append(elements)\r\n    else:\r\n        list_of_groups.append([])\r\n\r\njoined_count = 0\r\nswitched_count = 0\r\n\r\n# 🌟 開門密語：跟 Dynamo 說我們要開始改模型囉\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor i in range(len(list_of_groups)):\r\n    high_priority_elements = list_of_groups[i]\r\n    \r\n    for j in range(i + 1, len(list_of_groups)):\r\n        low_priority_elements = list_of_groups[j]\r\n        \r\n        for high_el in high_priority_elements:\r\n            if high_el is None: continue\r\n            \r\n            bbox = high_el.get_BoundingBox(None)\r\n            if bbox is None: continue\r\n            \r\n            outline = Outline(bbox.Min, bbox.Max)\r\n            filter = BoundingBoxIntersectsFilter(outline)\r\n            \r\n            low_el_ids = List[ElementId]()\r\n            for el in low_priority_elements:\r\n                if el is not None:\r\n                    low_el_ids.Add(el.Id)\r\n            \r\n            if low_el_ids.Count == 0: continue\r\n            \r\n            collector = FilteredElementCollector(doc, low_el_ids)\r\n            intersecting_els = collector.WherePasses(filter).ToElements()\r\n            \r\n            for low_el in intersecting_els:\r\n                try:\r\n                    if not JoinGeometryUtils.AreElementsJoined(doc, high_el, low_el):\r\n                        JoinGeometryUtils.JoinGeometry(doc, high_el, low_el)\r\n                        joined_count += 1\r\n                    \r\n                    if not JoinGeometryUtils.IsFirstElementCutting(doc, high_el, low_el):\r\n                        JoinGeometryUtils.SwitchJoinOrder(doc, high_el, low_el)\r\n                        switched_count += 1\r\n                except:\r\n                    continue\r\n\r\n# 🌟 關門密語修正：Dynamo 專屬的完成交易指令\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = \"報告小明哥哥！處理完成！新建接合數：{}，切換順序數：{}\".format(joined_count, switched_count)",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "67e49f259d034e38adedacd85fd3cf62",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "266ee74b0fb4440b8498ede179c83707",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "c097001edddf4ebca72f6837033f60ab",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "6d74af8f6b074c35b6f9fbfa7c414995",
+      "End": "c9dac0f14f72471c8d8785924b30c70b",
+      "Id": "8e0de5f19070459d85b53e358afc24eb",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f3d1b587154c4fc7982e308696b24d0c",
+      "End": "7c7b796f7f7d420fa448729370a32f75",
+      "Id": "318f3cc6c03c44e9a42684e0f31556b6",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4c786e2b14d541ce89b5d6e6a0de370b",
+      "End": "02809ae3b25f4ac6b945dc4bb12a958a",
+      "Id": "8fb074d830e349e9816529aa1364941b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1478a7891d6f45f588fa30e7a594b918",
+      "End": "0a2fce65a3b446fca614f9cca5f7525f",
+      "Id": "5e8bb2f97dfa4a5ab3a144602969c608",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "c23c0ef04c134d1a9630facb96bc2221",
+      "End": "266ee74b0fb4440b8498ede179c83707",
+      "Id": "5f81abcda21f48b9aabc21c222716dea",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "1.10",
+      "Data": {}
+    }
+  ],
+  "Author": "None provided",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -15276.03515625,
+      "EyeY": 14249.318359375,
+      "EyeZ": 5129.89208984375,
+      "LookX": 10114.0146484375,
+      "LookY": -12999.318359375,
+      "LookZ": -12186.990234375,
+      "UpX": 0.28992971777915955,
+      "UpY": 0.8910065293312073,
+      "UpZ": -0.3493539094924927
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "0369eefc5dd1473c8ee89f7adcc66f3b",
+        "Name": "順序1",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -984.1559552179739,
+        "Y": -597.9249234307701
+      },
+      {
+        "Id": "f85c618a62184916b34492ef45dfd5c0",
+        "Name": "順序2",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -979.8289250268416,
+        "Y": -469.6221391669274
+      },
+      {
+        "Id": "7cf9028eb62545adbd0820f7ffd1bff9",
+        "Name": "順序3",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -977.4902702992739,
+        "Y": -344.32249499977894
+      },
+      {
+        "Id": "f99e76f0ea464468ad45cff30d05cb79",
+        "Name": "順序4",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -981.3906089145354,
+        "Y": -202.9043596025935
+      },
+      {
+        "Id": "d11fdb27e5c744a98a7cab81db6c6481",
+        "Name": "List Create",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -727.2396914206256,
+        "Y": -393.2760707203763
+      },
+      {
+        "Id": "67e49f259d034e38adedacd85fd3cf62",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -360.42884939887244,
+        "Y": -405.9316199973632
+      }
+    ],
+    "Annotations": [],
+    "X": 873.3287110072845,
+    "Y": 522.2842170656648,
+    "Zoom": 0.6120319825807357
+  }
+}

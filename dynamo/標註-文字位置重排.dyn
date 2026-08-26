@@ -1,0 +1,258 @@
+{
+  "Uuid": "7dd9faa7-5a50-447b-afff-1aaa8d10e850",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-文字位置重排",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "59b90a7549274ff09fdde2ae1ad738bf",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "因為比例的不同會產生文字的間距由所不同甚至文字重疊利用此程式來重新安排文字的位置\r\n",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "98f88cb50b954e76ab3e964a39212845",
+      "Name": "選取要重新安排的尺寸",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117af7,b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117af8,b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117af9,b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117afa",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "a5585fc589444899973e0c6fb4a6cbfb",
+      "Name": "Watch",
+      "Type": "string",
+      "InitialValue": "報告小明哥！接收愛心能量，除蟲成功！\n多行文字高度已正確乘上比例。\n成功將 3 段文字完美往下排好啦！",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nview = doc.ActiveView\r\n\r\ndef to_list(obj):\r\n    if hasattr(obj, '__iter__') and not isinstance(obj, dict) and not isinstance(obj, str):\r\n        return obj\r\n    return [obj]\r\n\r\nif not IN[0]:\r\n    OUT = \"小明哥！Select 節點沒抓到文字喔，快去 Revit 框選那些重疊的文字！\"\r\nelse:\r\n    elements = to_list(UnwrapElement(IN[0]))\r\n    valid_texts = [t for t in elements if isinstance(t, TextNote)]\r\n\r\n    if not valid_texts:\r\n        OUT = \"小明哥，選取範圍內沒有找到 Revit 的文字標註（TextNote）喔！\"\r\n    else:\r\n        scale = view.Scale\r\n        \r\n        # 抓取單行字高，用來設定段落間距\r\n        text_type = valid_texts[0].TextNoteType\r\n        size_param = text_type.get_Parameter(BuiltInParameter.TEXT_SIZE)\r\n        text_size_feet = size_param.AsDouble() if size_param else (3 / 304.8)\r\n        \r\n        # === 💡 小明哥專屬設定區 ===\r\n        block_gap_multiplier = 0.5  # 段落之間的空白間距倍率 (0.5 = 半個字高的留白距離)\r\n        # ==========================\r\n        \r\n        # 段落留白間距 (轉換為模型空間的真實距離)\r\n        gap_between_blocks = text_size_feet * scale * block_gap_multiplier\r\n\r\n        up_dir = view.UpDirection\r\n        \r\n        text_info = []\r\n        for t in valid_texts:\r\n            origin = t.Coord\r\n            proj_dist = origin.DotProduct(up_dir)\r\n            \r\n            # 🧠 關鍵除蟲修正：t.Height 是圖紙高度，必須乘上「視圖比例(scale)」才會是模型裡的實際尺寸！\r\n            model_height = t.Height * scale \r\n            \r\n            text_info.append({\r\n                \"text\": t, \r\n                \"dist\": proj_dist, \r\n                \"origin\": origin,\r\n                \"height\": model_height \r\n            })\r\n\r\n        # 由上往下排，高度投影值由大到小排序\r\n        text_info.sort(key=lambda x: x[\"dist\"], reverse=True)\r\n\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        \r\n        base_origin = text_info[0][\"origin\"]\r\n        moved_count = 0\r\n        current_cumulative_drop = 0.0\r\n\r\n        for i in range(len(text_info)):\r\n            current_text = text_info[i][\"text\"]\r\n            current_origin = text_info[i][\"origin\"]\r\n            current_model_height = text_info[i][\"height\"]\r\n            \r\n            # 目標位置 = 基準點 - 目前累積的下降距離\r\n            offset_vector = up_dir.Multiply(-current_cumulative_drop)\r\n            target_pos = base_origin.Add(offset_vector)\r\n            \r\n            translation = target_pos.Subtract(current_origin)\r\n            \r\n            if translation.GetLength() > 0.001:\r\n                ElementTransformUtils.MoveElement(doc, current_text.Id, translation)\r\n                moved_count += 1\r\n                \r\n            # 🧠 往下累積距離：加上「這塊文字的真實高度」+「段落留白」\r\n            current_cumulative_drop += (current_model_height + gap_between_blocks)\r\n\r\n        TransactionManager.Instance.TransactionTaskDone()\r\n\r\n        OUT = \"報告小明哥！接收愛心能量，除蟲成功！\\n多行文字高度已正確乘上比例。\\n成功將 {} 段文字完美往下排好啦！\".format(moved_count)",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "f1e241b9f9bd40a29d99563b494e544d",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "7291d4edfeee41639b19647f4c5d5868",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "1178640fa59e49c79ba3ea56838dbc83",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 402.4,
+      "WatchHeight": 200.0,
+      "Id": "a5585fc589444899973e0c6fb4a6cbfb",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "dabbb9ee07ee4ebd9a930f91881832d2",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "4619fe496c4e4ac2b82f38aa23a3f92f",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "59b90a7549274ff09fdde2ae1ad738bf",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "4bf6a736c382420dbd06fcd4c05350a4",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "因為比例的不同會產生文字的間距由所不同甚至文字重疊利用此程式來重新安排文字的位置\r\n"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117af7",
+        "b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117af8",
+        "b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117af9",
+        "b7e0612b-da0c-4700-a9fb-e9ab6227a236-00117afa"
+      ],
+      "Id": "98f88cb50b954e76ab3e964a39212845",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "52ad838b295947ffabf7918ac3e6aa12",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "1178640fa59e49c79ba3ea56838dbc83",
+      "End": "dabbb9ee07ee4ebd9a930f91881832d2",
+      "Id": "40fc3ea27e9e4b4cb9f096c3e71d9966",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "52ad838b295947ffabf7918ac3e6aa12",
+      "End": "7291d4edfeee41639b19647f4c5d5868",
+      "Id": "0233bf8422b84ed3a9f2a3dc9165e8bb",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "f1e241b9f9bd40a29d99563b494e544d",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 797.0,
+        "Y": 318.0
+      },
+      {
+        "Id": "a5585fc589444899973e0c6fb4a6cbfb",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1055.0,
+        "Y": 321.0
+      },
+      {
+        "Id": "59b90a7549274ff09fdde2ae1ad738bf",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 368.3437222617802,
+        "Y": 181.30278780745073
+      },
+      {
+        "Id": "98f88cb50b954e76ab3e964a39212845",
+        "Name": "選取要重新安排的尺寸",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 422.92056149299003,
+        "Y": 465.4994368631381
+      }
+    ],
+    "Annotations": [],
+    "X": -172.36168049287733,
+    "Y": -19.03007035232548,
+    "Zoom": 0.8033215934625977
+  }
+}

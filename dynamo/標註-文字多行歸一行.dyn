@@ -1,0 +1,255 @@
+{
+  "Uuid": "42afa282-fc72-4560-9b7d-25ade0f8af58",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-文字多行歸一行",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "aefe88c537214d3ab9f6bf6f162bf142",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "散掉了多行文字合併成一行",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "bd7f69763acb4474b2472d5339e3cc86",
+      "Name": "選取要合併的文字",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "cbdc1b47-dc17-47de-b5d9-476cf34a73fc-000c53fa",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "3dc85381a91f45438dcc2f33360ec7b7",
+      "Name": "Watch",
+      "Type": "string",
+      "InitialValue": "⚠️ 請選取兩個以上的文字註解。",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Revit 服務與交易管理\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得目前的 Revit 文件\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 取得輸入的元素\r\nelements = UnwrapElement(IN[0])\r\n\r\nif not isinstance(elements, list):\r\n    elements = [elements]\r\n\r\n# 過濾出文字註解\r\ntext_notes = [e for e in elements if isinstance(e, TextNote)]\r\nresult = \"\"\r\n\r\nif len(text_notes) > 1:\r\n    # 依照 X 座標 (由左至右) 排序\r\n    sorted_notes = sorted(text_notes, key=lambda tn: tn.Coord.X)\r\n\r\n    # 提取文字並「清除所有換行符號」(\\r 與 \\n)\r\n    full_text = \"\".join([tn.Text.replace('\\r', '').replace('\\n', '') for tn in sorted_notes])\r\n\r\n    primary_note = sorted_notes[0]\r\n    notes_to_delete = sorted_notes[1:]\r\n\r\n    # 開啟 Transaction 修改模型\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n    try:\r\n        # 寫入乾淨的單行文字\r\n        primary_note.Text = full_text\r\n\r\n        # 刪除多餘文字方塊\r\n        for note in notes_to_delete:\r\n            doc.Delete(note.Id)\r\n        \r\n        result = \"✅ 合併成功並已清除換行: \" + full_text\r\n    except Exception as e:\r\n        result = \"❌ 發生錯誤: \" + str(e)\r\n\r\n    # 結束 Transaction\r\n    TransactionManager.Instance.TransactionTaskDone()\r\nelse:\r\n    result = \"⚠️ 請選取兩個以上的文字註解。\"\r\n\r\nOUT = result",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "180f67338969435eb3e8214f84008bb8",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "7894e6d0ff8e4095beb604e73b3f8f32",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5c4bbdd874e74065981c072cd520af03",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 140.0,
+      "WatchHeight": 200.0,
+      "Id": "3dc85381a91f45438dcc2f33360ec7b7",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "9028e432b1c84ab69e14b982a4751cfd",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "6c8afd7b695540c89c4cfc33e426b60d",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "aefe88c537214d3ab9f6bf6f162bf142",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "9072b55c5e984c8689efe9f49e436b75",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "散掉了多行文字合併成一行"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "cbdc1b47-dc17-47de-b5d9-476cf34a73fc-000c53fa"
+      ],
+      "Id": "bd7f69763acb4474b2472d5339e3cc86",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "7c373e28b5574c96864d32daa6378e36",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "5c4bbdd874e74065981c072cd520af03",
+      "End": "9028e432b1c84ab69e14b982a4751cfd",
+      "Id": "112bca07d7b74a62846ec69400134836",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "7c373e28b5574c96864d32daa6378e36",
+      "End": "7894e6d0ff8e4095beb604e73b3f8f32",
+      "Id": "37b362db0d024bb1b24329fa8ae30e9e",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "180f67338969435eb3e8214f84008bb8",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 797.0,
+        "Y": 318.0
+      },
+      {
+        "Id": "3dc85381a91f45438dcc2f33360ec7b7",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1055.0,
+        "Y": 321.0
+      },
+      {
+        "Id": "aefe88c537214d3ab9f6bf6f162bf142",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 368.3437222617802,
+        "Y": 181.30278780745073
+      },
+      {
+        "Id": "bd7f69763acb4474b2472d5339e3cc86",
+        "Name": "選取要合併的文字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 422.92056149299003,
+        "Y": 465.4994368631381
+      }
+    ],
+    "Annotations": [],
+    "X": -172.36168049287733,
+    "Y": -19.03007035232548,
+    "Zoom": 0.8033215934625977
+  }
+}

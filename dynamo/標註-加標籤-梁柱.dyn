@@ -1,0 +1,273 @@
+{
+  "Uuid": "05ee0e73-45f3-4dd0-8b3f-400fc15e5ab1",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-加標籤-梁柱",
+  "ElementResolver": {
+    "ResolutionMap": {
+      "Math": {
+        "Key": "DSCore.Math",
+        "Value": "DSCoreNodes.dll"
+      }
+    }
+  },
+  "Inputs": [
+    {
+      "Id": "91a2241d6f6a477ca4a8dc50360f51a5",
+      "Name": "1.同類型視窗一起加標籤",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    },
+    {
+      "Id": "72cedf21cd1f44c0b21d51663718f8d4",
+      "Name": "2.樑標籤距樑的距離(2)",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "2",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "ba2f9a65ca7c4a20a776e3f8a659ac92",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Revit 服務\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# ========================================================\r\n# 🎛️ 讀取 IN[0] & IN[1] 開關設定\r\n# ========================================================\r\nif IN[0] is None:\r\n    apply_to_all_views = False\r\nelif isinstance(IN[0], list):\r\n    apply_to_all_views = IN[0][0]\r\nelse:\r\n    apply_to_all_views = IN[0]\r\n\r\nif IN[1] is None:\r\n    paper_offset_mm = 5.0  \r\nelif isinstance(IN[1], list):\r\n    paper_offset_mm = IN[1][0]\r\nelse:\r\n    paper_offset_mm = IN[1]\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\n# ========================================================\r\n# 🗺️ 決定要處理的視圖清單 (字串化 ID 絕對比對法！)\r\n# ========================================================\r\nviews_to_process = []\r\ntarget_type_name = \"專屬結構平面\" # 預設名稱\r\n\r\nif apply_to_all_views:\r\n    # 💡 核心防護 1：把目標類型 ID 強制轉成「字串 (String)」\r\n    # 這樣既能避開新版 Revit 沒有 IntegerValue 的問題，又能保證比對 100% 精準不漏抓！\r\n    target_type_id_str = str(active_view.GetTypeId())\r\n    \r\n    try:\r\n        # 💡 核心防護 2：繞過 .Name 報錯 Bug，改從底層參數抓取類型名稱\r\n        target_type_elem = doc.GetElement(active_view.GetTypeId())\r\n        if target_type_elem:\r\n            param = target_type_elem.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM)\r\n            if param:\r\n                target_type_name = param.AsString()\r\n    except:\r\n        pass\r\n    \r\n    all_views = FilteredElementCollector(doc).OfClass(View).ToElements()\r\n    \r\n    for v in all_views:\r\n        if v.IsTemplate: \r\n            continue\r\n            \r\n        v_type_id_str = str(v.GetTypeId())\r\n        \r\n        # 💡 只要字串化後的 ID 一模一樣，才放行處理！差一個字都不行！\r\n        if v_type_id_str == target_type_id_str:\r\n            views_to_process.append(v)\r\nelse:\r\n    views_to_process.append(active_view)\r\n\r\n# 開始交易\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\ntotal_deleted = 0\r\ntotal_created = 0\r\nerror_messages = []\r\n\r\n# 設定區\r\ncolumn_filter = ElementCategoryFilter(BuiltInCategory.OST_StructuralColumns)\r\nbeam_filter = ElementCategoryFilter(BuiltInCategory.OST_StructuralFraming)\r\nor_filter = LogicalOrFilter(column_filter, beam_filter)\r\n\r\n# 🔄 步驟：迴圈處理每一張視圖\r\nfor v in views_to_process:\r\n    \r\n    try:\r\n        v_scale = v.Scale if hasattr(v, 'Scale') and v.Scale else 100\r\n        beam_offset = (paper_offset_mm * v_scale) / 304.8\r\n    except:\r\n        beam_offset = 1.5 \r\n\r\n    # 1. 刪除舊標籤 \r\n    try:\r\n        col_tag_cat = ElementCategoryFilter(BuiltInCategory.OST_StructuralColumnTags)\r\n        beam_tag_cat = ElementCategoryFilter(BuiltInCategory.OST_StructuralFramingTags)\r\n        tag_filter = LogicalOrFilter(col_tag_cat, beam_tag_cat)\r\n        \r\n        tags_to_delete = FilteredElementCollector(doc, v.Id) \\\r\n                        .WherePasses(tag_filter) \\\r\n                        .WhereElementIsNotElementType() \\\r\n                        .ToElementIds()\r\n        for t_id in tags_to_delete:\r\n            doc.Delete(t_id)\r\n            total_deleted += 1\r\n    except:\r\n        pass\r\n\r\n    # 2. 重新建立新標籤\r\n    collector = FilteredElementCollector(doc, v.Id) \\\r\n                .WherePasses(or_filter) \\\r\n                .WhereElementIsNotElementType() \\\r\n                .ToElements()\r\n                \r\n    for elem in collector:\r\n        try:\r\n            ref = Reference(elem)\r\n            category_name = elem.Category.Name\r\n            \r\n            # 🏢 結構柱\r\n            if \"Column\" in category_name or \"柱\" in category_name:\r\n                bbox = elem.get_BoundingBox(v)\r\n                if bbox is None: continue \r\n                \r\n                cx = (bbox.Min.X + bbox.Max.X) / 2.0\r\n                cy = (bbox.Min.Y + bbox.Max.Y) / 2.0\r\n                cz = (bbox.Min.Z + bbox.Max.Z) / 2.0\r\n                pt = XYZ(cx, cy, cz)\r\n                \r\n                tag = IndependentTag.Create(doc, v.Id, ref, False, TagMode.TM_ADDBY_CATEGORY, TagOrientation.Horizontal, pt)\r\n                doc.Regenerate()\r\n                tag.TagHeadPosition = pt\r\n                total_created += 1\r\n                \r\n            # 🪵 結構樑\r\n            else:\r\n                loc = elem.Location\r\n                if isinstance(loc, LocationCurve):\r\n                    curve = loc.Curve\r\n                    mid_pt = curve.Evaluate(0.5, True)\r\n                    p1 = curve.GetEndPoint(0)\r\n                    p2 = curve.GetEndPoint(1)\r\n                    dx = abs(p1.X - p2.X)\r\n                    dy = abs(p1.Y - p2.Y)\r\n                    \r\n                    bbox = elem.get_BoundingBox(v)\r\n                    if bbox is not None:\r\n                        half_width_x = (bbox.Max.X - bbox.Min.X) / 2.0\r\n                        half_width_y = (bbox.Max.Y - bbox.Min.Y) / 2.0\r\n                    else:\r\n                        half_width_x = 0.0\r\n                        half_width_y = 0.0\r\n                    \r\n                    if dx >= dy: \r\n                        pt = XYZ(mid_pt.X, mid_pt.Y + half_width_y + beam_offset, mid_pt.Z)\r\n                        tag_ori = TagOrientation.Horizontal\r\n                    else: \r\n                        pt = XYZ(mid_pt.X + half_width_x + beam_offset, mid_pt.Y, mid_pt.Z)\r\n                        tag_ori = TagOrientation.Vertical\r\n                        \r\n                    tag = IndependentTag.Create(doc, v.Id, ref, False, TagMode.TM_ADDBY_CATEGORY, tag_ori, pt)\r\n                    doc.Regenerate()\r\n                    tag.TagHeadPosition = pt\r\n                    total_created += 1\r\n                else:\r\n                    bbox = elem.get_BoundingBox(v)\r\n                    if bbox is None: continue\r\n                    cx = (bbox.Min.X + bbox.Max.X) / 2.0\r\n                    cy = (bbox.Min.Y + bbox.Max.Y) / 2.0\r\n                    cz = (bbox.Min.Z + bbox.Max.Z) / 2.0\r\n                    pt = XYZ(cx, cy, cz)\r\n                    tag_ori = TagOrientation.Horizontal\r\n                    \r\n                    tag = IndependentTag.Create(doc, v.Id, ref, False, TagMode.TM_ADDBY_CATEGORY, tag_ori, pt)\r\n                    doc.Regenerate()\r\n                    tag.TagHeadPosition = pt\r\n                    total_created += 1\r\n        except Exception as e:\r\n            error_messages.append(str(e))\r\n\r\n# 結束交易\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 輸出結果\r\nif total_created == 0 and len(error_messages) > 0:\r\n    unique_errors = list(set(error_messages))\r\n    OUT = \"❌ 失敗！\\n{}\".format(\"\\n\".join(unique_errors))\r\nelse:\r\n    OUT = \"✅ 報告小明哥哥！精準鎖定成功！\\n🎯 目標視圖類型：[{}]\\n共處理了 {} 個視圖。\\n🧹 清除 {} 個舊標籤\\n➕ 新增 {} 個新標籤！\".format(target_type_name, len(views_to_process), total_deleted, total_created)",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "a1342d2cb3c5406eba76bd626a3b0126",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "2a4cf240833740359af91c874de3d303",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "4895540a791e4424bbadc4e250d870c7",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "8ece226d8062408b9e229cd689aea422",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 420.0,
+      "WatchHeight": 200.0,
+      "Id": "ba2f9a65ca7c4a20a776e3f8a659ac92",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "aa024fbd05c14353b65ef6fa069bbd4e",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "da9ee82123144a078f7bb363e3195f6c",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "91a2241d6f6a477ca4a8dc50360f51a5",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e5714ca00bff48aeb7a7f60f0cfd22d5",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "72cedf21cd1f44c0b21d51663718f8d4",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "644e5354ee224073aca2d2ae5d826f48",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 2.0
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "8ece226d8062408b9e229cd689aea422",
+      "End": "aa024fbd05c14353b65ef6fa069bbd4e",
+      "Id": "61e3165b79e24605acf10c2678914527",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e5714ca00bff48aeb7a7f60f0cfd22d5",
+      "End": "2a4cf240833740359af91c874de3d303",
+      "Id": "59f582f1b017461f84976c01ab0554d0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "644e5354ee224073aca2d2ae5d826f48",
+      "End": "4895540a791e4424bbadc4e250d870c7",
+      "Id": "5b321f1d720c44beb75502581e7d48a9",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "a1342d2cb3c5406eba76bd626a3b0126",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 201.71096021271347,
+        "Y": -606.4375088145525
+      },
+      {
+        "Id": "ba2f9a65ca7c4a20a776e3f8a659ac92",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 511.5955311791563,
+        "Y": -646.799172239908
+      },
+      {
+        "Id": "91a2241d6f6a477ca4a8dc50360f51a5",
+        "Name": "1.同類型視窗一起加標籤",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -104.55377411437564,
+        "Y": -592.1229914672251
+      },
+      {
+        "Id": "72cedf21cd1f44c0b21d51663718f8d4",
+        "Name": "2.樑標籤距樑的距離(2)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -146.54059722956174,
+        "Y": -386.4610765926876
+      }
+    ],
+    "Annotations": [],
+    "X": 215.612939735713,
+    "Y": 920.6494236466808,
+    "Zoom": 1.124691333675452
+  }
+}

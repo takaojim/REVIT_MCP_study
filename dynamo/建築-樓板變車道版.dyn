@@ -1,0 +1,374 @@
+{
+  "Uuid": "9e1c5781-2953-4085-8bc8-99e45c1ffb90",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-車道版",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "b7d71f20238847b79a80e909cbb6205a",
+      "Name": "選一塊樓板",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "71c48d7d-dc42-4dde-8d2a-360812344b7b-00079cf2",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "0c9bcacd522d4d70975857c9626ef465",
+      "Name": "選道路中心線",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "71c48d7d-dc42-4dde-8d2a-360812344b7b-0007a0ac,71c48d7d-dc42-4dde-8d2a-360812344b7b-0007a0af,71c48d7d-dc42-4dde-8d2a-360812344b7b-0007a0b3",
+      "Description": "從 Revit 文件中選取多個元素。"
+    },
+    {
+      "Id": "3945f54f612c4b0ba0c15c313730f7b7",
+      "Name": "中心線分割距離",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "50",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "4b2e69a0a3654fe3bde4eb5831f6f638",
+      "Name": "前後高程差",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "-400",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport sys\r\nimport traceback\r\n\r\nclr.AddReference('ProtoGeometry')\r\nimport Autodesk.DesignScript.Geometry as DS\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.Elements)\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\nfrom Revit.GeometryConversion import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 將整個程式包裝在 try-except 中\r\ntry:\r\n    # ================= 1. 輸入與資料整理 =================\r\n    dyn_floor = IN[0]\r\n    floor = UnwrapElement(dyn_floor)\r\n\r\n    raw_lines = IN[1]\r\n    if not hasattr(raw_lines, '__iter__'):\r\n        raw_lines = [raw_lines]\r\n\r\n    dyn_curves = []\r\n    for item in raw_lines:\r\n        if hasattr(item, \"PointAtParameter\"):\r\n            dyn_curves.append(item)\r\n        else:\r\n            unwrapped = UnwrapElement(item)\r\n            if hasattr(unwrapped, \"GeometryCurve\"):\r\n                dyn_curves.append(unwrapped.GeometryCurve.ToProtoType())\r\n            elif hasattr(unwrapped, \"ToProtoType\"):\r\n                dyn_curves.append(unwrapped.ToProtoType())\r\n\r\n    try: delta_z_cm = float(IN[2]) if IN[2] is not None else 0.0\r\n    except: delta_z_cm = 0.0\r\n    \r\n    try: dist_cm = float(IN[3]) if IN[3] is not None else 50.0\r\n    except: dist_cm = 50.0\r\n\r\n    if not dyn_curves: raise ValueError(\"找不到線條！\")\r\n\r\n    polycurve = dyn_curves[0] if len(dyn_curves) == 1 else DS.PolyCurve.ByJoinedCurves(dyn_curves)\r\n    \r\n    # 將中心線投影到 Z=0 的 2D 平面上\r\n    xy_plane = DS.Plane.ByOriginNormal(DS.Point.Origin(), DS.Vector.ZAxis())\r\n    polycurve_2d = polycurve.PullOntoPlane(xy_plane)\r\n    total_length_2d = polycurve_2d.Length\r\n\r\n    # ================= 2. 幾何運算：計算放射交點 =================\r\n    floor_solids = dyn_floor.Geometry()\r\n    floor_solid = next((geo for geo in floor_solids if isinstance(geo, DS.Solid)), None)\r\n\r\n    if not floor_solid:\r\n        raise ValueError(\"無法取得樓板實體幾何\")\r\n\r\n    bbox = floor_solid.BoundingBox\r\n    mid_z = (bbox.MinPoint.Z + bbox.MaxPoint.Z) / 2.0\r\n\r\n    def get_furthest_pt(center_pt, intersect_results):\r\n        max_dist = -1\r\n        furthest_pt = None\r\n        for item in intersect_results:\r\n            if hasattr(item, \"StartPoint\") and hasattr(item, \"EndPoint\"):\r\n                for p in [item.StartPoint, item.EndPoint]:\r\n                    d = ((center_pt.X - p.X)**2 + (center_pt.Y - p.Y)**2)**0.5\r\n                    if d > max_dist:\r\n                        max_dist = d; furthest_pt = p\r\n            elif hasattr(item, \"X\"):\r\n                d = ((center_pt.X - item.X)**2 + (center_pt.Y - item.Y)**2)**0.5\r\n                if d > max_dist:\r\n                    max_dist = d; furthest_pt = item\r\n        return furthest_pt\r\n\r\n    num_segments = int(total_length_2d / dist_cm)\r\n    if num_segments < 1: num_segments = 1\r\n\r\n    split_lines_2d = []\r\n\r\n    for i in range(1, num_segments):\r\n        t = (i * dist_cm) / total_length_2d\r\n        if t >= 1.0: continue\r\n\r\n        pt_2d = polycurve_2d.PointAtParameter(t)\r\n        tangent = polycurve_2d.TangentAtParameter(t)\r\n        perp_vec = tangent.Cross(DS.Vector.ZAxis()).Normalized()\r\n\r\n        ray_start_pt = DS.Point.ByCoordinates(pt_2d.X, pt_2d.Y, mid_z)\r\n        line1 = DS.Line.ByStartPointDirectionLength(ray_start_pt, perp_vec, 100000)\r\n        line2 = DS.Line.ByStartPointDirectionLength(ray_start_pt, perp_vec.Reverse(), 100000)\r\n\r\n        int1 = line1.Intersect(floor_solid)\r\n        int2 = line2.Intersect(floor_solid)\r\n\r\n        p1 = get_furthest_pt(ray_start_pt, int1)\r\n        p2 = get_furthest_pt(ray_start_pt, int2)\r\n\r\n        if p1 and p2:\r\n            dyn_p1 = DS.Point.ByCoordinates(p1.X, p1.Y, 0)\r\n            dyn_p2 = DS.Point.ByCoordinates(p2.X, p2.Y, 0)\r\n            split_lines_2d.append((dyn_p1.ToXyz(), dyn_p2.ToXyz()))\r\n\r\n    # ================= 3. Revit API 修改：切割與變高 =================\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n    editor = floor.GetSlabShapeEditor() if hasattr(floor, \"GetSlabShapeEditor\") else floor.SlabShapeEditor\r\n    \r\n    # 【關鍵修正】：順序對調！先重置樓板，再啟用編輯器！\r\n    editor.ResetSlabShape()\r\n    editor.Enable()\r\n    doc.Regenerate()\r\n\r\n    for rp1, rp2 in split_lines_2d:\r\n        try:\r\n            if hasattr(editor, \"AddPoint\"):\r\n                v1 = editor.AddPoint(rp1)\r\n                v2 = editor.AddPoint(rp2)\r\n                editor.AddSplitLine(v1, v2)\r\n            else:\r\n                v1 = editor.DrawPoint(rp1)\r\n                v2 = editor.DrawPoint(rp2)\r\n                editor.DrawSplitLine(v1, v2)\r\n        except Exception as e:\r\n            pass # 忽略極少數太靠近邊界無法畫線的情況\r\n\r\n    doc.Regenerate()\r\n\r\n    # 抓取「所有」頂點\r\n    vertices = list(editor.SlabShapeVertices)\r\n    \r\n    for v in vertices:\r\n        pt_dyn = v.Position.ToPoint()\r\n        pt_2d = DS.Point.ByCoordinates(pt_dyn.X, pt_dyn.Y, 0)\r\n        \r\n        closest_pt = polycurve_2d.ClosestPointTo(pt_2d)\r\n        t = polycurve_2d.ParameterAtPoint(closest_pt)\r\n        \r\n        offset_feet = (delta_z_cm * t) / 30.48\r\n        \r\n        editor.ModifySubElement(v, offset_feet)\r\n\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    OUT = f\"Success: 完美切割並調整高程！共處理了 {len(vertices)} 個節點。\"\r\n\r\nexcept Exception as e:\r\n    OUT = traceback.format_exc()",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "6566b40c23ba4cafab440dbf484e9a8c",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "750fc5c63a6f47d389939c955546b54c",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "cdb03635c18a4766b613d7c408befdca",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b28ef54053544be9ab1101eb8dc80541",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "31459cb778764e41894fa0fd86eaf597",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "71487327c581423492cb24e3c9d1e79d",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "71c48d7d-dc42-4dde-8d2a-360812344b7b-00079cf2"
+      ],
+      "Id": "b7d71f20238847b79a80e909cbb6205a",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "67960e8c1ee244d6ae7c9393d27dc22d",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "71c48d7d-dc42-4dde-8d2a-360812344b7b-0007a0ac",
+        "71c48d7d-dc42-4dde-8d2a-360812344b7b-0007a0af",
+        "71c48d7d-dc42-4dde-8d2a-360812344b7b-0007a0b3"
+      ],
+      "Id": "0c9bcacd522d4d70975857c9626ef465",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "92b954120c92452ca97a4010fe81cff8",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "3945f54f612c4b0ba0c15c313730f7b7",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "74b9934bd9b14516a9b8a6d34348cb1f",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 50.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 252.0,
+      "WatchHeight": 200.0,
+      "Id": "d6f2dd784c1d4dfbaced6fa26fc4566d",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "92c441d6315843c2ae67460192a1b756",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "8ee5201998314aa5b7f3f63b8a46f613",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "4b2e69a0a3654fe3bde4eb5831f6f638",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f90991ae1c06439796acc0ca9516947c",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": -400.0
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "71487327c581423492cb24e3c9d1e79d",
+      "End": "92c441d6315843c2ae67460192a1b756",
+      "Id": "8dfe91120dcf4363ae0fd6b38aaba3af",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "67960e8c1ee244d6ae7c9393d27dc22d",
+      "End": "750fc5c63a6f47d389939c955546b54c",
+      "Id": "bced84fc1a6d448aaa866f2f1bbdbf09",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "92b954120c92452ca97a4010fe81cff8",
+      "End": "cdb03635c18a4766b613d7c408befdca",
+      "Id": "c2c0077202e644f18f0f40cbf55132bb",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "74b9934bd9b14516a9b8a6d34348cb1f",
+      "End": "31459cb778764e41894fa0fd86eaf597",
+      "Id": "f4df236f01f0433297b33310b9e500ba",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f90991ae1c06439796acc0ca9516947c",
+      "End": "b28ef54053544be9ab1101eb8dc80541",
+      "Id": "f47a6483b5e14bbb8fcc68146040218b",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "6566b40c23ba4cafab440dbf484e9a8c",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 726.2750000000001,
+        "Y": 184.54390243902435
+      },
+      {
+        "Id": "b7d71f20238847b79a80e909cbb6205a",
+        "Name": "選一塊樓板",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 308.0,
+        "Y": 57.0
+      },
+      {
+        "Id": "0c9bcacd522d4d70975857c9626ef465",
+        "Name": "選道路中心線",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 305.0,
+        "Y": 246.0
+      },
+      {
+        "Id": "3945f54f612c4b0ba0c15c313730f7b7",
+        "Name": "中心線分割距離",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 293.0,
+        "Y": 577.0
+      },
+      {
+        "Id": "d6f2dd784c1d4dfbaced6fa26fc4566d",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1076.9121951219513,
+        "Y": 164.63231707317073
+      },
+      {
+        "Id": "4b2e69a0a3654fe3bde4eb5831f6f638",
+        "Name": "前後高程差",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 305.0,
+        "Y": 416.0
+      }
+    ],
+    "Annotations": [],
+    "X": -12.007957832685406,
+    "Y": -10.715706720743299,
+    "Zoom": 1.0253628379106654
+  }
+}

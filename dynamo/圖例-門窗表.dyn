@@ -1,0 +1,606 @@
+{
+  "Uuid": "5ab927ad-a167-418a-974a-795da15bf273",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "圖例-門窗表",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "54eca4de89f14e54b915ac4df6daa9db",
+      "Name": "表格基準偏移量(346.259)",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "346.259",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "bbe3a4937ea24f37b16b4808886dfde3",
+      "Name": "表格高",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "880",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "871b0047c25d43cca59d6830e78b245e",
+      "Name": "表格寬",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "550",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "44e0f35f60f14978ab9f04f588937cce",
+      "Name": "水平格子數量",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "7",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "eecb1b08c19e46d895d64b382b6a65fc",
+      "Name": "FL線高度(1737.45)",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "1737.45",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "4ab6eaaa10cd4fcea1d60bef45649f01",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "注意\r\n備註是對應\"門窗備註\"\r\n防火時效對應\"防火等級\"\r\n若不是就要改SCRIPT裡的\r\nget_str_val(t, [\"防火等級\"])",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "cca146ed07214d1b9e5f954f7b95b6f9",
+      "Name": "1.選取階段",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "新營造",
+      "Description": "從作用中的文件選取現有的 Revit 階段。",
+      "SelectedIndex": 2
+    },
+    {
+      "Id": "a84552ffc5ef492285151b31c97371a6",
+      "Name": "2.顯示帷幕窗?",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "false",
+      "Description": "啟用在 True 與 False 之間選取"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "# ==========================================\r\n# VER: v3.3.0 (完美降落・最終版)\r\n# 修正：1. 新增「智能防飄浮機制」：偵測並解決 Revit 圖例自帶主體牆導致的 BoundingBox 虛胖問題。\r\n#      2. 完美繼承 v3.2.0 的數學絕對定位、帷幕開關、自然排序與階段過濾。\r\n# ==========================================\r\nimport clr\r\nimport math\r\nimport re\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\nclr.AddReference(\"RevitServices\")\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndef get_input(i, default):\r\n    try:\r\n        if i < len(IN) and IN[i] is not None: return float(IN[i])\r\n    except: pass\r\n    return float(default)\r\n\r\ndef get_input_bool(i, default):\r\n    try:\r\n        if i < len(IN) and IN[i] is not None:\r\n            val = IN[i]\r\n            if isinstance(val, bool): return val\r\n            if isinstance(val, str): return val.lower() in ['true', '1', 't', 'yes', '是']\r\n            if isinstance(val, int): return val != 0\r\n    except: pass\r\n    return default\r\n\r\nphase_input = IN[5] if len(IN) > 5 else None\r\nPHASE_STR = \"\"\r\nif phase_input:\r\n    if hasattr(phase_input, \"Name\"): PHASE_STR = phase_input.Name\r\n    elif isinstance(phase_input, str): PHASE_STR = phase_input\r\n\r\nSHOW_CURTAIN = get_input_bool(6, True) \r\n\r\nBASE_X_CM = get_input(0, 346.259) + get_input(1, 550.0) \r\nOFF_X_CM  = get_input(1, 550.0)\r\nOFF_Y_CM  = get_input(2, 880.0)\r\nCOLS      = int(get_input(3, 7))\r\nFL_OFF_CM = get_input(4, 200.0) \r\nMIN_GRID  = 21 \r\nSHIFT_DOWN_CM = 1342.2 \r\n\r\ndef run_script():\r\n    doc = DocumentManager.Instance.CurrentDBDocument\r\n    view = doc.ActiveView\r\n    \r\n    # --- 0. 階段時間軸解析 ---\r\n    phase_dict = {p.Id.ToString(): idx for idx, p in enumerate(doc.Phases)}\r\n    target_phase_idx = -1\r\n    if PHASE_STR:\r\n        for p in doc.Phases:\r\n            if p.Name == PHASE_STR:\r\n                target_phase_idx = phase_dict.get(p.Id.ToString(), -1); break\r\n    if target_phase_idx == -1:\r\n        view_phase_id = view.get_Parameter(BuiltInParameter.VIEW_PHASE).AsElementId()\r\n        if view_phase_id: target_phase_idx = phase_dict.get(view_phase_id.ToString(), -1)\r\n    if target_phase_idx == -1: return \"❌ 找不到有效的階段，請確認專案設定！\"\r\n\r\n    # --- 1. 資料收集與帷幕判定 ---\r\n    all_inst = list(FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Doors).WhereElementIsNotElementType()) + \\\r\n               list(FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Windows).WhereElementIsNotElementType())\r\n    \r\n    type_counts = {}\r\n    first_inst_dict = {} \r\n    for inst in all_inst:\r\n        c_id, d_id = inst.CreatedPhaseId, inst.DemolishedPhaseId\r\n        c_val = c_id.ToString() if c_id else \"-1\"\r\n        d_val = d_id.ToString() if d_id else \"-1\"\r\n        c_idx = phase_dict.get(c_val, 999)\r\n        d_idx = phase_dict.get(d_val, 999) \r\n        \r\n        if c_idx <= target_phase_idx and target_phase_idx < d_idx:\r\n            tid = inst.GetTypeId()\r\n            if tid != ElementId.InvalidElementId:\r\n                type_counts[tid] = type_counts.get(tid, 0) + 1\r\n                if tid not in first_inst_dict: first_inst_dict[tid] = inst\r\n            \r\n    def get_dim_val(t, names):\r\n        for n in names:\r\n            p = t.LookupParameter(n)\r\n            if p and p.StorageType == StorageType.Double:\r\n                return str(int(round(p.AsDouble() * 30.48)))\r\n        return \"0\"\r\n    def get_str_val(t, names):\r\n        for n in names:\r\n            p = t.LookupParameter(n)\r\n            if p:\r\n                if p.StorageType == StorageType.String: return p.AsString() or \"\"\r\n                return p.AsValueString() or str(p.AsInteger())\r\n        return \"\"\r\n    def natural_sort_key(s):\r\n        return [int(text) if text.isdigit() else text.lower() for text in re.split('([0-9]+)', s)]\r\n\r\n    data_list = []\r\n    for tid, count in type_counts.items():\r\n        t = doc.GetElement(tid)\r\n        if not t or not getattr(t, \"Category\", None): continue\r\n        is_d = \"Door\" in t.Category.Name or \"門\" in t.Category.Name\r\n        inst = first_inst_dict[tid]\r\n        sill_param = inst.get_Parameter(BuiltInParameter.INSTANCE_SILL_HEIGHT_PARAM)\r\n        sill_ft = sill_param.AsDouble() if sill_param else 0.0\r\n        \r\n        w_str = get_dim_val(t, [\"Width\", \"寬度\", \"寬\"])\r\n        h_str = get_dim_val(t, [\"Height\", \"高度\", \"高\"])\r\n        fname = t.Family.Name if hasattr(t, \"Family\") else \"\"\r\n        tname = get_str_val(t, [\"Type Name\", \"類型名稱\"])\r\n        \r\n        is_curtain = \"帷幕\" in fname or \"帷幕\" in tname or w_str == \"0\" or h_str == \"0\"\r\n        if is_curtain and not SHOW_CURTAIN: continue\r\n\r\n        remark = get_str_val(t, [\"門窗備註\", \"備註\", \"Type Comments\", \"類型備註\"])\r\n        if not remark: remark = get_str_val(inst, [\"門窗備註\", \"備註\", \"Comments\"])\r\n        \r\n        data_list.append({\r\n            \"Type\": t, \"Mark\": get_str_val(t, [\"Type Mark\", \"類型標記\"]),\r\n            \"Spec\": get_str_val(t, [\"門窗規格\"]), \"W_str\": w_str, \"H_str\": h_str, \r\n            \"Fire\": get_str_val(t, [\"防火等級\", \"防火時效\"]), \"Glass\": get_str_val(t, [\"玻璃厚度\"]), \r\n            \"Qty\": str(count), \"is_d\": is_d, \"Sill_ft\": sill_ft, \"Remark\": remark, \r\n            \"is_curtain\": is_curtain \r\n        })\r\n    data_list.sort(key=lambda d: ((\"1\" if d[\"is_d\"] else \"2\"), natural_sort_key(d[\"Mark\"])))\r\n\r\n    # --- 2. 視圖種子搜尋 ---\r\n    leg_s, ann_s, blk_s = None, None, None\r\n    view_collector = FilteredElementCollector(doc, view.Id)\r\n    for el in view_collector.OfClass(FamilyInstance).OfCategory(BuiltInCategory.OST_GenericAnnotation):\r\n        try:\r\n            fn, tn = el.Symbol.Family.Name, el.Name\r\n            if \"門詳圖標註\" in fn:\r\n                if \"空白\" in tn: blk_s = el\r\n                else: ann_s = el\r\n        except: continue\r\n    for el in FilteredElementCollector(doc, view.Id):\r\n        if el.get_Parameter(BuiltInParameter.LEGEND_COMPONENT): leg_s = el; break\r\n    if not leg_s or not ann_s: return \"❌ 找不到種子！請確認目前視圖有圖例與標註。\"\r\n\r\n    # --- 3. 事務執行 ---\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    try:\r\n        total_slots = max(MIN_GRID, int(math.ceil(len(data_list)/float(COLS))*COLS))\r\n        for i in range(total_slots):\r\n            col, row = i % COLS, i // COLS\r\n            vec_grid = XYZ((BASE_X_CM + col * OFF_X_CM) / 30.48, (row * OFF_Y_CM) / 30.48, 0)\r\n            \r\n            if i < len(data_list):\r\n                d = data_list[i]\r\n                na_ids = ElementTransformUtils.CopyElement(doc, ann_s.Id, vec_grid)\r\n                nl_ids = ElementTransformUtils.CopyElement(doc, leg_s.Id, vec_grid)\r\n                if not na_ids or not nl_ids: continue\r\n                na, nl = doc.GetElement(na_ids[0]), doc.GetElement(nl_ids[0])\r\n                \r\n                nl.get_Parameter(BuiltInParameter.LEGEND_COMPONENT).Set(d[\"Type\"].Id)\r\n                \r\n                display_w = \"依現場尺寸\" if d[\"is_curtain\"] else d[\"W_str\"]\r\n                display_h = \"依現場尺寸\" if d[\"is_curtain\"] else d[\"H_str\"]\r\n\r\n                def set_p(el, names, v):\r\n                    for n in names:\r\n                        p = el.LookupParameter(n)\r\n                        if p and not p.IsReadOnly:\r\n                            try:\r\n                                if p.StorageType == StorageType.Integer: p.Set(int(float(v)))\r\n                                elif p.StorageType == StorageType.Double: p.Set(float(v)/30.48)\r\n                                else: p.Set(str(v))\r\n                            except: pass\r\n                            break\r\n                set_p(na, [\"類型標記\", \"編號\"], d[\"Mark\"]); set_p(na, [\"寬度\"], display_w)\r\n                set_p(na, [\"高度\"], display_h); set_p(na, [\"數量\"], d[\"Qty\"])\r\n                set_p(na, [\"門窗規格\"], d[\"Spec\"]); set_p(na, [\"防火等級\", \"防火時效\"], d[\"Fire\"])\r\n                set_p(na, [\"玻璃厚度\"], d[\"Glass\"]); set_p(na, [\"門窗備註\", \"備註\", \"門窗備註 \"], d[\"Remark\"])\r\n\r\n                doc.Regenerate() \r\n                na_bb, nl_bb = na.get_BoundingBox(view), nl.get_BoundingBox(view)\r\n                if na_bb and nl_bb:\r\n                    na_center_x, na_bottom_y = (na_bb.Min.X + na_bb.Max.X)/2.0, na_bb.Min.Y\r\n                    abs_fl_y = na_bottom_y + (FL_OFF_CM / 30.48) - (SHIFT_DOWN_CM / 30.48)\r\n                    nl_center_x, nl_bottom_y = (nl_bb.Min.X + nl_bb.Max.X)/2.0, nl_bb.Min.Y\r\n                    target_nl_y = abs_fl_y + d[\"Sill_ft\"]\r\n                    \r\n                    # 🌟 v3.3.0 智能防飄浮機制 (Anti-Floating Logic) 🌟\r\n                    bb_h = nl_bb.Max.Y - nl_bb.Min.Y\r\n                    h_ft = float(d[\"H_str\"]) / 30.48 if not d[\"is_curtain\"] else 0\r\n                    extra_h = bb_h - h_ft\r\n                    \r\n                    # 如果多出來的高度大於 30cm 或大於半個台度，認定它包含了「長到地板的主體牆」\r\n                    if not d[\"is_curtain\"] and not d[\"is_d\"] and extra_h > max(1.0, d[\"Sill_ft\"] * 0.5):\r\n                        actual_move_y = abs_fl_y - nl_bottom_y # 對齊地板\r\n                    else:\r\n                        actual_move_y = target_nl_y - nl_bottom_y # 對齊窗台\r\n                        \r\n                    ElementTransformUtils.MoveElement(doc, nl.Id, XYZ(na_center_x - nl_center_x, actual_move_y, 0))\r\n                    \r\n                    doc.Regenerate() \r\n                    nl_bb_new = nl.get_BoundingBox(view)\r\n                    if nl_bb_new:\r\n                        fl_curve = doc.Create.NewDetailCurve(view, Line.CreateBound(XYZ(na_center_x - 2.0, abs_fl_y, 0), XYZ(na_center_x + 2.0, abs_fl_y, 0)))\r\n                        dot_len = 0.02 \r\n                        \r\n                        if not d[\"is_curtain\"]:\r\n                            w_ft = (float(d[\"W_str\"]) / 2.0) / 30.48\r\n                            l, r = na_center_x - w_ft, na_center_x + w_ft\r\n                            h_ft = float(d[\"H_str\"]) / 30.48\r\n                            b, t = target_nl_y, target_nl_y + h_ft\r\n                            dim_w_txt, dim_h_txt = d[\"W_str\"] + \"\\u200b\", d[\"H_str\"] + \"\\u200b\"\r\n                        else:\r\n                            l, r = nl_bb_new.Min.X, nl_bb_new.Max.X\r\n                            b, t = nl_bb_new.Min.Y, nl_bb_new.Max.Y\r\n                            dim_w_txt = dim_h_txt = \"依現場尺寸\"\r\n                        \r\n                        # 1. 寬度標註\r\n                        line_w = Line.CreateBound(XYZ(l, t + 0.8, 0), XYZ(r, t + 0.8, 0))\r\n                        ref_l = doc.Create.NewDetailCurve(view, Line.CreateBound(XYZ(l, t + 0.8, 0), XYZ(l, t + 0.8 + dot_len, 0)))\r\n                        ref_r = doc.Create.NewDetailCurve(view, Line.CreateBound(XYZ(r, t + 0.8, 0), XYZ(r, t + 0.8 + dot_len, 0)))\r\n                        ref_arr_w = ReferenceArray()\r\n                        ref_arr_w.Append(ref_l.GeometryCurve.Reference); ref_arr_w.Append(ref_r.GeometryCurve.Reference)\r\n                        try: \r\n                            dim_w = doc.Create.NewDimension(view, line_w, ref_arr_w)\r\n                            dim_w.ValueOverride = dim_w_txt \r\n                        except: pass\r\n                        \r\n                        # 2. 高度與台度標註\r\n                        line_h = Line.CreateBound(XYZ(l - 0.8, abs_fl_y, 0), XYZ(l - 0.8, t + 0.5, 0))\r\n                        ref_arr_h = ReferenceArray()\r\n                        ref_arr_h.Append(fl_curve.GeometryCurve.Reference) \r\n                        if abs(b - abs_fl_y) > 0.03: \r\n                            ref_b = doc.Create.NewDetailCurve(view, Line.CreateBound(XYZ(l - 0.8, b, 0), XYZ(l - 0.8 - dot_len, b, 0)))\r\n                            ref_arr_h.Append(ref_b.GeometryCurve.Reference)\r\n                        ref_t = doc.Create.NewDetailCurve(view, Line.CreateBound(XYZ(l - 0.8, t, 0), XYZ(l - 0.8 - dot_len, t, 0)))\r\n                        ref_arr_h.Append(ref_t.GeometryCurve.Reference)\r\n                        try: \r\n                            dim_h = doc.Create.NewDimension(view, line_h, ref_arr_h)\r\n                            dim_h.ValueOverride = dim_h_txt \r\n                        except: pass\r\n\r\n            elif blk_s:\r\n                vec_blank = XYZ((BASE_X_CM + col * OFF_X_CM) / 30.48, (row * OFF_Y_CM - OFF_Y_CM) / 30.48, 0)\r\n                ElementTransformUtils.CopyElement(doc, blk_s.Id, vec_blank)\r\n                \r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        return \"✅ v3.3.0 大功告成！防飄浮機制啟動，所有門窗已完美降落，尺寸精準無誤！\"\r\n        \r\n    except Exception as e:\r\n        TransactionManager.Instance.ForceCloseTransaction()\r\n        return \"❌ 錯誤: \" + str(e)\r\n\r\nOUT = run_script()",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "6b4a670024b94091b1d9ee41070a8f45",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "f4c730ae4aba4fd782401d6142b65d9a",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "edb576e306644db0bce60e9297a5ec45",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "701b35441e3a4406a6ca8a07e816090e",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "1f885c95a3df4430be1682396d9e9aeb",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "8b8d7de868fb4619a6c2bee0dc83a004",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2596aedede3342cf821d660579423697",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "0a50a3591e274fc9a42c3ad3cb1fc2f8",
+          "Name": "IN[6]",
+          "Description": "Input #6",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5a623e27423a4537a19c987292d45b62",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 312.0,
+      "WatchHeight": 200.0,
+      "Id": "e21bc1e90d6b46bf8a04f9b06be3602f",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "a0259c3d9c8143f28d7f93c4b7cb6325",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "f3e30830fb6a4edf984abfe398ed1f95",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "6f76724f972d4f29b23f17ef685f349e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e39adefcb811407eaee59ae53959b16f",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 0.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "54eca4de89f14e54b915ac4df6daa9db",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d57accf6b97e4cf8a48768ac3ad7927b",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 346.259
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "bbe3a4937ea24f37b16b4808886dfde3",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "48b3eef094be41b9ae69924f0c291c83",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 880.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "871b0047c25d43cca59d6830e78b245e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d553cc74cd6f497daad9434f9f2a0f7b",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 550.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "44e0f35f60f14978ab9f04f588937cce",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "fc0627fb0f2e47e98a8be5be72fa6712",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 7.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "eecb1b08c19e46d895d64b382b6a65fc",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "0bcaebb30b674490b7daacfbb277b01b",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 1737.45
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "4ab6eaaa10cd4fcea1d60bef45649f01",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e962e7ab2391471b93da050ada392f0e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "注意\r\n備註是對應\"門窗備註\"\r\n防火時效對應\"防火等級\"\r\n若不是就要改SCRIPT裡的\r\nget_str_val(t, [\"防火等級\"])"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.RevitPhases, DSRevitNodesUI",
+      "SelectedIndex": 2,
+      "SelectedString": "新營造",
+      "Id": "cca146ed07214d1b9e5f954f7b95b6f9",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e8ff4a9353104ed9ab4d4b6ac1486317",
+          "Name": "Phase",
+          "Description": "選取的 Phase",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從作用中的文件選取現有的 Revit 階段。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "a84552ffc5ef492285151b31c97371a6",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "bb132ab117fc4146aff4fbaa283e3d7a",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "5a623e27423a4537a19c987292d45b62",
+      "End": "a0259c3d9c8143f28d7f93c4b7cb6325",
+      "Id": "bc66c1f5ec6f4d799400caa49b71169f",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "d57accf6b97e4cf8a48768ac3ad7927b",
+      "End": "f4c730ae4aba4fd782401d6142b65d9a",
+      "Id": "e1d388ad44da4510b1de930ef711ae98",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "48b3eef094be41b9ae69924f0c291c83",
+      "End": "701b35441e3a4406a6ca8a07e816090e",
+      "Id": "44986fe10fd645eead0e549d3fce653e",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "d553cc74cd6f497daad9434f9f2a0f7b",
+      "End": "edb576e306644db0bce60e9297a5ec45",
+      "Id": "1250b7621520440887bf11ab37110ed0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "fc0627fb0f2e47e98a8be5be72fa6712",
+      "End": "1f885c95a3df4430be1682396d9e9aeb",
+      "Id": "d2420329c7644c4a8b7c94ea15e15095",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "0bcaebb30b674490b7daacfbb277b01b",
+      "End": "8b8d7de868fb4619a6c2bee0dc83a004",
+      "Id": "3546b92514864f1880fa4d1468b7ae02",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e8ff4a9353104ed9ab4d4b6ac1486317",
+      "End": "2596aedede3342cf821d660579423697",
+      "Id": "950e3568964446d6bbcce6da002d3bb0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "bb132ab117fc4146aff4fbaa283e3d7a",
+      "End": "0a50a3591e274fc9a42c3ad3cb1fc2f8",
+      "Id": "593435d90e834bd4ac010cefd8fec156",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "6b4a670024b94091b1d9ee41070a8f45",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 816.0,
+        "Y": 207.0
+      },
+      {
+        "Id": "e21bc1e90d6b46bf8a04f9b06be3602f",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1102.9761308164818,
+        "Y": 29.217964339274886
+      },
+      {
+        "Id": "6f76724f972d4f29b23f17ef685f349e",
+        "Name": "Number",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -1307.0,
+        "Y": 493.0
+      },
+      {
+        "Id": "54eca4de89f14e54b915ac4df6daa9db",
+        "Name": "表格基準偏移量(346.259)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 378.0,
+        "Y": 107.0
+      },
+      {
+        "Id": "bbe3a4937ea24f37b16b4808886dfde3",
+        "Name": "表格高",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 377.0,
+        "Y": 365.0
+      },
+      {
+        "Id": "871b0047c25d43cca59d6830e78b245e",
+        "Name": "表格寬",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 377.0,
+        "Y": 234.0
+      },
+      {
+        "Id": "44e0f35f60f14978ab9f04f588937cce",
+        "Name": "水平格子數量",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 360.0,
+        "Y": 512.9216828696021
+      },
+      {
+        "Id": "eecb1b08c19e46d895d64b382b6a65fc",
+        "Name": "FL線高度(1737.45)",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 344.5936525622486,
+        "Y": 640.7464451671403
+      },
+      {
+        "Id": "4ab6eaaa10cd4fcea1d60bef45649f01",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 36.67669575492471,
+        "Y": 234.40520545614552
+      },
+      {
+        "Id": "cca146ed07214d1b9e5f954f7b95b6f9",
+        "Name": "1.選取階段",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 372.10487882882217,
+        "Y": 814.8433121505998
+      },
+      {
+        "Id": "a84552ffc5ef492285151b31c97371a6",
+        "Name": "2.顯示帷幕窗?",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 382.9272643433907,
+        "Y": 932.6339698520395
+      }
+    ],
+    "Annotations": [],
+    "X": 180.54848718407294,
+    "Y": 64.34122007341821,
+    "Zoom": 0.5025468411883888
+  }
+}

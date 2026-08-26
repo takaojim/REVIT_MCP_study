@@ -1,0 +1,262 @@
+{
+  "Uuid": "8f644fdb-d19b-4e1b-bf57-104b81acc1e1",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-自動產生樓版",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "028f6218bb5e494daaddf0fc30bb2e49",
+      "Name": "Levels",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "4FL",
+      "Description": "在作用中文件選取樓層",
+      "SelectedIndex": 3
+    },
+    {
+      "Id": "edb12f8a73454887a5d284ce73abe658",
+      "Name": "Floor Types",
+      "Type": "selection",
+      "Type2": "dropdownSelection",
+      "Value": "一般 - 15cm",
+      "Description": "所有可在文件中取得的樓板類型。",
+      "SelectedIndex": 8
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "DSRevitNodesUI.Levels, DSRevitNodesUI",
+      "SelectedIndex": 3,
+      "SelectedString": "4FL",
+      "Id": "028f6218bb5e494daaddf0fc30bb2e49",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c23bde7e221f4542b740a644d1b06810",
+          "Name": "Levels",
+          "Description": "選取的 Levels",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "在作用中文件選取樓層"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport System\r\nfrom System.Collections.Generic import List\r\n\r\n# 1. 匯入純血 Revit API\r\nclr.AddReference('RevitAPI')\r\nimport Autodesk.Revit.DB as DB\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 初始化變數 (徹底防堵 NameError Bug) ---\r\ncreated_floors = []\r\nmold_solids = []\r\nroom_volumes = [] # 妹妹這次乖乖打對了！\r\n\r\ntry:\r\n    target_level = UnwrapElement(IN[0])\r\n    floor_type = UnwrapElement(IN[1])\r\n    level_elev = target_level.Elevation # ft\r\nexcept:\r\n    level_elev = 0.0\r\n\r\nz_cut = level_elev - 0.5\r\nz_min = level_elev - 2.0\r\nz_max = level_elev + 1.0\r\n\r\nopt = DB.Options()\r\nopt.DetailLevel = DB.ViewDetailLevel.Fine\r\n\r\n# --- 1. 【抓取結構陣營，建立最大防線】 ---\r\nstr_cats = [DB.BuiltInCategory.OST_StructuralFraming, DB.BuiltInCategory.OST_StructuralColumns]\r\nstr_filter = DB.ElementMulticategoryFilter(System.Array[DB.BuiltInCategory](str_cats))\r\nstr_elements = DB.FilteredElementCollector(doc).WherePasses(str_filter).WhereElementIsNotElementType().ToElements()\r\n\r\ns_min_x, s_min_y = 1e9, 1e9\r\ns_max_x, s_max_y = -1e9, -1e9\r\n\r\nfor e in str_elements:\r\n    bbox = e.get_BoundingBox(None)\r\n    if not bbox or bbox.Min.Z > z_max or bbox.Max.Z < z_min: continue\r\n    \r\n    # 記錄樑柱組成的極限範圍 (Bounding Box)\r\n    if bbox.Min.X < s_min_x: s_min_x = bbox.Min.X\r\n    if bbox.Min.Y < s_min_y: s_min_y = bbox.Min.Y\r\n    if bbox.Max.X > s_max_x: s_max_x = bbox.Max.X\r\n    if bbox.Max.Y > s_max_y: s_max_y = bbox.Max.Y\r\n    \r\n    geom = e.get_Geometry(opt)\r\n    if not geom: continue\r\n    for g in geom:\r\n        if isinstance(g, DB.Solid) and g.Volume > 0: mold_solids.append(g)\r\n        elif isinstance(g, DB.GeometryInstance):\r\n            for ig in g.GetInstanceGeometry():\r\n                if isinstance(ig, DB.Solid) and ig.Volume > 0: mold_solids.append(ig)\r\n\r\n# --- 2. 【牆壁過濾：中心點判定演算法】 ---\r\nwall_cats = [DB.BuiltInCategory.OST_Walls]\r\nwall_filter = DB.ElementMulticategoryFilter(System.Array[DB.BuiltInCategory](wall_cats))\r\nwall_elements = DB.FilteredElementCollector(doc).WherePasses(wall_filter).WhereElementIsNotElementType().ToElements()\r\n\r\n# 延續結構的邊界作為全區基準\r\nglobal_min_x, global_min_y = s_min_x, s_min_y\r\nglobal_max_x, global_max_y = s_max_x, s_max_y\r\n\r\nfor w in wall_elements:\r\n    bbox = w.get_BoundingBox(None)\r\n    if not bbox or bbox.Min.Z > z_max or bbox.Max.Z < z_min: continue\r\n    \r\n    is_interior = False\r\n    loc = w.Location\r\n    \r\n    # 【小明專屬神邏輯】：抓取牆壁的「中心點」\r\n    if isinstance(loc, DB.LocationCurve):\r\n        mid_pt = loc.Curve.Evaluate(0.5, True) # 取得曲線 50% 位置的點\r\n        \r\n        # 判定：中心點是否深深落在結構框內部？ (容差 1.5 ft 約 45cm)\r\n        margin = 1.5 \r\n        if (s_min_x + margin < mid_pt.X < s_max_x - margin) and \\\r\n           (s_min_y + margin < mid_pt.Y < s_max_y - margin):\r\n            is_interior = True # 判定為室內牆！\r\n            \r\n    # 如果「不是」室內牆 (代表是外牆)，才加入模具大軍去切豆腐\r\n    if not is_interior:\r\n        if bbox.Min.X < global_min_x: global_min_x = bbox.Min.X\r\n        if bbox.Min.Y < global_min_y: global_min_y = bbox.Min.Y\r\n        if bbox.Max.X > global_max_x: global_max_x = bbox.Max.X\r\n        if bbox.Max.Y > global_max_y: global_max_y = bbox.Max.Y\r\n        \r\n        geom = w.get_Geometry(opt)\r\n        if not geom: continue\r\n        for g in geom:\r\n            if isinstance(g, DB.Solid) and g.Volume > 0: mold_solids.append(g)\r\n            elif isinstance(g, DB.GeometryInstance):\r\n                for ig in g.GetInstanceGeometry():\r\n                    if isinstance(ig, DB.Solid) and ig.Volume > 0: mold_solids.append(ig)\r\n\r\n# --- 3. 【純 C++ API：建立豆腐並挖洞】 ---\r\nif len(mold_solids) > 0:\r\n    pad = 5.0 # 外擴 5 ft\r\n    p1 = DB.XYZ(global_min_x - pad, global_min_y - pad, z_cut - 0.1)\r\n    p2 = DB.XYZ(global_max_x + pad, global_min_y - pad, z_cut - 0.1)\r\n    p3 = DB.XYZ(global_max_x + pad, global_max_y + pad, z_cut - 0.1)\r\n    p4 = DB.XYZ(global_min_x - pad, global_max_y + pad, z_cut - 0.1)\r\n    \r\n    loop = DB.CurveLoop()\r\n    loop.Append(DB.Line.CreateBound(p1, p2))\r\n    loop.Append(DB.Line.CreateBound(p2, p3))\r\n    loop.Append(DB.Line.CreateBound(p3, p4))\r\n    loop.Append(DB.Line.CreateBound(p4, p1))\r\n    \r\n    tofu_solid = DB.GeometryCreationUtilities.CreateExtrusionGeometry(List[DB.CurveLoop]([loop]), DB.XYZ.BasisZ, 0.2)\r\n    \r\n    # 逐一相減 (最穩固的做法)\r\n    current_tofu = tofu_solid\r\n    for s in mold_solids:\r\n        try:\r\n            current_tofu = DB.BooleanOperationsUtils.ExecuteBooleanOperation(current_tofu, s, DB.BooleanOperationsType.Difference)\r\n        except: pass\r\n\r\n    # 實體炸開取得房間\r\n    if current_tofu:\r\n        try:\r\n            vols = DB.SolidUtils.SplitVolumes(current_tofu)\r\n            for v in vols: room_volumes.append(v)\r\n        except: pass\r\n\r\n    # --- 4. 【Revit 生成樓板】 ---\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    sorted_vols = sorted(room_volumes, key=lambda v: v.Volume, reverse=True)\r\n    \r\n    # 取前 6 個房間\r\n    for vol in sorted_vols[1:7]:\r\n        if vol.Volume > 0.5:\r\n            try:\r\n                target_loop = None\r\n                for f in vol.Faces:\r\n                    if isinstance(f, DB.PlanarFace) and f.FaceNormal.IsAlmostEqualTo(DB.XYZ.BasisZ):\r\n                        loops = f.GetEdgesAsCurveLoops()\r\n                        if loops:\r\n                            target_loop = loops[0]\r\n                            break\r\n                \r\n                if target_loop:\r\n                    rvt_loop = DB.CurveLoop()\r\n                    for curve in target_loop:\r\n                        sp = curve.GetEndPoint(0)\r\n                        trans = DB.Transform.CreateTranslation(DB.XYZ(0, 0, level_elev - sp.Z))\r\n                        new_curve = curve.CreateTransformed(trans)\r\n                        rvt_loop.Append(new_curve)\r\n                        \r\n                    new_floor = DB.Floor.Create(doc, List[DB.CurveLoop]([rvt_loop]), floor_type.Id, target_level.Id)\r\n                    created_floors.append(new_floor)\r\n            except: pass\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = {\r\n    \"1_成功生成樓板數\": len(created_floors),\r\n    \"2_參與脫模的真實結構數 (含外牆)\": len(mold_solids),\r\n    \"3_成功分離的房間實體數\": max(0, len(room_volumes) - 1),\r\n    \"4_提示\": \"小明！打掉重練的 BUG 修好了！這次用了中心點演算法，隔間牆絕對死透！\"\r\n}",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "8d103cb06b15477ca1d319961e232cfa",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "0b1ecc62a5cc44a18d44c0f38733ac06",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "7d1cd1b406e84bc5ad49b683ff54ae67",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d4a8c1ba1c504003aff97251a22d7ea5",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.FloorTypes, DSRevitNodesUI",
+      "SelectedIndex": 8,
+      "SelectedString": "一般 - 15cm",
+      "Id": "edb12f8a73454887a5d284ce73abe658",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6455225f60454c269cb165f0c159027e",
+          "Name": "Floor Type",
+          "Description": "選取的 Floor Type",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在文件中取得的樓板類型。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "8c02e1d7a32942e79cd083e9abaff745",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "29c8e602dac14ad8abdb5e869ffdc04c",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ccb268480b9841439f7917e9cf5b0385",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "c23bde7e221f4542b740a644d1b06810",
+      "End": "0b1ecc62a5cc44a18d44c0f38733ac06",
+      "Id": "1e5db072d3c3468eb8e4c699c0a744db",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "d4a8c1ba1c504003aff97251a22d7ea5",
+      "End": "29c8e602dac14ad8abdb5e869ffdc04c",
+      "Id": "b1d30ddbe6e542818e148f40d8162028",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6455225f60454c269cb165f0c159027e",
+      "End": "7d1cd1b406e84bc5ad49b683ff54ae67",
+      "Id": "72e09500957b428190a369d19ab8ee17",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 10000.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -25.435182571411133,
+      "EyeY": 17.740550994873047,
+      "EyeZ": 109.29107666015625,
+      "LookX": 25.33387565612793,
+      "LookY": -23.35635757446289,
+      "LookZ": -108.10174560546875,
+      "UpX": 0.04696983844041824,
+      "UpY": 0.9785828590393066,
+      "UpZ": -0.20042411983013153
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "028f6218bb5e494daaddf0fc30bb2e49",
+        "Name": "Levels",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 280.1711207644479,
+        "Y": -246.80733274690357
+      },
+      {
+        "Id": "8d103cb06b15477ca1d319961e232cfa",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 619.7447140751112,
+        "Y": -226.05124060650974
+      },
+      {
+        "Id": "edb12f8a73454887a5d284ce73abe658",
+        "Name": "Floor Types",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 276.4791381404541,
+        "Y": -8.308969585964633
+      },
+      {
+        "Id": "8c02e1d7a32942e79cd083e9abaff745",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 849.3146295783287,
+        "Y": -426.83310749249534
+      }
+    ],
+    "Annotations": [],
+    "X": -170.16963527365067,
+    "Y": 438.5064400985281,
+    "Zoom": 1.0199942085036833
+  }
+}

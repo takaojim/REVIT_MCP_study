@@ -1,0 +1,317 @@
+{
+  "Uuid": "6a2cd260-7d3b-46b2-bbb9-4580df2c9f0a",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "Area-替換文字",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "3deaebade68146efb821eba91b8b725a",
+      "Name": "要修改的文字",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "d62f80d7-89eb-4c4c-9fa6-71ff9d04e0d5-000eca81",
+      "Description": "從 Revit 文件中選取多個元素。"
+    },
+    {
+      "Id": "409a8e4d1b2c4023b6d1aaf43a531b1f",
+      "Name": "原來文字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "W19",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "2351129ca21440dcaa681d8de41926f5",
+      "Name": "新的文字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "W5",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- [修正區] 更暴力的清單防呆機制 ---\r\n# 檢查輸入的是不是清單 (list)，如果不是，就硬把它包成清單 [ ]\r\nraw_input = IN[0]\r\nif isinstance(raw_input, list):\r\n    elements = UnwrapElement(raw_input)\r\nelse:\r\n    elements = [UnwrapElement(raw_input)]\r\n\r\n# 強制把尋找與取代的內容轉成字串 (避免輸入數字時報錯)\r\nfind_str = str(IN[1])    \r\nreplace_str = str(IN[2]) \r\n\r\nmodified_elements = []\r\n\r\n# 開啟 Transaction 準備修改模型\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor elem in elements:\r\n    try:\r\n        # 確保有這個物件，而且它是文字註解 (TextNote)\r\n        if elem and isinstance(elem, TextNote):\r\n            current_text = elem.Text\r\n            # 檢查要找的字串有沒有在裡面\r\n            if find_str in current_text:\r\n                # 執行置換\r\n                elem.Text = current_text.replace(find_str, replace_str)\r\n                modified_elements.append(elem)\r\n    except Exception as e:\r\n        # 發生其他例外就略過\r\n        pass\r\n\r\n# 結束 Transaction\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = modified_elements",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "bf86772b1f814dcd84c4d61806be4fdd",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "4cd45d15324a4073a9a56c351c9953fd",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "c16b158de9d94e3cb03a190b9be8b9d0",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e84abb72af6147d79f330c842141e54e",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "eefbfd2f677d45ac9cf6880353371fd5",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "d62f80d7-89eb-4c4c-9fa6-71ff9d04e0d5-000eca81"
+      ],
+      "Id": "3deaebade68146efb821eba91b8b725a",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "4bfaf6515e2a48d9b352bee20588e125",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "9cb481a89d5a4825b68d4e6a8e39d2a4",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "2b22a2e6d0ee42b3afc0e27307e7ee87",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "d34751be9002499ab7600963e0cddd4e",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "409a8e4d1b2c4023b6d1aaf43a531b1f",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "530c822aa3ef4aa097cd2f753780409d",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "W19"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "2351129ca21440dcaa681d8de41926f5",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "e1a3d765dbfd4fd7bcde01352c43ef75",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "W5"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "eefbfd2f677d45ac9cf6880353371fd5",
+      "End": "2b22a2e6d0ee42b3afc0e27307e7ee87",
+      "Id": "5d91fb0f3b52486ba4cca71fad72127c",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "4bfaf6515e2a48d9b352bee20588e125",
+      "End": "4cd45d15324a4073a9a56c351c9953fd",
+      "Id": "0ae7a3df92c24758b6b7e57c85efa724",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "530c822aa3ef4aa097cd2f753780409d",
+      "End": "c16b158de9d94e3cb03a190b9be8b9d0",
+      "Id": "5a2e3ceea718488183f9d248843fb4fe",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e1a3d765dbfd4fd7bcde01352c43ef75",
+      "End": "e84abb72af6147d79f330c842141e54e",
+      "Id": "2f23f3ab08eb4c118bb225ea3bdacf5f",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "bf86772b1f814dcd84c4d61806be4fdd",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 793.0,
+        "Y": 329.0
+      },
+      {
+        "Id": "3deaebade68146efb821eba91b8b725a",
+        "Name": "要修改的文字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 224.59999999999997,
+        "Y": 88.40000000000003
+      },
+      {
+        "Id": "9cb481a89d5a4825b68d4e6a8e39d2a4",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1055.0,
+        "Y": 321.0
+      },
+      {
+        "Id": "409a8e4d1b2c4023b6d1aaf43a531b1f",
+        "Name": "原來文字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 354.40000000000003,
+        "Y": 340.80000000000007
+      },
+      {
+        "Id": "2351129ca21440dcaa681d8de41926f5",
+        "Name": "新的文字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 358.40000000000015,
+        "Y": 476.8000000000002
+      }
+    ],
+    "Annotations": [],
+    "X": 207.90098254453773,
+    "Y": 84.46169747073571,
+    "Zoom": 0.5937671406250001
+  }
+}

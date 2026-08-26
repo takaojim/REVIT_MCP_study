@@ -1,0 +1,215 @@
+{
+  "Uuid": "1f5d168b-350f-4c37-90b7-5fb74ba4eb41",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "明細-欄位排序",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "0ce17d4d209f436db1605496b9e6e5e8",
+      "Name": "要排序的欄位",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "編號",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "34ad0cc7305e4b29a60306dcee011725",
+      "Name": "Watch",
+      "Type": "string",
+      "InitialValue": "大成功！成功讀取明細表的「遞增/遞減」規則，完美複製視覺順序，重新編號了 13 個元件！",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "0ce17d4d209f436db1605496b9e6e5e8",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "736540b060fb4da9a400e723f7e34bf7",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "編號"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport System\r\nfrom System import StringComparer\r\nimport functools\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 取得 Dynamo 傳入的欄位名稱\r\nparam_to_set = IN[0] \r\n\r\nactive_view = doc.ActiveView\r\n\r\ndef get_param_by_id(element, param_id):\r\n    for p in element.Parameters:\r\n        if p.Id == param_id:\r\n            return p\r\n    return None\r\n\r\ndef get_sort_value(element, param_id):\r\n    param = get_param_by_id(element, param_id)\r\n    if param and param.HasValue:\r\n        if param.StorageType == StorageType.String:\r\n            return param.AsString() or \"\"\r\n        elif param.StorageType == StorageType.Double:\r\n            return param.AsDouble()\r\n        elif param.StorageType == StorageType.Integer:\r\n            return param.AsInteger()\r\n        elif param.StorageType == StorageType.ElementId:\r\n            elem = doc.GetElement(param.AsElementId())\r\n            return elem.Name if elem else \"\"\r\n    return \"\"\r\n\r\nif isinstance(active_view, ViewSchedule):\r\n    definition = active_view.Definition\r\n    sort_group_fields = definition.GetSortGroupFields()\r\n    \r\n    # 收集排序規則：包含 ParameterId 和 是否為「遞增 (Ascending)」\r\n    sort_rules = []\r\n    for sgf in sort_group_fields:\r\n        field = definition.GetField(sgf.FieldId)\r\n        is_ascending = (sgf.SortOrder == ScheduleSortOrder.Ascending)\r\n        sort_rules.append((field.ParameterId, is_ascending))\r\n        \r\n    collector = FilteredElementCollector(doc, active_view.Id).ToElements()\r\n    elements = list(collector)\r\n    \r\n    # 妹妹特製：支援多條件、混合遞增/遞減，外加中文語系防護的終極比較器\r\n    def compare_elements(e1, e2):\r\n        for param_id, is_asc in sort_rules:\r\n            v1 = get_sort_value(e1, param_id)\r\n            v2 = get_sort_value(e2, param_id)\r\n            \r\n            if v1 == v2:\r\n                continue\r\n                \r\n            # 【防護 1】如果遇到一個是字串(空值)，一個是數值，強制轉字串比較避免崩潰\r\n            if type(v1) != type(v2):\r\n                v1, v2 = str(v1), str(v2)\r\n                \r\n            # 字串交給系統文化特性去比對\r\n            if isinstance(v1, str) and isinstance(v2, str):\r\n                cmp_res = StringComparer.CurrentCulture.Compare(v1, v2)\r\n                if cmp_res != 0:\r\n                    return cmp_res if is_asc else -cmp_res\r\n            else:\r\n                # 數值比對 (例如面積的浮點數)\r\n                if v1 > v2:\r\n                    return 1 if is_asc else -1\r\n                else:\r\n                    return -1 if is_asc else 1\r\n                    \r\n        # 【防護 2】相容 Revit 2024+ (Value) 與舊版 (IntegerValue) 的 ID 取值法\r\n        id1 = e1.Id.Value if hasattr(e1.Id, \"Value\") else e1.Id.IntegerValue\r\n        id2 = e2.Id.Value if hasattr(e2.Id, \"Value\") else e2.Id.IntegerValue\r\n        \r\n        if id1 > id2: return 1\r\n        if id1 < id2: return -1\r\n        return 0\r\n\r\n    # 套用自訂排序邏輯\r\n    if sort_rules:\r\n        elements.sort(key=functools.cmp_to_key(compare_elements))\r\n    \r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    \r\n    count = 1\r\n    for el in elements:\r\n        param = el.LookupParameter(param_to_set)\r\n        # 確保參數存在且不是唯讀狀態\r\n        if param and not param.IsReadOnly:\r\n            param.Set(str(count)) \r\n            count += 1\r\n            \r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    \r\n    OUT = \"大成功！成功讀取明細表的「遞增/遞減」規則，完美複製視覺順序，重新編號了 {} 個元件！\".format(count - 1)\r\nelse:\r\n    OUT = \"錯誤：請先將視窗切換到明細表喔！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "d2663f2c8c9145a3817ca05d82b2948d",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "a82b9c587e924ff1bbac91e2cc3f7bdd",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "bf685d46687b46d89c9f6fbdd85a3b20",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 350.0,
+      "WatchHeight": 40.0,
+      "Id": "34ad0cc7305e4b29a60306dcee011725",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "d496c2ecdbee470ea636da6fad0e998a",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "4d34ab6ad0224f34bd7e8d1c496826cc",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "736540b060fb4da9a400e723f7e34bf7",
+      "End": "a82b9c587e924ff1bbac91e2cc3f7bdd",
+      "Id": "6c0e3361dbe0423fb077dce919c93ab3",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "bf685d46687b46d89c9f6fbdd85a3b20",
+      "End": "d496c2ecdbee470ea636da6fad0e998a",
+      "Id": "1cebdbdba4aa41a78b882c4635d34217",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "0ce17d4d209f436db1605496b9e6e5e8",
+        "Name": "要排序的欄位",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 295.0,
+        "Y": 148.0
+      },
+      {
+        "Id": "d2663f2c8c9145a3817ca05d82b2948d",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "34ad0cc7305e4b29a60306dcee011725",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 908.0,
+        "Y": 103.0
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

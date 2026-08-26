@@ -1,0 +1,583 @@
+{
+  "Uuid": "2c63a9a4-d9b3-4771-bd36-fa102dff4ab8",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-車位安排",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "d593f28ce7724ac69ce4a61733ef3630",
+      "Name": "選一個廁所房間的物件",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "cb06860d-553c-483e-ae53-8353bb2c6318-000c801a",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "a9a9f07b70d9481ca63513517c8af89d",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "cb06860d-553c-483e-ae53-8353bb2c6318-000c801a"
+      ],
+      "Id": "d593f28ce7724ac69ce4a61733ef3630",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "a90bb08293c94bc18ea32fc17daf9c88",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 50.0,
+      "WatchHeight": 40.0,
+      "Id": "85d1615ad68945f8877a80c6a38ee4e5",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "ae5d3c608b834482aaae913987484bb8",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e185d1a8f22e4eed826ee0250305bc01",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\nfrom Autodesk.Revit.DB.Structure import StructuralType\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.AddReference(\"RevitServices\")\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# --- 1. 讀取與解包 IN 節點 ---\r\nroom = UnwrapElement(IN[0])\r\nacc_count = IN[1]\r\nmove_cols = IN[2]\r\ncar_symbol = UnwrapElement(IN[3]) \r\nis_center_mode = IN[4] \r\nis_rotated = IN[5]     \r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# --- 2. 自動提取參數 ---\r\ncar_w_ft = 250.0 / 30.48\r\ncar_l_ft = 550.0 / 30.48\r\n\r\nif car_symbol:\r\n    param_w = car_symbol.LookupParameter(\"停車位寬\")\r\n    param_l = car_symbol.LookupParameter(\"停車位長\")\r\n    if param_w: car_w_ft = param_w.AsDouble()\r\n    if param_l: car_l_ft = param_l.AsDouble()\r\n\r\n# --- 3. 虛擬測量：探針偵測族群偏差 ---\r\nif car_symbol and not car_symbol.IsActive:\r\n    car_symbol.Activate()\r\n\r\nroom_level = doc.GetElement(room.LevelId)\r\nbbox_room = room.get_BoundingBox(None)\r\nroom_z = bbox_room.Min.Z if bbox_room else 0.0\r\n\r\nprobe_origin = XYZ.Zero\r\nprobe_inst = doc.Create.NewFamilyInstance(probe_origin, car_symbol, room_level, StructuralType.NonStructural)\r\ndoc.Regenerate()\r\n\r\nprobe_bbox = probe_inst.get_BoundingBox(None)\r\noffset_vec = XYZ.Zero\r\n\r\nif probe_bbox:\r\n    geom_center = XYZ((probe_bbox.Min.X + probe_bbox.Max.X)/2, (probe_bbox.Min.Y + probe_bbox.Max.Y)/2, 0)\r\n    offset_vec = probe_origin.Subtract(geom_center)\r\n\r\ndoc.Delete(probe_inst.Id)\r\n\r\n# --- 4. 自動清場 (舊車位回收) ---\r\nexisting_cars = FilteredElementCollector(doc).OfClass(FamilyInstance).WhereElementIsNotElementType().ToElements()\r\nfor old_car in existing_cars:\r\n    if old_car.Symbol.Id == car_symbol.Id:\r\n        loc = old_car.Location\r\n        if isinstance(loc, LocationPoint):\r\n            test_pt = XYZ(loc.Point.X, loc.Point.Y, room_z + 1.0)\r\n            if room.IsPointInRoom(test_pt):\r\n                doc.Delete(old_car.Id)\r\n\r\n# --- 5. 尋找出入口與計算向量 ---\r\ndef is_safe(pt):\r\n    return room.IsPointInRoom(XYZ(pt.X, pt.Y, room_z + 1.0))\r\n\r\nroom_center = XYZ((bbox_room.Min.X + bbox_room.Max.X)/2, (bbox_room.Min.Y + bbox_room.Max.Y)/2, room_z) if bbox_room else XYZ.Zero\r\nentrance_pt = None\r\n\r\ncollector = FilteredElementCollector(doc).OfClass(FamilyInstance)\r\nfor inst in collector:\r\n    if inst.Symbol.Family.Name == \"停車場性質標記\":\r\n        loc = inst.Location\r\n        if isinstance(loc, LocationPoint) and room.IsPointInRoom(loc.Point):\r\n            type_elem = doc.GetElement(inst.GetTypeId())\r\n            p = type_elem.LookupParameter(\"出入性質\")\r\n            if p and p.AsString() == \"出入口\":\r\n                entrance_pt = XYZ(loc.Point.X, loc.Point.Y, room_z)\r\n                break\r\n\r\nopt = SpatialElementBoundaryOptions()\r\nopt.SpatialElementBoundaryLocation = SpatialElementBoundaryLocation.Finish\r\nboundaries = room.GetBoundarySegments(opt)\r\nouter_lines = [seg.GetCurve() for seg in boundaries[0]] if boundaries else []\r\n\r\ncut_vector = XYZ.BasisX\r\ncut_origin = room_center\r\n\r\nif entrance_pt and outer_lines:\r\n    closest_curve = min(outer_lines, key=lambda c: c.Project(entrance_pt).Distance)\r\n    line_dir = closest_curve.Direction\r\n    normal_vec = XYZ(-line_dir.Y, line_dir.X, 0).Normalize()\r\n    cut_vector = line_dir.Normalize() if is_rotated else normal_vec\r\n    cut_origin = room_center if is_center_mode else entrance_pt\r\n\r\n# --- 6. 智慧生成、校正與【動線開挖】 ---\r\nplaced_count = 0\r\nband_width_ft = 1700.0 / 30.48\r\naisle_half_ft = 300.0 / 30.48\r\nshift_dist = aisle_half_ft + (car_l_ft / 2.0)\r\n\r\nspine_dir = cut_vector.CrossProduct(XYZ.BasisZ).Normalize()\r\nangle_rad_A = math.atan2(cut_vector.Y, cut_vector.X) + (math.pi / 2.0)\r\nangle_rad_B = angle_rad_A + math.pi\r\n\r\n# 🚗 【動線開挖魔法】：主動線保留區半徑 (3公尺 = 6公尺寬的車道)\r\nmain_aisle_radius_ft = 300.0 / 30.48\r\n\r\ndef is_in_main_driveway(pt):\r\n    if not entrance_pt: return False # 如果沒放標記就不開挖\r\n    vec = pt.Subtract(entrance_pt)\r\n    \r\n    # 計算車位中心到「十字主車道」的垂直距離\r\n    dist_to_spine_axis = abs(vec.DotProduct(cut_vector)) \r\n    dist_to_cut_axis = abs(vec.DotProduct(spine_dir))\r\n    \r\n    # 如果車位落入 6m 十字車道範圍內，就判定為擋道！\r\n    if dist_to_spine_axis < main_aisle_radius_ft or dist_to_cut_axis < main_aisle_radius_ft:\r\n        return True\r\n    return False\r\n\r\ndef place_calibrated(target_center, rot_angle):\r\n    # 1. 🛡️ 動線開挖檢查：擋到主車道就不放車！\r\n    if is_in_main_driveway(target_center):\r\n        return False\r\n        \r\n    # 2. 校正插入點\r\n    transform = Transform.CreateRotation(XYZ.BasisZ, rot_angle)\r\n    corrected_insertion_pt = target_center.Add(transform.OfVector(offset_vec))\r\n    \r\n    # 3. 邊界碰撞偵測\r\n    w_vec = spine_dir.Multiply(car_w_ft / 2.0)\r\n    l_vec = cut_vector.Multiply(car_l_ft / 2.0)\r\n    corners = [\r\n        target_center.Add(w_vec).Add(l_vec),\r\n        target_center.Subtract(w_vec).Add(l_vec),\r\n        target_center.Subtract(w_vec).Subtract(l_vec),\r\n        target_center.Add(w_vec).Subtract(l_vec),\r\n        target_center\r\n    ]\r\n    \r\n    if all(is_safe(c) for c in corners):\r\n        inst = doc.Create.NewFamilyInstance(corrected_insertion_pt, car_symbol, room_level, StructuralType.NonStructural)\r\n        axis = Line.CreateBound(corrected_insertion_pt, corrected_insertion_pt.Add(XYZ.BasisZ))\r\n        ElementTransformUtils.RotateElement(doc, inst.Id, axis, rot_angle)\r\n        return True\r\n    return False\r\n\r\n# 佈置無限網格\r\nfor j in range(-15, 16):\r\n    band_base = cut_origin.Add(cut_vector.Multiply(j * band_width_ft))\r\n    for i in range(-50, 51):\r\n        spot_line = band_base.Add(spine_dir.Multiply(i * car_w_ft))\r\n        \r\n        if place_calibrated(spot_line.Add(cut_vector.Multiply(shift_dist)), angle_rad_A): \r\n            placed_count += 1\r\n        if place_calibrated(spot_line.Subtract(cut_vector.Multiply(shift_dist)), angle_rad_B): \r\n            placed_count += 1\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# --- 7. 最終報告 ---\r\nOUT = {\r\n    \"狀態\": \"🛣️ 摩西分海！主動線開挖完成！\",\r\n    \"目前起點模式\": \"1: 中心輻射\" if is_center_mode else \"0: 貼齊邊緣 (出入口)\",\r\n    \"成功生成數量\": placed_count\r\n}",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "95bbe8bf7820436e9f45cc01a454c159",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "a51a09f13ce640cd9604313a6192a7b3",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "d7cf64c616d14a7a80abb3e6d2b2ecf0",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "7cb5ce2e9d0f4e00af7e10d2564bada2",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "ea544be7c53348648f1d9f36d63e1c26",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a89f869929c946338360121a097b483b",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a539d4e158dd485d8490a04ade37b8ee",
+          "Name": "IN[5]",
+          "Description": "Input #5",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "0581c027106643efbeda62d60b890536",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 200.0,
+      "Id": "7c3161f8239c48c7bb537565ac1ea097",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "c7b16d02a6054e488d5a36baed9510ff",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "20b5b936f18a4256ac9664ed2e666e9c",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "a9a9f07b70d9481ca63513517c8af89d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "c1ea788aee4b4b04b7d7b99a443fd7aa",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": ""
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "c51ba37ccd9347eabf491a55812ee30e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8c4cf99d53c6465494529a9327b8ee7a",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 1.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "4292edd286994815b7a9a9be3e39c1f5",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "ac866986712d4e6fa6d148106716b28e",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "47ba9fffb4b0474cb71b17289a534746",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "3fd5a3bda8e6460a82c26d6df2813d7e",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 250.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "873780911b6e422388a1894a3bef363e",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "5146688dd2a84367a70dedf8bb8c0a20",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 550.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "a6328d235c814bb9a87d00d604cc672a",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b2c9f69e7a0b40858372c521cfae6755",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": false
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "73ad81f4cc634a43b513b98b0490165c",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f00162d7211f492699771c4db8555dd8",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    },
+    {
+      "ConcreteType": "DSRevitNodesUI.FamilyTypes, DSRevitNodesUI",
+      "SelectedIndex": 124,
+      "SelectedString": "法規停車位_V4:2.5m x 5.5m 法定停車位(標準汽車)",
+      "Id": "0d0850daa06b4a54b5109f47d4866385",
+      "NodeType": "ExtensionNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1427ef91497941ee8cfd075b9752c2ee",
+          "Name": "Family Type",
+          "Description": "選取的 Family Type",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "所有可在文件中取得的族群類型。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "a90bb08293c94bc18ea32fc17daf9c88",
+      "End": "ae5d3c608b834482aaae913987484bb8",
+      "Id": "0202f043624b4a98b364bdf457ab3539",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "a90bb08293c94bc18ea32fc17daf9c88",
+      "End": "a51a09f13ce640cd9604313a6192a7b3",
+      "Id": "03ea6cb3b8e548cc954a6678d23a6311",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "0581c027106643efbeda62d60b890536",
+      "End": "c7b16d02a6054e488d5a36baed9510ff",
+      "Id": "847b0e44b2144dcbaf49a7db4dea2c15",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "8c4cf99d53c6465494529a9327b8ee7a",
+      "End": "d7cf64c616d14a7a80abb3e6d2b2ecf0",
+      "Id": "d2485ca313cd49a9830e6abdfa5db24c",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "ac866986712d4e6fa6d148106716b28e",
+      "End": "7cb5ce2e9d0f4e00af7e10d2564bada2",
+      "Id": "34370062dfd54884acfaac9e7e519090",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "b2c9f69e7a0b40858372c521cfae6755",
+      "End": "a89f869929c946338360121a097b483b",
+      "Id": "9612bb3acd6e470d87dbb713106513b4",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "f00162d7211f492699771c4db8555dd8",
+      "End": "a539d4e158dd485d8490a04ade37b8ee",
+      "Id": "f974f28fb613479db744bf6b5e1eb255",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "1427ef91497941ee8cfd075b9752c2ee",
+      "End": "ea544be7c53348648f1d9f36d63e1c26",
+      "Id": "1f00035096264e5cb13f0d04d22c5149",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "d593f28ce7724ac69ce4a61733ef3630",
+        "Name": "選一個廁所房間的物件",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 292.0,
+        "Y": 182.0
+      },
+      {
+        "Id": "85d1615ad68945f8877a80c6a38ee4e5",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 629.2955823833852,
+        "Y": 100.96652456102557
+      },
+      {
+        "Id": "95bbe8bf7820436e9f45cc01a454c159",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 588.1539286191119,
+        "Y": 342.49766986591965
+      },
+      {
+        "Id": "7c3161f8239c48c7bb537565ac1ea097",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 804.4404853586148,
+        "Y": 240.59092438369282
+      },
+      {
+        "Id": "a9a9f07b70d9481ca63513517c8af89d",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -62.84847671742659,
+        "Y": 25.076710241802914
+      },
+      {
+        "Id": "c51ba37ccd9347eabf491a55812ee30e",
+        "Name": "無障礙車位數量",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 295.07870590822654,
+        "Y": 327.43150545730566
+      },
+      {
+        "Id": "4292edd286994815b7a9a9be3e39c1f5",
+        "Name": "移動柱子",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 295.07870590822665,
+        "Y": 448.5343771814738
+      },
+      {
+        "Id": "47ba9fffb4b0474cb71b17289a534746",
+        "Name": "車位寬",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -31.635136457927274,
+        "Y": 602.6860830476004
+      },
+      {
+        "Id": "873780911b6e422388a1894a3bef363e",
+        "Name": "車位長",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -37.413580080662996,
+        "Y": 736.975570397018
+      },
+      {
+        "Id": "a6328d235c814bb9a87d00d604cc672a",
+        "Name": "0: 貼齊邊緣 / 1: 中心輻射",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 186.9708448049157,
+        "Y": 793.6038161848088
+      },
+      {
+        "Id": "73ad81f4cc634a43b513b98b0490165c",
+        "Name": "配置角度轉90",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 225.10907965170327,
+        "Y": 967.1401972928061
+      },
+      {
+        "Id": "0d0850daa06b4a54b5109f47d4866385",
+        "Name": "Family Types",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -64.5904534383643,
+        "Y": 603.7373254723786
+      }
+    ],
+    "Annotations": [],
+    "X": 144.28216477748614,
+    "Y": 44.69886370139125,
+    "Zoom": 0.7475123986172294
+  }
+}

@@ -1,0 +1,412 @@
+{
+  "Uuid": "0733d64a-80a0-4e0c-b149-c744b97bc1da",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "明細-欄位填滿或替換文字",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "4ce22fc6ed3e4efa9f8f57442a6d0631",
+      "Name": "要處理的欄位",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "門窗備註",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "95824a88302a4cd9bc9a90f20e2b6bf6",
+      "Name": "填滿的文字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "c83119807a2247abaefeaf1b4b40e02a",
+      "Name": "說明..",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "門:類型標記\r\n窗:類型標記\r\n範圍:編號\r\n",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "ce9b17efa5ca4be6ae2b33b1f7fcb95d",
+      "Name": "替換字串",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "五金",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "7a03a5955221493aaf4bde57b8d612f0",
+      "Name": "原來字串",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "六金",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "4ce22fc6ed3e4efa9f8f57442a6d0631",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "aba22f13c6124032b7bac8bebdb6aa7c",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "門窗備註"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\n# IN[0]: 目標欄位名稱\r\n# IN[1]: 要尋找的字串 (A)\r\n# IN[2]: 要替換的字串 (B)\r\n# IN[3]: 欲填充的統一字串 (填滿)\r\n\r\nif len(IN) < 4:\r\n    OUT = \"⚠️ 錯誤：需要 4 個輸入端喔！請確認接線 (欄位, 找A, 換B, 填滿)\"\r\nelse:\r\n    param_name = IN[0]\r\n    find_str = str(IN[1]) if IN[1] else \"\"\r\n    replace_str = str(IN[2]) if IN[2] else \"\"\r\n    fill_value = IN[3]\r\n\r\n    is_fill_mode = False\r\n    if fill_value and str(fill_value).strip() != \"\":\r\n        is_fill_mode = True\r\n        fill_value = str(fill_value)\r\n\r\n    # 【進化 1】超強大參數尋找器：無視唯讀分身，直搗黃龍！\r\n    def get_writable_param(element, p_name):\r\n        params = element.GetParameters(p_name)\r\n        for p in params:\r\n            if not p.IsReadOnly:\r\n                return p\r\n        return None\r\n\r\n    if isinstance(active_view, ViewSchedule):\r\n        elements = list(FilteredElementCollector(doc, active_view.Id).WhereElementIsNotElementType().ToElements())\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        \r\n        success_count = 0\r\n        processed_types = []\r\n        log = [] # 錯誤紀錄本\r\n        \r\n        for el in elements:\r\n            target_param = None\r\n            is_type_param = False\r\n            \r\n            # 先找實體，找不到就去挖類型\r\n            p_inst = get_writable_param(el, param_name)\r\n            if p_inst:\r\n                target_param = p_inst\r\n            else:\r\n                tid = el.GetTypeId()\r\n                if tid != ElementId.InvalidElementId:\r\n                    etype = doc.GetElement(tid)\r\n                    if etype:\r\n                        p_type = get_writable_param(etype, param_name)\r\n                        if p_type:\r\n                            target_param = p_type\r\n                            is_type_param = True\r\n                            \r\n            if not target_param:\r\n                continue\r\n                \r\n            if is_type_param:\r\n                if tid in processed_types:\r\n                    continue\r\n                processed_types.append(tid)\r\n\r\n            # 執行寫入，這次如果有錯絕不吞掉！\r\n            try:\r\n                if is_fill_mode:\r\n                    target_param.Set(fill_value)\r\n                    success_count += 1\r\n                else:\r\n                    current_val = target_param.AsValueString() or target_param.AsString() or \"\"\r\n                    \r\n                    # 【進化 2】神級判斷：如果 Revit 裡是空的，但你要找 \"無\"，直接算你中！\r\n                    if find_str == \"無\" and current_val.strip() == \"\":\r\n                        target_param.Set(replace_str)\r\n                        success_count += 1\r\n                    elif find_str and find_str in current_val:\r\n                        new_val = current_val.replace(find_str, replace_str)\r\n                        target_param.Set(new_val)\r\n                        success_count += 1\r\n            except Exception as e:\r\n                if str(e) not in log:\r\n                    log.append(str(e))\r\n                    \r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        \r\n        mode_str = \"「霸道填滿」\" if is_fill_mode else \"「尋找取代」\"\r\n        if len(log) > 0:\r\n            OUT = \"⚠️ 發現 Revit 底層阻擋！成功 {} 個，但遇到錯誤：{}\".format(success_count, log[0])\r\n        else:\r\n            OUT = \"【優呵！破案成功】使用{}模式，成功更新了 {} 個「類型」項目！啾咪！\".format(mode_str, success_count)\r\n    else:\r\n        OUT = \"錯誤：小明哥哥，請記得切換到明細表視窗喔！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "3b5a8723e6e947b69f56cf0d88ffae26",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "9143e3498eda4988a81f9d8b2e3cba4b",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "940b9a52c95746d38868a4471bdf4f2b",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "9b80596bf23644288eaf0b4fa9cd7b4a",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "70a553d3344e4ab29bcbc3fa762efa00",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e13143e8e1454857b0bcbb4504ff7ead",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 312.0,
+      "WatchHeight": 40.0,
+      "Id": "518af8889e24450690e4430179786283",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "a121713875264a7fa4c2c5eb2b2e4157",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "fdc58fc1b2c84787bfda5889e0df6358",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "95824a88302a4cd9bc9a90f20e2b6bf6",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "7c9da43ced884a319e65af124a9bb78e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": ""
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 157.8939768292621,
+      "SerializedHeight": 169.97214176485681,
+      "Id": "c83119807a2247abaefeaf1b4b40e02a",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "15c24a7f36a54fb0a461e1310c7ca22b",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "門:類型標記\r\n窗:類型標記\r\n範圍:編號\r\n"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "ce9b17efa5ca4be6ae2b33b1f7fcb95d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "012e4861e10345d59c9dd8b7f0b66df6",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "五金"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "7a03a5955221493aaf4bde57b8d612f0",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "83ae3f8de07749078123c0709fbc4dff",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "六金"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "aba22f13c6124032b7bac8bebdb6aa7c",
+      "End": "9143e3498eda4988a81f9d8b2e3cba4b",
+      "Id": "90ba807f561e4d6f9001eca8a96ae115",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "e13143e8e1454857b0bcbb4504ff7ead",
+      "End": "a121713875264a7fa4c2c5eb2b2e4157",
+      "Id": "c4a5af57fdee4ba18bf4fb47646f047a",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "7c9da43ced884a319e65af124a9bb78e",
+      "End": "70a553d3344e4ab29bcbc3fa762efa00",
+      "Id": "c10d5f06525b47ecb1bc6f5ba1ff486e",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "012e4861e10345d59c9dd8b7f0b66df6",
+      "End": "9b80596bf23644288eaf0b4fa9cd7b4a",
+      "Id": "9cba2ae36b3d41c1b4c2674c41064d43",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "83ae3f8de07749078123c0709fbc4dff",
+      "End": "940b9a52c95746d38868a4471bdf4f2b",
+      "Id": "fac5bbd33d41470b87338b4988751eab",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "4ce22fc6ed3e4efa9f8f57442a6d0631",
+        "Name": "要處理的欄位",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 295.0,
+        "Y": 148.0
+      },
+      {
+        "Id": "3b5a8723e6e947b69f56cf0d88ffae26",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "518af8889e24450690e4430179786283",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 309.47057058782366,
+        "Y": -77.04022268081472
+      },
+      {
+        "Id": "95824a88302a4cd9bc9a90f20e2b6bf6",
+        "Name": "填滿的文字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 301.0,
+        "Y": 297.0
+      },
+      {
+        "Id": "c83119807a2247abaefeaf1b4b40e02a",
+        "Name": "說明..",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": -105.24341837090003,
+        "Y": 471.16585476358307
+      },
+      {
+        "Id": "ce9b17efa5ca4be6ae2b33b1f7fcb95d",
+        "Name": "替換字串",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 296.0188150621333,
+        "Y": 590.0258523736602
+      },
+      {
+        "Id": "7a03a5955221493aaf4bde57b8d612f0",
+        "Name": "原來字串",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 274.98031075017934,
+        "Y": 425.4599236913633
+      }
+    ],
+    "Annotations": [],
+    "X": 550.2296500128894,
+    "Y": 188.30961246722262,
+    "Zoom": 0.8480145563893335
+  }
+}

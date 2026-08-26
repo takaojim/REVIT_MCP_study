@@ -1,0 +1,191 @@
+{
+  "Uuid": "b1951cc9-0a7c-4156-842d-7b38b209ff78",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-尺寸-牆心",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "f1177c8f27c54ef3a6c8d07aeb0e530e",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "在每個視圖的牆取牆心上下左右標尺寸",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\nview = doc.ActiveView\r\n\r\nall_walls = FilteredElementCollector(doc, view.Id).OfClass(Wall).ToElements()\r\n\r\n# --- 【升級 1：樓層鎖定】找出目前視圖的基準樓層 ---\r\ncurrent_level_id = view.GenLevel.Id if view.GenLevel else None\r\n\r\nvalid_walls = []\r\nfor w in all_walls:\r\n    if w.get_BoundingBox(view) is not None:\r\n        try:\r\n            if w.WallType.Kind == WallKind.Basic:\r\n                # 拒絕透視！只抓隸屬於「本樓層」的牆\r\n                if current_level_id and w.LevelId != current_level_id:\r\n                    continue\r\n                valid_walls.append(w)\r\n        except:\r\n            pass\r\n\r\nglobal_min_x, global_max_x = float('inf'), float('-inf')\r\nglobal_min_y, global_max_y = float('inf'), float('-inf')\r\n\r\nvert_walls = []  \r\nhoriz_walls = [] \r\n\r\nfor wall in valid_walls:\r\n    bbox = wall.get_BoundingBox(view)\r\n    global_min_x = min(global_min_x, bbox.Min.X)\r\n    global_max_x = max(global_max_x, bbox.Max.X)\r\n    global_min_y = min(global_min_y, bbox.Min.Y)\r\n    global_max_y = max(global_max_y, bbox.Max.Y)\r\n        \r\n    location = wall.Location\r\n    if isinstance(location, LocationCurve):\r\n        curve = location.Curve\r\n        if isinstance(curve, Line):\r\n            p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)\r\n            dx, dy = abs(p1.X - p0.X), abs(p1.Y - p0.Y)\r\n            \r\n            # 記錄牆的完整延伸範圍 (min/max)，用來判斷是否進入 3 米區\r\n            if dx < 1e-5 and dy > 0.001:\r\n                vert_walls.append({'wall': wall, 'x': p0.X, 'min_y': min(p0.Y, p1.Y), 'max_y': max(p0.Y, p1.Y)})\r\n            elif dy < 1e-5 and dx > 0.001:\r\n                horiz_walls.append({'wall': wall, 'y': p0.Y, 'min_x': min(p0.X, p1.X), 'max_x': max(p0.X, p1.X)})\r\n\r\nif vert_walls and horiz_walls:\r\n    # 視覺距離補償\r\n    scale = view.Scale \r\n    base_offset_feet = (0.5 * scale) / 30.48\r\n    text_buffer_feet = (0.3 * scale) / 30.48\r\n    \r\n    offset_NW = base_offset_feet\r\n    offset_SE = base_offset_feet + text_buffer_feet\r\n    \r\n    line_N = Line.CreateBound(XYZ(global_min_x - 10, global_max_y + offset_NW, 0), XYZ(global_max_x + 10, global_max_y + offset_NW, 0))\r\n    line_W = Line.CreateBound(XYZ(global_min_x - offset_NW, global_min_y - 10, 0), XYZ(global_min_x - offset_NW, global_max_y + 10, 0))\r\n    line_S = Line.CreateBound(XYZ(global_min_x - 10, global_min_y - offset_SE, 0), XYZ(global_max_x + 10, global_min_y - offset_SE, 0))\r\n    line_E = Line.CreateBound(XYZ(global_max_x + offset_SE, global_min_y - 10, 0), XYZ(global_max_x + offset_SE, global_max_y + 10, 0))\r\n\r\n    dict_N, dict_S, dict_E, dict_W = {}, {}, {}, {}\r\n    \r\n    # --- 【升級 2：3 米邊界過濾法】 ---\r\n    # 3 公尺轉換為英呎 (Revit 內部單位)\r\n    depth_limit = 3.0 / 0.3048 \r\n\r\n    def add_unique_coord(ref_dict, coord, wall_ref, current_tolerance=0.05):\r\n        for existing_coord in ref_dict.keys():\r\n            if abs(existing_coord - coord) < current_tolerance:\r\n                return \r\n        ref_dict[round(coord, 2)] = wall_ref\r\n\r\n    # 垂直牆提供 X 座標，給南北側標註用\r\n    for w in vert_walls:\r\n        # 北側：只要這道垂直牆的最頂端，有伸進建築物最北邊緣的 3 米內，就抓！\r\n        if w['max_y'] > (global_max_y - depth_limit): \r\n            add_unique_coord(dict_N, w['x'], Reference(w['wall']))\r\n        # 南側：只要這道垂直牆的最底端，有伸進建築物最南邊緣的 3 米內，就抓！\r\n        if w['min_y'] < (global_min_y + depth_limit): \r\n            add_unique_coord(dict_S, w['x'], Reference(w['wall']))\r\n\r\n    # 水平牆提供 Y 座標，給東西側標註用\r\n    for w in horiz_walls:\r\n        # 東側：只要這道水平牆的最右端，有伸進建築物最東邊緣的 3 米內，就抓！\r\n        if w['max_x'] > (global_max_x - depth_limit): \r\n            add_unique_coord(dict_E, w['y'], Reference(w['wall']))\r\n        # 西側：只要這道水平牆的最左端，有伸進建築物最西邊緣的 3 米內，就抓！\r\n        if w['min_x'] < (global_min_x + depth_limit): \r\n            add_unique_coord(dict_W, w['y'], Reference(w['wall']))\r\n\r\n    def create_ref_array(ref_dict, reverse=False):\r\n        arr = ReferenceArray()\r\n        for key in sorted(ref_dict.keys(), reverse=reverse): \r\n            arr.Append(ref_dict[key])\r\n        return arr\r\n\r\n    ref_N, ref_S = create_ref_array(dict_N), create_ref_array(dict_S)\r\n    ref_W, ref_E = create_ref_array(dict_W), create_ref_array(dict_E)\r\n\r\n    def safe_create_dimension(view, dim_line, ref_array, doc):\r\n        if ref_array.Size < 2: return \"牆數量不足\"\r\n        \r\n        sub_tx = SubTransaction(doc)\r\n        sub_tx.Start()\r\n        \r\n        clean_array = ReferenceArray()\r\n        clean_array.Append(ref_array.get_Item(0))\r\n        \r\n        for i in range(1, ref_array.Size):\r\n            ref_to_test = ref_array.get_Item(i)\r\n            test_array = ReferenceArray()\r\n            test_array.Append(clean_array.get_Item(0))\r\n            test_array.Append(ref_to_test)\r\n            \r\n            is_valid = False\r\n            try:\r\n                doc.Create.NewDimension(view, dim_line, test_array)\r\n                is_valid = True\r\n            except: pass\r\n            \r\n            if is_valid: clean_array.Append(ref_to_test)\r\n        \r\n        sub_tx.RollBack() \r\n        \r\n        if clean_array.Size > 1:\r\n            new_dim = doc.Create.NewDimension(view, dim_line, clean_array)\r\n            param = new_dim.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)\r\n            if param: param.Set(\"<Dynamo Sister>\")\r\n            return \"成功 (過濾幽靈後的合法端點: {})\".format(clean_array.Size)\r\n        else:\r\n            return \"全部都是幽靈牆，無法標註\"\r\n\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    \r\n    existing_dims = FilteredElementCollector(doc, view.Id).OfClass(Dimension).WhereElementIsNotElementType().ToElements()\r\n    for dim in existing_dims:\r\n        try:\r\n            param = dim.get_Parameter(BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS)\r\n            if param and param.AsString() == \"<Dynamo Sister>\":\r\n                doc.Delete(dim.Id)\r\n        except: pass\r\n        \r\n    msg_N = safe_create_dimension(view, line_N, ref_N, doc) if ref_N.Size > 1 else \"略過\"\r\n    msg_S = safe_create_dimension(view, line_S, ref_S, doc) if ref_S.Size > 1 else \"略過\"\r\n    msg_E = safe_create_dimension(view, line_E, ref_E, doc) if ref_E.Size > 1 else \"略過\"\r\n    msg_W = safe_create_dimension(view, line_W, ref_W, doc) if ref_W.Size > 1 else \"略過\"\r\n\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n\r\n    OUT = \"【3米邊界過濾與樓層鎖定版】\\n北側: {}\\n南側: {}\\n東側: {}\\n西側: {}\".format(msg_N, msg_S, msg_E, msg_W)\r\n\r\nelse:\r\n    OUT = \"找不到合法的直線基本牆壁喔！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "b9d862691c674e718a21369b95271544",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8e0d5f9b777849629d8bf8bfef943e10",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "f1177c8f27c54ef3a6c8d07aeb0e530e",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "91aa2aa12bad4929916ede727bfb89d0",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "在每個視圖的牆取牆心上下左右標尺寸"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 420.0,
+      "WatchHeight": 200.0,
+      "Id": "4d27994bd4f745dda4f1b781c50f1b60",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "c14381774b914fd6af9428c74a396130",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e41548f7eba941db993991b66e3e5191",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "8e0d5f9b777849629d8bf8bfef943e10",
+      "End": "c14381774b914fd6af9428c74a396130",
+      "Id": "a553ff058d9c452b989db26ae76a3259",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "b9d862691c674e718a21369b95271544",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 454.6195073178603,
+        "Y": 157.08123142699617
+      },
+      {
+        "Id": "f1177c8f27c54ef3a6c8d07aeb0e530e",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 122.60407349501997,
+        "Y": 160.5643726371501
+      },
+      {
+        "Id": "4d27994bd4f745dda4f1b781c50f1b60",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 696.0417488267487,
+        "Y": 269.997660177366
+      }
+    ],
+    "Annotations": [],
+    "X": 19.28804517722108,
+    "Y": 140.6996701446401,
+    "Zoom": 0.7344365364544642
+  }
+}

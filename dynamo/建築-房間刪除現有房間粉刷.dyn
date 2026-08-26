@@ -1,0 +1,237 @@
+{
+  "Uuid": "6c8d4315-b8dc-461e-b883-69f721dc736d",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-房間刪除現有房間粉刷",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "a64b0f7dd92b441e8b57b4bab3aa0a1b",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "把目前視圖所有房間的塗層粉刷全部刪除",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "7a38c5f7886943909a37cacef67bc471",
+      "Name": "是否刪除原有塗層",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "ebb02401a6de4b67be263b9892213ecb",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport sys\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import List \r\n\r\n# ==========================================\r\n# Ver 12.1 - 終極大掃除・安全微距版\r\n# 1. 小明哥微距雷達：XY 僅外擴 10cm，精準涵蓋樑側塗層，絕不越界。\r\n# 2. 妹妹樓層鎖定：強制核對 elem.LevelId == room.LevelId，絕對不刪到樓上樓下！\r\n# 3. 塗層辨識：只刪除 TypeName 包含「塗層」的牆與樓板。\r\n# ==========================================\r\n__version__ = \"12.1.SafeCleaner\"\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\n# 1. 取得目前視圖的所有房間\r\nrooms = FilteredElementCollector(doc, active_view.Id).OfCategory(BuiltInCategory.OST_Rooms).ToElements()\r\n\r\nids_to_delete = List[ElementId]()\r\ndel_count = 0\r\n\r\n# 2. 準備收集所有的牆與樓板\r\ncats = List[BuiltInCategory]([BuiltInCategory.OST_Walls, BuiltInCategory.OST_Floors])\r\nfilter_cats = ElementMulticategoryFilter(cats)\r\n\r\nfor room in rooms:\r\n    if room.Area <= 0: continue\r\n    \r\n    bbox = room.get_BoundingBox(None)\r\n    if not bbox: continue\r\n    \r\n    room_level_id = room.LevelId\r\n    \r\n    # ✨ 小明哥的微距雷達：外擴 10cm (0.1m)\r\n    # Z 軸稍微抓 50cm (0.5m) 上下涵蓋天花板，但靠 LevelId 確保不會殺到樓上\r\n    offset_xy = 0.1 / 0.3048   \r\n    offset_z = 0.5 / 0.3048    \r\n    \r\n    outline = Outline(XYZ(bbox.Min.X - offset_xy, bbox.Min.Y - offset_xy, bbox.Min.Z - offset_z), \r\n                      XYZ(bbox.Max.X + offset_xy, bbox.Max.Y + offset_xy, bbox.Max.Z + offset_z))\r\n                      \r\n    bbox_filter = BoundingBoxIntersectsFilter(outline)\r\n    \r\n    local_elements = FilteredElementCollector(doc).WherePasses(bbox_filter).WherePasses(filter_cats).ToElements()\r\n    \r\n    for elem in local_elements:\r\n        # ✨ 妹妹的絕對防護罩：不同樓層的絕對不碰！(保證樓上安全)\r\n        if elem.LevelId != room_level_id:\r\n            continue\r\n            \r\n        elem_type_id = elem.GetTypeId()\r\n        if elem_type_id != ElementId.InvalidElementId:\r\n            elem_type = doc.GetElement(elem_type_id)\r\n            type_name = elem_type.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString()\r\n            \r\n            # 只要名字裡有「塗層」兩個字，通通抓起來\r\n            if type_name and \"塗層\" in type_name:\r\n                if not ids_to_delete.Contains(elem.Id):\r\n                    ids_to_delete.Add(elem.Id)\r\n\r\n# 3. 執行安全大掃除！\r\nif ids_to_delete.Count > 0:\r\n    try:\r\n        doc.Delete(ids_to_delete)\r\n        del_count = ids_to_delete.Count\r\n    except Exception as e:\r\n        pass\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = {\r\n    \"🏆 狀態\": \"Ver 12.1 安全大掃除！樓上的鄰居安全了！\",\r\n    \"🗑️ 總共刪除的塗層數量\": del_count\r\n}",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "46e9c4e54e31417993477df61ed85a52",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "eac30b7677cc475d8c8c4ff0553de1bf",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 253.0,
+      "WatchHeight": 40.0,
+      "Id": "ebb02401a6de4b67be263b9892213ecb",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "4d6accb200aa44d0b7d32b6a54e421fa",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "613b34ecace54fa283d3c2f66bc2d0b1",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 262.3999999999999,
+      "SerializedHeight": 59.2,
+      "Id": "a64b0f7dd92b441e8b57b4bab3aa0a1b",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d7cd6e6e607d48849215549cd1b9f37e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "把目前視圖所有房間的塗層粉刷全部刪除"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "7a38c5f7886943909a37cacef67bc471",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "f5d1d5fa96284a9fa73ff55053c02a38",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "eac30b7677cc475d8c8c4ff0553de1bf",
+      "End": "4d6accb200aa44d0b7d32b6a54e421fa",
+      "Id": "07ebfbc2a0a84c8e9e400d8da84c89c2",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "46e9c4e54e31417993477df61ed85a52",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "ebb02401a6de4b67be263b9892213ecb",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 908.0,
+        "Y": 103.0
+      },
+      {
+        "Id": "a64b0f7dd92b441e8b57b4bab3aa0a1b",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 156.80000000000007,
+        "Y": 322.4000000000001
+      },
+      {
+        "Id": "7a38c5f7886943909a37cacef67bc471",
+        "Name": "是否刪除原有塗層",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 329.6292153345164,
+        "Y": 62.29560924891936
+      }
+    ],
+    "Annotations": [],
+    "X": 51.080430600798366,
+    "Y": 85.62761903583964,
+    "Zoom": 1.2203641850718214
+  }
+}

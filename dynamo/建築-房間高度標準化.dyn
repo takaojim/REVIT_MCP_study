@@ -1,0 +1,245 @@
+{
+  "Uuid": "618c1070-ca15-4d53-bb86-e94bf6d1e908",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-房間高度標準化",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "5c9e2a7473f746d5981cf409a04a4e22",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "把所有房間高度調到直上樓層其限制偏移，基準偏移都為0",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "cb1d8903a4de48d5a28f0f8ad5104e8b",
+      "Name": "未放置房間是否刪除",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\n# 引用 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 引用 Revit 服務\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得目前的檔案與文件\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 接收輸入參數 ---\r\n# IN[0] 接 Boolean (True = 刪除未放置房間 / False = 不刪除)\r\nshould_delete_unplaced = IN[0]\r\n\r\n# 1. 抓取專案中所有「房間」\r\nroom_collector = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType()\r\nrooms = room_collector.ToElements()\r\n\r\n# 2. 抓取所有「樓層」並依高程排序\r\nlevel_collector = FilteredElementCollector(doc).OfClass(Level).WhereElementIsNotElementType()\r\nsorted_levels = sorted(level_collector.ToElements(), key=lambda lvl: lvl.Elevation)\r\n\r\n# 開始執行交易\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\ndeleted_count = 0\r\nprocessed_count = 0\r\n\r\nfor room in rooms:\r\n    # --- 邏輯 A：處理未放置或無面積的房間 ---\r\n    if room.Location is None or room.Area <= 0:\r\n        if should_delete_unplaced:\r\n            doc.Delete(room.Id)\r\n            deleted_count += 1\r\n        continue\r\n    \r\n    # --- 邏輯 B：處理正常房間的高程約束 ---\r\n    base_level = room.Level\r\n    if not base_level:\r\n        continue\r\n    \r\n    current_idx = -1\r\n    for i, lvl in enumerate(sorted_levels):\r\n        if lvl.Id == base_level.Id:\r\n            current_idx = i\r\n            break\r\n    \r\n    # 尋找直上層\r\n    if current_idx != -1 and current_idx < len(sorted_levels) - 1:\r\n        next_level = sorted_levels[current_idx + 1]\r\n        \r\n        # 取得參數並執行修改\r\n        upper_limit_param = room.get_Parameter(BuiltInParameter.ROOM_UPPER_LEVEL)\r\n        limit_offset_param = room.get_Parameter(BuiltInParameter.ROOM_UPPER_OFFSET)\r\n        base_offset_param = room.get_Parameter(BuiltInParameter.ROOM_LOWER_OFFSET)\r\n        \r\n        if upper_limit_param and not upper_limit_param.IsReadOnly:\r\n            upper_limit_param.Set(next_level.Id)\r\n        if limit_offset_param and not limit_offset_param.IsReadOnly:\r\n            limit_offset_param.Set(0.0)\r\n        if base_offset_param and not base_offset_param.IsReadOnly:\r\n            base_offset_param.Set(0.0)\r\n            \r\n        processed_count += 1\r\n\r\n# 結束交易\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 輸出結果回報\r\nstatus = \"【小明哥專業版腳本】\\n\"\r\nstatus += f\"● 已更新高程約束：{processed_count} 個房間\\n\"\r\nif should_delete_unplaced:\r\n    status += f\"● 已清理未放置房間：{deleted_count} 個\"\r\nelse:\r\n    status += \"● 本次執行未開啟清理功能\"\r\n\r\nOUT = status",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "25add01269934f37a9a2385071c91e54",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "a7bdebff98c444a38a5c9984f3573f12",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "3a69e52a7add43188fb7006a54d6b3d2",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 335.2,
+      "WatchHeight": 200.0,
+      "Id": "2976e3d5e9094fb085d493d8a263f98e",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "09f5684d046944cd80b1d51ad05a258b",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5dc12458ccd449468a41d006e4a0fa05",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 262.3999999999999,
+      "SerializedHeight": 59.2,
+      "Id": "5c9e2a7473f746d5981cf409a04a4e22",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "014befd7d6644b7f9014b3bac9428ee7",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "把所有房間高度調到直上樓層其限制偏移，基準偏移都為0"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "cb1d8903a4de48d5a28f0f8ad5104e8b",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "9d5c83ece53d4ac49be6e0597676c85a",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "3a69e52a7add43188fb7006a54d6b3d2",
+      "End": "09f5684d046944cd80b1d51ad05a258b",
+      "Id": "4970803b4a3e432a8da63b9a29149f12",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "9d5c83ece53d4ac49be6e0597676c85a",
+      "End": "a7bdebff98c444a38a5c9984f3573f12",
+      "Id": "fee6ef35ae4146f68d507539ae06d902",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "25add01269934f37a9a2385071c91e54",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "2976e3d5e9094fb085d493d8a263f98e",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 908.0,
+        "Y": 103.0
+      },
+      {
+        "Id": "5c9e2a7473f746d5981cf409a04a4e22",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 156.80000000000007,
+        "Y": 322.4000000000001
+      },
+      {
+        "Id": "cb1d8903a4de48d5a28f0f8ad5104e8b",
+        "Name": "未放置房間是否刪除",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 351.2000000000001,
+        "Y": 136.79999999999998
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

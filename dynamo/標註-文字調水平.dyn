@@ -1,0 +1,313 @@
+{
+  "Uuid": "30190e39-1b55-4b7a-a7d2-8bacfa213621",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "標註-文字調水平",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "45b2a62a09b64ecfa797b91ff54a4619",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "因為角度的不同會產生文字的角度由所不同安排文字的角度變水平\r\n",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "c89f2ddf97c849c18ed02c3a7ecd8ccc",
+      "Name": "選取要重新安排的尺寸",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "160392c6-19b1-4459-80c7-257827179a14-000d29b5,160392c6-19b1-4459-80c7-257827179a14-000d29ba,160392c6-19b1-4459-80c7-257827179a14-000d29bb,160392c6-19b1-4459-80c7-257827179a14-000d29bc,160392c6-19b1-4459-80c7-257827179a14-000d29bd,160392c6-19b1-4459-80c7-257827179a14-000d29be,160392c6-19b1-4459-80c7-257827179a14-000d29bf,160392c6-19b1-4459-80c7-257827179a14-000d29c0,160392c6-19b1-4459-80c7-257827179a14-000d29c1,160392c6-19b1-4459-80c7-257827179a14-000d29c2,160392c6-19b1-4459-80c7-257827179a14-000d29c3,160392c6-19b1-4459-80c7-257827179a14-000d29c4,160392c6-19b1-4459-80c7-257827179a14-000d29c5,160392c6-19b1-4459-80c7-257827179a14-000d29c6,160392c6-19b1-4459-80c7-257827179a14-000d29c7,160392c6-19b1-4459-80c7-257827179a14-000d29c8,160392c6-19b1-4459-80c7-257827179a14-000d29c9,160392c6-19b1-4459-80c7-257827179a14-000d29ca,160392c6-19b1-4459-80c7-257827179a14-000d29cb,160392c6-19b1-4459-80c7-257827179a14-000d29cc,160392c6-19b1-4459-80c7-257827179a14-000d29cd,160392c6-19b1-4459-80c7-257827179a14-000d29ce,160392c6-19b1-4459-80c7-257827179a14-000d29cf,160392c6-19b1-4459-80c7-257827179a14-000d29d0,160392c6-19b1-4459-80c7-257827179a14-000d29d1,160392c6-19b1-4459-80c7-257827179a14-000d29d2,160392c6-19b1-4459-80c7-257827179a14-000d29d3,160392c6-19b1-4459-80c7-257827179a14-000d29d4,160392c6-19b1-4459-80c7-257827179a14-000d29d5,160392c6-19b1-4459-80c7-257827179a14-000d29d6,160392c6-19b1-4459-80c7-257827179a14-000d29d7,160392c6-19b1-4459-80c7-257827179a14-000d29d8,160392c6-19b1-4459-80c7-257827179a14-000d29d9,160392c6-19b1-4459-80c7-257827179a14-000d29da,160392c6-19b1-4459-80c7-257827179a14-000d29db,160392c6-19b1-4459-80c7-257827179a14-000d29dc,160392c6-19b1-4459-80c7-257827179a14-000d29dd,160392c6-19b1-4459-80c7-257827179a14-000d29de,160392c6-19b1-4459-80c7-257827179a14-000d29df,160392c6-19b1-4459-80c7-257827179a14-000d29e0,160392c6-19b1-4459-80c7-257827179a14-000d29e1,160392c6-19b1-4459-80c7-257827179a14-000d29e2,160392c6-19b1-4459-80c7-257827179a14-000d29e3,160392c6-19b1-4459-80c7-257827179a14-000d29e4,160392c6-19b1-4459-80c7-257827179a14-000d29e5,160392c6-19b1-4459-80c7-257827179a14-000d29e6,160392c6-19b1-4459-80c7-257827179a14-000d29e7,160392c6-19b1-4459-80c7-257827179a14-000d29e8,160392c6-19b1-4459-80c7-257827179a14-000d29e9,160392c6-19b1-4459-80c7-257827179a14-000d29ea,160392c6-19b1-4459-80c7-257827179a14-000d29eb,160392c6-19b1-4459-80c7-257827179a14-000d29ec,160392c6-19b1-4459-80c7-257827179a14-000d29ed,160392c6-19b1-4459-80c7-257827179a14-000d29ee,160392c6-19b1-4459-80c7-257827179a14-000d29ef,160392c6-19b1-4459-80c7-257827179a14-000d29f0,160392c6-19b1-4459-80c7-257827179a14-000d29f1,160392c6-19b1-4459-80c7-257827179a14-000d29f2,160392c6-19b1-4459-80c7-257827179a14-000d29f3",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "062caf7c99184742bff0da33d49e4201",
+      "Name": "Watch",
+      "Type": "string",
+      "InitialValue": "妹妹報告：採用小明哥的「原地重建大法」！成功將 59 個文字轉回水平 0 度！",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 載入 Revit Services\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得目前的 Revit 文件\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 取得輸入的元素\r\nelements = UnwrapElement(IN[0])\r\n\r\n# 確保輸入是扁平清單，避免框選時的巢狀結構報錯\r\ndef flatten(lst):\r\n    res = []\r\n    for i in lst:\r\n        if isinstance(i, list) or isinstance(i, tuple):\r\n            res.extend(flatten(i))\r\n        else:\r\n            res.append(i)\r\n    return res\r\n\r\nif isinstance(elements, list) or isinstance(elements, tuple):\r\n    elements = flatten(elements)\r\nelse:\r\n    elements = [elements]\r\n\r\n# 開啟交易\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nreplaced_count = 0\r\nerror_count = 0\r\n\r\nfor elem in elements:\r\n    if elem:\r\n        try:\r\n            # 確認是文字註釋\r\n            if elem.GetType().Name == \"TextNote\":\r\n                \r\n                # 1. 記住舊文字的所有重要屬性\r\n                text_str = elem.Text                  # 文字內容\r\n                location = elem.Coord                 # 插入點座標\r\n                type_id = elem.GetTypeId()            # 文字類型 (字體、大小等)\r\n                view_id = elem.OwnerViewId            # 所屬視圖 ID\r\n                \r\n                # 2. 在同一個視圖、同一個位置，用同一個文字類型，建立全新的文字\r\n                # 預設建立出來的文字絕對是 0 度水平的\r\n                TextNote.Create(doc, view_id, location, text_str, type_id)\r\n                \r\n                # 3. 毀屍滅跡 (刪除原本傾斜的舊文字)\r\n                doc.Delete(elem.Id)\r\n                \r\n                replaced_count += 1\r\n                \r\n        except Exception as e:\r\n            error_count += 1\r\n            pass # 如果有鎖定 (Pinned) 或其他權限問題，先略過\r\n\r\n# 結束交易\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 輸出執行結果\r\nif error_count == 0:\r\n    OUT = f\"妹妹報告：採用小明哥的「原地重建大法」！成功將 {replaced_count} 個文字轉回水平 0 度！\"\r\nelse:\r\n    OUT = f\"妹妹報告：成功重建 {replaced_count} 個文字。但有 {error_count} 個處理失敗 (可能被圖釘鎖定了)。\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "6c5029959cef4bee8d50ce2a28b4c9ad",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "1f6ec2ab53324c98a738a6e6561bae20",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "30858a9cf2c94c7d8e359353aae58ae5",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 312.8,
+      "WatchHeight": 40.0,
+      "Id": "062caf7c99184742bff0da33d49e4201",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "35ee829d4b2444109e94a4f390898156",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "5245a932b2ae4f8fa1bb125b0b2ea82a",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 239.19999999999996,
+      "SerializedHeight": 156.79999999999993,
+      "Id": "45b2a62a09b64ecfa797b91ff54a4619",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "2231bd84611c43b198fda4ee5280b98a",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "因為角度的不同會產生文字的角度由所不同安排文字的角度變水平\r\n"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementsSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "160392c6-19b1-4459-80c7-257827179a14-000d29b5",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ba",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29bb",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29bc",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29bd",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29be",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29bf",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c0",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c1",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c2",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c3",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c4",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c5",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c6",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c7",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c8",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29c9",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ca",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29cb",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29cc",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29cd",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ce",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29cf",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d0",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d1",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d2",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d3",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d4",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d5",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d6",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d7",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d8",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29d9",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29da",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29db",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29dc",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29dd",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29de",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29df",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e0",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e1",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e2",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e3",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e4",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e5",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e6",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e7",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e8",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29e9",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ea",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29eb",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ec",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ed",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ee",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29ef",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29f0",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29f1",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29f2",
+        "160392c6-19b1-4459-80c7-257827179a14-000d29f3"
+      ],
+      "Id": "c89f2ddf97c849c18ed02c3a7ecd8ccc",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "cb3c7e3d1cdc44569ca4efffd8459921",
+          "Name": "Elements",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從 Revit 文件中選取多個元素。"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "30858a9cf2c94c7d8e359353aae58ae5",
+      "End": "35ee829d4b2444109e94a4f390898156",
+      "Id": "a2dc55b4bf894a658b1847cf04a92506",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "cb3c7e3d1cdc44569ca4efffd8459921",
+      "End": "1f6ec2ab53324c98a738a6e6561bae20",
+      "Id": "38a1e924158840b989862c8e0b5c4c33",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "6c5029959cef4bee8d50ce2a28b4c9ad",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 797.0,
+        "Y": 318.0
+      },
+      {
+        "Id": "062caf7c99184742bff0da33d49e4201",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1055.0,
+        "Y": 321.0
+      },
+      {
+        "Id": "45b2a62a09b64ecfa797b91ff54a4619",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 368.3437222617802,
+        "Y": 181.30278780745073
+      },
+      {
+        "Id": "c89f2ddf97c849c18ed02c3a7ecd8ccc",
+        "Name": "選取要重新安排的尺寸",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 422.92056149299003,
+        "Y": 465.4994368631381
+      }
+    ],
+    "Annotations": [],
+    "X": -172.36168049287733,
+    "Y": -19.03007035232548,
+    "Zoom": 0.8033215934625977
+  }
+}

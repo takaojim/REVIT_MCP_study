@@ -1,0 +1,239 @@
+{
+  "Uuid": "8fcacbc5-4b48-48eb-8c24-45d1628638e9",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "明細-欄位暫時獨立編號",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "ed8525cf6d6c4668bf0629ab15726e78",
+      "Name": "要排序的欄位",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "類型標記",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "ed8525cf6d6c4668bf0629ab15726e78",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "146591d3275a4f279d5871c66ed3263e",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "類型標記"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\n# IN[0]: 要重新編號的目標欄位 (例如 \"類型標記\")\r\nif len(IN) < 1 or not IN[0]:\r\n    OUT = \"⚠️ 錯誤：小明哥哥，請給妹妹 IN[0] (要處理的欄位名稱) 喔！\"\r\nelse:\r\n    param_name = IN[0]\r\n    prefix = \"T\" # 小明指定的臨時前置字母\r\n\r\n    # 超強大參數尋找器：無視唯讀分身\r\n    def get_writable_param(element, p_name):\r\n        params = element.GetParameters(p_name)\r\n        for p in params:\r\n            if not p.IsReadOnly:\r\n                return p\r\n        return None\r\n\r\n    if isinstance(active_view, ViewSchedule):\r\n        elements = list(FilteredElementCollector(doc, active_view.Id).WhereElementIsNotElementType().ToElements())\r\n        TransactionManager.Instance.EnsureInTransaction(doc)\r\n        \r\n        count = 1\r\n        processed_types = []\r\n        \r\n        for el in elements:\r\n            target_param = None\r\n            is_type_param = False\r\n            \r\n            # 先找實體，找不到就去挖類型\r\n            p_inst = get_writable_param(el, param_name)\r\n            if p_inst:\r\n                target_param = p_inst\r\n            else:\r\n                tid = el.GetTypeId()\r\n                if tid != ElementId.InvalidElementId:\r\n                    etype = doc.GetElement(tid)\r\n                    if etype:\r\n                        p_type = get_writable_param(etype, param_name)\r\n                        if p_type:\r\n                            target_param = p_type\r\n                            is_type_param = True\r\n                            \r\n            if not target_param:\r\n                continue\r\n                \r\n            # 如果是類型參數，確保每個「類型」只發一次臨時編號\r\n            if is_type_param:\r\n                tid = el.GetTypeId()\r\n                if tid in processed_types:\r\n                    continue\r\n                processed_types.append(tid)\r\n\r\n            # 執行寫入：賦予絕對獨立的 T 編號\r\n            try:\r\n                target_param.Set(prefix + str(count))\r\n                count += 1\r\n            except:\r\n                pass\r\n                    \r\n        TransactionManager.Instance.TransactionTaskDone()\r\n        \r\n        OUT = \"【臨時獨立編號大成功】！成功為「{}」欄位產生了 {} 個不重複的 T 編號！現在可以安心去排序囉！優呵！啾咪！\".format(param_name, count - 1)\r\n    else:\r\n        OUT = \"錯誤：小明哥哥，請記得切換到明細表視窗喔！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "529e8e717b8a4316bd1910748eb6b453",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "177d996e0fa64d258b35e07303dbed29",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "3c68d3475a714d3aa52c882cea66e4d6",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 420.0,
+      "WatchHeight": 40.0,
+      "Id": "4fea09d2427d41b186e17fa54425f0ad",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "eb960fc27cc1403586ccb2fe80b592a2",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "ecaeda17c37d476e8c501e2802b5153a",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "7eb723396eaa42d686c8a0fa61b8d96c",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "12ee7cd68e3944caa3ff3f3096fe63da",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "門:類型標記\r\n窗:類型標記\r\n範圍:編號"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "146591d3275a4f279d5871c66ed3263e",
+      "End": "177d996e0fa64d258b35e07303dbed29",
+      "Id": "c5d050bc9e984540bf0f2f843cf2bc44",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "3c68d3475a714d3aa52c882cea66e4d6",
+      "End": "eb960fc27cc1403586ccb2fe80b592a2",
+      "Id": "eec1b67f99e142af8fe7bfc8c34c833b",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "ed8525cf6d6c4668bf0629ab15726e78",
+        "Name": "要排序的欄位",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 295.0,
+        "Y": 148.0
+      },
+      {
+        "Id": "529e8e717b8a4316bd1910748eb6b453",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "4fea09d2427d41b186e17fa54425f0ad",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 908.0,
+        "Y": 103.0
+      },
+      {
+        "Id": "7eb723396eaa42d686c8a0fa61b8d96c",
+        "Name": "說明",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 348.0,
+        "Y": 349.0
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

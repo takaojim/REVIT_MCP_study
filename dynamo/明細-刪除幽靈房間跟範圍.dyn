@@ -1,0 +1,191 @@
+{
+  "Uuid": "f671e4f4-7101-4dbe-98c7-ca90aea15b02",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "明細-刪除幽靈房間跟範圍",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "4d4e10e5c00140e6ae9a96f03dc4197d",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "刪除幽靈的房間及範圍",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import FilteredElementCollector, BuiltInCategory, SpatialElement\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得目前的 Revit 檔案\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 直接使用 Revit API 抓取專案中所有的房間 (Rooms) 與面積 (Areas)\r\nrooms = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms).WhereElementIsNotElementType().ToElements()\r\nareas = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Areas).WhereElementIsNotElementType().ToElements()\r\n\r\n# 將房間與面積的清單合併\r\nall_spatial_elements = list(rooms) + list(areas)\r\n\r\ndeleted_count = 0\r\n\r\n# 開啟 Transaction 進行修改\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor item in all_spatial_elements:\r\n    try:\r\n        # 確保是 SpatialElement\r\n        if isinstance(item, SpatialElement):\r\n            # 判斷是否為未放置 (Location 為 None) 或是未正確圍合 (Area 為 0)\r\n            if item.Area == 0 or item.Location is None:\r\n                doc.Delete(item.Id)\r\n                deleted_count += 1\r\n    except Exception as e:\r\n        pass\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 輸出結果，不需要再設定任何 IN 輸入\r\nOUT = f\"清理完成！自動抓取並刪除了 {deleted_count} 個未放置的房間與面積。\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "b7e0fd163c2643c1a5c1e5922efd4597",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "dfc33b4118de4efc9afd57125ac6df67",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 230.4,
+      "WatchHeight": 40.0,
+      "Id": "100ab31f4db94d6eb7cf8890fad4b2e5",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "7deefda43da8494c86b5ddb0758ebdf4",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "0211cbbcedcb4bc688e289009ac67b86",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "4d4e10e5c00140e6ae9a96f03dc4197d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "accb4d8d6d8f44a49cc3d79d860cfd68",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "刪除幽靈的房間及範圍"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "dfc33b4118de4efc9afd57125ac6df67",
+      "End": "7deefda43da8494c86b5ddb0758ebdf4",
+      "Id": "a11e85548fb94245b0ec853dea7ab63d",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.7.0.11777",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "b7e0fd163c2643c1a5c1e5922efd4597",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "100ab31f4db94d6eb7cf8890fad4b2e5",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 908.0,
+        "Y": 103.0
+      },
+      {
+        "Id": "4d4e10e5c00140e6ae9a96f03dc4197d",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 272.0,
+        "Y": 424.0
+      }
+    ],
+    "Annotations": [],
+    "X": 0.0,
+    "Y": 0.0,
+    "Zoom": 1.0
+  }
+}

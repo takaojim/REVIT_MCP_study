@@ -1,0 +1,317 @@
+{
+  "Uuid": "c4874390-a966-498e-b8d0-55c02699188f",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "敷地-地形-坵塊圖",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "5be5d740d3fc4e539ab64062c1095536",
+      "Name": "String",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "25x25坵塊圖A",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "76e9921f4d9c429aa29fc370b2b09be8",
+      "Name": "Select Model Element",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "e3e3855a-b588-4a73-a51d-bf8f641156fc-000c52f2",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "f5b391a4089547aa919a21266f1481e9",
+      "Name": "坵塊圖邊長",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "25",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "5be5d740d3fc4e539ab64062c1095536",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "480a1cd6e581463b998abb87f2559a41",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "25x25坵塊圖A"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "e3e3855a-b588-4a73-a51d-bf8f641156fc-000c52f2"
+      ],
+      "Id": "76e9921f4d9c429aa29fc370b2b09be8",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "70cccd7d4888466cbb68aba567fc8be7",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\n\r\n# 載入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# 容差與輸入\r\nMIN_TOLERANCE = 0.0053 \r\nfam_name = IN[0]  # \"25x25坵塊圖A\"\r\nterrain = UnwrapElement(IN[1])\r\n# 【PRO 升級】：讀取 IN[2] 作為邊長，若無輸入則預設為 25\r\nL_meters = float(IN[2]) if IN[2] is not None else 25.0\r\n\r\n# --- 純數學 2D 交點判定 ---\r\ndef ccw(A, B, C):\r\n    return (C.Y - A.Y) * (B.X - A.X) > (B.Y - A.Y) * (C.X - A.X)\r\n\r\ndef intersect_2d(A, B, C, D):\r\n    return ccw(A, C, D) != ccw(B, C, D) and ccw(A, B, C) != ccw(A, B, D)\r\n\r\ndef get_inter_count(boundary_pts, contours_pts):\r\n    if not boundary_pts: return 0\r\n    pA, pB = boundary_pts\r\n    count = 0\r\n    for pC, pD in contours_pts:\r\n        if intersect_2d(pA, pB, pC, pD):\r\n            count += 1\r\n    return count\r\n\r\n# --- 1. 取得視圖專屬等高線 ---\r\nopt = Options()\r\nopt.View = doc.ActiveView\r\ngeo = terrain.get_Geometry(opt)\r\n\r\ndef extract_flat_contours(geom_elem):\r\n    result = []\r\n    if geom_elem is None: return result\r\n    for g in geom_elem:\r\n        if isinstance(g, Solid): continue\r\n        elif isinstance(g, GeometryInstance):\r\n            result.extend(extract_flat_contours(g.GetInstanceGeometry()))\r\n        elif isinstance(g, Curve):\r\n            p1, p2 = g.GetEndPoint(0), g.GetEndPoint(1)\r\n            p1_f, p2_f = XYZ(p1.X, p1.Y, 0), XYZ(p2.X, p2.Y, 0)\r\n            if p1_f.DistanceTo(p2_f) > MIN_TOLERANCE: result.append((p1_f, p2_f))\r\n        elif isinstance(g, PolyLine):\r\n            pts = g.GetCoordinates()\r\n            for i in range(pts.Count - 1):\r\n                p1_f, p2_f = XYZ(pts[i].X, pts[i].Y, 0), XYZ(pts[i+1].X, pts[i+1].Y, 0)\r\n                if p1_f.DistanceTo(p2_f) > MIN_TOLERANCE: result.append((p1_f, p2_f))\r\n    return result\r\n\r\nflat_contours = extract_flat_contours(geo)\r\n\r\n# --- 2. 處理族群 ---\r\ncollector = FilteredElementCollector(doc).OfClass(FamilyInstance)\r\ninstances = [i for i in collector if i.Symbol.Family.Name == fam_name]\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\nprocessed_count = 0\r\ng_opt = Options()\r\ng_opt.DetailLevel = ViewDetailLevel.Fine\r\n\r\nfor inst in instances:\r\n    rot = inst.Location.Rotation\r\n    inst_geo = inst.get_Geometry(g_opt)\r\n    edge_lines = []\r\n    \r\n    for g_obj in inst_geo:\r\n        if isinstance(g_obj, GeometryInstance):\r\n            for e in g_obj.GetInstanceGeometry():\r\n                if isinstance(e, Curve):\r\n                    p1, p2 = e.GetEndPoint(0), e.GetEndPoint(1)\r\n                    p1_f, p2_f = XYZ(p1.X, p1.Y, 0), XYZ(p2.X, p2.Y, 0)\r\n                    if p1_f.DistanceTo(p2_f) > MIN_TOLERANCE:\r\n                        edge_lines.append((p1_f, p2_f, p1_f.DistanceTo(p2_f)))\r\n\r\n    if len(edge_lines) >= 4:\r\n        edge_lines.sort(key=lambda x: x[2], reverse=True)\r\n        top_4 = edge_lines[:4]\r\n        cx = sum((l[0].X + l[1].X)/2.0 for l in top_4)/4.0\r\n        cy = sum((l[0].Y + l[1].Y)/2.0 for l in top_4)/4.0\r\n        \r\n        line_A, line_B, line_C, line_D = None, None, None, None\r\n        for l in top_4:\r\n            mx, my = (l[0].X + l[1].X)/2.0, (l[0].Y + l[1].Y)/2.0\r\n            lx = (mx-cx)*math.cos(-rot)-(my-cy)*math.sin(-rot)\r\n            ly = (mx-cx)*math.sin(-rot)+(my-cy)*math.cos(-rot)\r\n            ang = math.degrees(math.atan2(ly, lx)) % 360\r\n            if 45 <= ang < 135: line_A = (l[0], l[1])     # 上\r\n            elif 135 <= ang < 225: line_D = (l[0], l[1])   # 左\r\n            elif 225 <= ang < 315: line_C = (l[0], l[1])   # 下\r\n            else: line_B = (l[0], l[1])                  # 右\r\n\r\n        # --- 3. 計算與寫入 ---\r\n        vA, vB, vC, vD = [get_inter_count(line, flat_contours) for line in [line_A, line_B, line_C, line_D]]\r\n        vN = vA + vB + vC + vD\r\n        slope = (vN * math.pi) / (8.0 * L_meters) * 100.0 if L_meters > 0 else 0\r\n        \r\n        if slope < 5: lvl = \"1\"\r\n        elif slope < 15: lvl = \"2\"\r\n        elif slope < 30: lvl = \"3\"\r\n        elif slope < 40: lvl = \"4\"\r\n        elif slope < 55: lvl = \"5\"\r\n        else: lvl = \"6\"\r\n        \r\n        # 寫入文字參數\r\n        data = {\"A\":vA, \"B\":vB, \"C\":vC, \"D\":vD, \"N\":vN, \"S\":\"{:.2f}%\".format(slope), \"級坡\":lvl}\r\n        for k, v in data.items():\r\n            p = inst.LookupParameter(k)\r\n            if p: p.Set(str(v))\r\n        processed_count += 1\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\nOUT = \"哥哥，邊長設定為 \" + str(L_meters) + \"m，已處理 \" + str(processed_count) + \" 個坵塊！\"",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "a587fbf7947545a9a0e5fdff7e604620",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "ecf3906893474eec9f7e7ae244a15f29",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "bc2122609a404c92b6869c929b611a82",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "b110fcdefded40838d411a355ce9780c",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "86487e99bc274cf7b67e74f6b005f9a2",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 215.0,
+      "WatchHeight": 40.0,
+      "Id": "27aa441e1e73497a8f34de2fd21eddce",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "d2c99787a69544bc8a0b54033fe634ac",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "326f5a443c0749dfba0abc255d34232d",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "f5b391a4089547aa919a21266f1481e9",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "75f34b65557c4dd6923c96f3555bb66e",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 25.0
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "480a1cd6e581463b998abb87f2559a41",
+      "End": "ecf3906893474eec9f7e7ae244a15f29",
+      "Id": "88dffd7a686a469fa3a89be26b23da3b",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "70cccd7d4888466cbb68aba567fc8be7",
+      "End": "bc2122609a404c92b6869c929b611a82",
+      "Id": "f48c57588e2d44c381580db8774441b9",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "86487e99bc274cf7b67e74f6b005f9a2",
+      "End": "d2c99787a69544bc8a0b54033fe634ac",
+      "Id": "fb982862fb2e4864b8ee1492596027c0",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "75f34b65557c4dd6923c96f3555bb66e",
+      "End": "b110fcdefded40838d411a355ce9780c",
+      "Id": "750a8b5720fd4374865ab6d0d73e6a38",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "5be5d740d3fc4e539ab64062c1095536",
+        "Name": "String",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 359.0,
+        "Y": 239.0
+      },
+      {
+        "Id": "76e9921f4d9c429aa29fc370b2b09be8",
+        "Name": "Select Model Element",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 354.37235091132436,
+        "Y": 391.6195756755691
+      },
+      {
+        "Id": "a587fbf7947545a9a0e5fdff7e604620",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 772.0,
+        "Y": 299.0
+      },
+      {
+        "Id": "27aa441e1e73497a8f34de2fd21eddce",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 1071.0,
+        "Y": 102.0
+      },
+      {
+        "Id": "f5b391a4089547aa919a21266f1481e9",
+        "Name": "坵塊圖邊長",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 362.99083877973135,
+        "Y": 556.4899937154939
+      }
+    ],
+    "Annotations": [],
+    "X": -156.6223474779748,
+    "Y": 33.39768793051712,
+    "Zoom": 0.8887892282971558
+  }
+}

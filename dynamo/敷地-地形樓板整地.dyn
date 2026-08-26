@@ -1,0 +1,427 @@
+{
+  "Uuid": "c1da9756-108a-402d-bfd0-dbd858c836b0",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "敷地-地形樓板整地",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "54408b67098d416badfc79b2cd480d52",
+      "Name": "選一個地形",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "f4e70ee6-664f-478e-9ced-e074c31aa4d1-000c646b",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "3bd81eea958944f289f76cd6f331ffb9",
+      "Name": "選一個樓板",
+      "Type": "selection",
+      "Type2": "hostSelection",
+      "Value": "f4e70ee6-664f-478e-9ced-e074c31aa4d1-000c6472",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "Id": "9e5108778eb04754a2cc090f0588d157",
+      "Name": "填土坡度",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "45",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "7ed9441854634e669798472d217b194c",
+      "Name": "細分間距",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "100",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    },
+    {
+      "Id": "639da610151349108bb6a4fe474f44a9",
+      "Name": "開挖坡度",
+      "Type": "number",
+      "Type2": "number",
+      "Value": "45",
+      "NumberType": "Double",
+      "Description": "建立一個數字。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport math\r\nimport traceback\r\n\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitNodes')\r\nimport Revit\r\nclr.ImportExtensions(Revit.GeometryConversion)\r\nclr.ImportExtensions(Revit.Elements)\r\n\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\n\r\n# --- 輸入參數 ---\r\ntopo_solid = UnwrapElement(IN[0])\r\nfloor = UnwrapElement(IN[1])\r\nfill_angle_deg = IN[2]\r\ncut_angle_deg = IN[3]\r\nspacing_cm = IN[4]\r\n\r\nspacing_ft = spacing_cm * 0.0328084\r\nfill_angle_rad = math.radians(fill_angle_deg)\r\ncut_angle_rad = math.radians(cut_angle_deg)\r\n\r\ndebug_log = [\"=== 宇宙無敵放坡腳本 V20.PRO (盛裝打扮・完美無瑕版) ===\"]\r\n\r\ntry:\r\n    view3D = None\r\n    for v in FilteredElementCollector(doc).OfClass(View3D).WhereElementIsNotElementType():\r\n        if not v.IsTemplate and not v.IsAssemblyView:\r\n            view3D = v\r\n            break\r\n            \r\n    topo_intersector = ReferenceIntersector(topo_solid.Id, FindReferenceTarget.Face, view3D)\r\n    top_faces = [floor.GetGeometryObjectFromReference(ref) for ref in HostObjectUtils.GetTopFaces(floor)]\r\n    \r\n    bbox = topo_solid.get_BoundingBox(None)\r\n    topo_min_z = bbox.Min.Z\r\n    topo_max_z = bbox.Max.Z\r\n\r\n    # --------------------------------------------------------\r\n    # [Phase 1] 抓出樓板真正外輪廓\r\n    # --------------------------------------------------------\r\n    boundary_curves = []\r\n    edge_tracker = {}\r\n    for face in top_faces:\r\n        for loop in face.GetEdgesAsCurveLoops():\r\n            for curve in loop:\r\n                p0, p1 = curve.Evaluate(0, True), curve.Evaluate(1, True)\r\n                if p0.X < p1.X or (abs(p0.X - p1.X) < 0.001 and p0.Y < p1.Y) or (abs(p0.X - p1.X) < 0.001 and abs(p0.Y - p1.Y) < 0.001 and p0.Z < p1.Z):\r\n                    k_start, k_end = p0, p1\r\n                else: k_start, k_end = p1, p0\r\n                key = \"{:.3f}_{:.3f}_{:.3f}_to_{:.3f}_{:.3f}_{:.3f}\".format(k_start.X, k_start.Y, k_start.Z, k_end.X, k_end.Y, k_end.Z)\r\n                if key not in edge_tracker: edge_tracker[key] = [curve]\r\n                else: edge_tracker[key].append(curve)\r\n\r\n    for key, curves in edge_tracker.items():\r\n        if len(curves) == 1: boundary_curves.append(curves[0])\r\n\r\n    edge_points_xyz = []\r\n    daylight_points_xyz = []\r\n\r\n    # --------------------------------------------------------\r\n    # [👗 Phase 1.5] 穿上衣服！完美的陽角分角線 (確保轉角鑽石級平滑)\r\n    # --------------------------------------------------------\r\n    try:\r\n        all_loops = []\r\n        for face in top_faces:\r\n            for loop in face.GetEdgesAsCurveLoops():\r\n                all_loops.append(loop)\r\n        if all_loops:\r\n            outer_loop = max(all_loops, key=lambda l: sum(c.Length for c in l))\r\n            c_curves = [c for c in outer_loop]\r\n            \r\n            pts_area = [c.GetEndPoint(0) for c in c_curves]\r\n            area = sum(pts_area[k].X * pts_area[(k+1)%len(pts_area)].Y - pts_area[(k+1)%len(pts_area)].X * pts_area[k].Y for k in range(len(pts_area)))\r\n            if area < 0:\r\n                c_curves.reverse()\r\n                c_curves = [c.CreateReversed() for c in c_curves]\r\n                \r\n            for k in range(len(c_curves)):\r\n                prev_c = c_curves[(k-1)%len(c_curves)]\r\n                curr_c = c_curves[k]\r\n                \r\n                p_corner = curr_c.GetEndPoint(0)\r\n                p_prev = prev_c.GetEndPoint(0)\r\n                p_next = curr_c.GetEndPoint(1)\r\n                \r\n                e_in = XYZ(p_corner.X - p_prev.X, p_corner.Y - p_prev.Y, 0).Normalize()\r\n                e_out = XYZ(p_next.X - p_corner.X, p_next.Y - p_corner.Y, 0).Normalize()\r\n                n_in = XYZ(e_in.Y, -e_in.X, 0)\r\n                n_out = XYZ(e_out.Y, -e_out.X, 0)\r\n                \r\n                n_bis = XYZ(n_in.X + n_out.X, n_in.Y + n_out.Y, 0)\r\n                n_bis = n_bis.Normalize() if n_bis.GetLength() > 0.001 else n_in\r\n                cos_beta = max(0.01, n_in.DotProduct(n_bis))\r\n                \r\n                ray_fill = XYZ(n_bis.X, n_bis.Y, -cos_beta * math.tan(fill_angle_rad)).Normalize()\r\n                ray_cut = XYZ(n_bis.X, n_bis.Y, cos_beta * math.tan(cut_angle_rad)).Normalize()\r\n                \r\n                res_fill = topo_intersector.FindNearest(p_corner, ray_fill)\r\n                res_cut = topo_intersector.FindNearest(p_corner, ray_cut)\r\n                \r\n                valid_res = None\r\n                if res_fill and not res_cut: valid_res = res_fill\r\n                elif res_cut and not res_fill: valid_res = res_cut\r\n                elif res_fill and res_cut: valid_res = res_fill if res_fill.Proximity < res_cut.Proximity else res_cut\r\n                \r\n                if valid_res:\r\n                    D = valid_res.GetReference().GlobalPoint\r\n                    sky_D = XYZ(D.X, D.Y, D.Z + 10000)\r\n                    res_sky = topo_intersector.FindNearest(sky_D, XYZ.BasisZ.Negate())\r\n                    if res_sky and abs(D.Z - res_sky.GetReference().GlobalPoint.Z) < 0.2:\r\n                        edge_points_xyz.append(p_corner)\r\n                        daylight_points_xyz.append(D)\r\n    except Exception as ex: pass\r\n    \r\n    # --------------------------------------------------------\r\n    # [Phase 2] 精準雷射定位 C點與D點 (沿著邊緣放點)\r\n    # --------------------------------------------------------\r\n    def check_C_in(pt):\r\n        return topo_intersector.FindNearest(XYZ(pt.X, pt.Y, pt.Z + 10000), XYZ.BasisZ.Negate()) is not None\r\n\r\n    def get_D_status(param, curve):\r\n        pt = curve.Evaluate(param, True)\r\n        transform = curve.ComputeDerivatives(param, True)\r\n        outward_vec = XYZ(transform.BasisX.Y, -transform.BasisX.X, 0).Normalize()\r\n        ray_fill = XYZ(outward_vec.X, outward_vec.Y, -math.tan(fill_angle_rad)).Normalize()\r\n        ray_cut = XYZ(outward_vec.X, outward_vec.Y, math.tan(cut_angle_rad)).Normalize()\r\n        res_fill = topo_intersector.FindNearest(pt, ray_fill)\r\n        res_cut = topo_intersector.FindNearest(pt, ray_cut)\r\n        valid_res = res_fill if res_fill and not res_cut else res_cut if res_cut and not res_fill else res_fill if res_fill and res_cut and res_fill.Proximity < res_cut.Proximity else res_cut if res_fill and res_cut else None\r\n        if not valid_res: return False, None \r\n        D = valid_res.GetReference().GlobalPoint\r\n        res_sky = topo_intersector.FindNearest(XYZ(D.X, D.Y, D.Z + 10000), XYZ.BasisZ.Negate())\r\n        if res_sky and abs(D.Z - res_sky.GetReference().GlobalPoint.Z) < 0.2: return True, D\r\n        return False, D\r\n\r\n    for curve in boundary_curves:\r\n        num_points = max(2, int(curve.Length / spacing_ft) + 1)\r\n        prev_C_in, prev_D_on_top, prev_param = None, None, None\r\n        for i in range(num_points):\r\n            param = i / float(num_points - 1)\r\n            pt = curve.Evaluate(param, True)\r\n            curr_C_in = check_C_in(pt)\r\n            curr_D_on_top, curr_D_pt = get_D_status(param, curve)\r\n\r\n            if i > 0:\r\n                if curr_C_in != prev_C_in:\r\n                    low, high = (prev_param, param) if prev_C_in else (param, prev_param)\r\n                    for _ in range(12):\r\n                        mid = (low + high) / 2.0\r\n                        if check_C_in(curve.Evaluate(mid, True)): low = mid\r\n                        else: high = mid\r\n                    edge_points_xyz.append(curve.Evaluate(low, True))\r\n                if curr_D_on_top != prev_D_on_top:\r\n                    low, high = (prev_param, param) if prev_D_on_top else (param, prev_param)\r\n                    for _ in range(12):\r\n                        mid = (low + high) / 2.0\r\n                        on_top, _ = get_D_status(mid, curve)\r\n                        if on_top: low = mid\r\n                        else: high = mid\r\n                    _, D_cross = get_D_status(low, curve)\r\n                    if D_cross: daylight_points_xyz.append(D_cross)\r\n\r\n            if curr_C_in: edge_points_xyz.append(pt)\r\n            if curr_D_on_top: daylight_points_xyz.append(curr_D_pt)\r\n            prev_C_in, prev_D_on_top, prev_param = curr_C_in, curr_D_on_top, param\r\n\r\n    # --------------------------------------------------------\r\n    # [Phase 3] 執行基礎熨平 (只壓平樓板底下，外圍自然放坡！)\r\n    # --------------------------------------------------------\r\n    shape_editor = topo_solid.GetSlabShapeEditor()\r\n    TransactionManager.Instance.EnsureInTransaction(doc)\r\n    ironed_points = 0\r\n\r\n    for vertex in shape_editor.SlabShapeVertices:\r\n        V_3d = vertex.Position\r\n        if abs(V_3d.Z - topo_min_z) < 0.5: continue\r\n        \r\n        # 僅壓平樓板正下方，外圍天然點交給 Revit 自動連接 C 與 D！\r\n        for face in top_faces:\r\n            res = face.Project(V_3d)\r\n            if res: \r\n                safe_floor_z = max(topo_min_z + 0.5, res.XYZPoint.Z)\r\n                if abs(V_3d.Z - safe_floor_z) > 0.01:\r\n                    shape_editor.ModifySubElement(vertex, safe_floor_z)\r\n                    ironed_points += 1\r\n                break\r\n\r\n    # --------------------------------------------------------\r\n    # [Phase 4] 打下乾淨的放坡邊界鋼釘\r\n    # --------------------------------------------------------\r\n    final_pts = edge_points_xyz + daylight_points_xyz\r\n    for pt in final_pts:\r\n        try:\r\n            if hasattr(shape_editor, 'DrawPoint'): shape_editor.DrawPoint(pt)\r\n            else: shape_editor.AddPoint(pt)\r\n        except: pass\r\n\r\n    TransactionManager.Instance.TransactionTaskDone()\r\n    debug_log.append(\"=== V20.PRO 破關！完美盛裝版執行完畢！ ===\")\r\n    debug_log.append(\"成功定位 {} 顆邊界點與放坡點！\".format(len(final_pts)))\r\n    debug_log.append(\"壓平樓板下方天然點: {} 顆 (無多餘雜訊生成)\".format(ironed_points))\r\n\r\nexcept Exception as e:\r\n    try: TransactionManager.Instance.ForceCloseTransaction()\r\n    except: pass\r\n    debug_log.append(\"!!! 發生錯誤 !!!\")\r\n    debug_log.append(traceback.format_exc())\r\n\r\nOUT = debug_log",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "de2d27dcb4074a9ebaf59286db7bfb63",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "6f8106b329ae48d6abf4af17b92a3835",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "31ad84c569eb473081cf7430fb6daf1b",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "2fd764dacf1d4204b3c0627557564546",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6304e61753e647e3a06453f255df491d",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "fe4596a528004fa6b46751668134f3dc",
+          "Name": "IN[4]",
+          "Description": "Input #4",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "0193bd57063347a8b40eb004d3b3f3e3",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "f4e70ee6-664f-478e-9ced-e074c31aa4d1-000c646b"
+      ],
+      "Id": "54408b67098d416badfc79b2cd480d52",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "dc65173e2b54497b8ff709388f77650b",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "Dynamo.Nodes.DSModelElementSelection, DSRevitNodesUI",
+      "NodeType": "ExtensionNode",
+      "InstanceId": [
+        "f4e70ee6-664f-478e-9ced-e074c31aa4d1-000c6472"
+      ],
+      "Id": "3bd81eea958944f289f76cd6f331ffb9",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "16e0fd9906d1427c90b622298ee46c4c",
+          "Name": "Element",
+          "Description": "選取的元素。",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "從文件中選取模型元素。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "9e5108778eb04754a2cc090f0588d157",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "8ddd06efe17545d1b9580009c3a11936",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 45.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "7ed9441854634e669798472d217b194c",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "6498d5819be34089be273b97aa1cfed8",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 100.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NumberType": "Double",
+      "Id": "639da610151349108bb6a4fe474f44a9",
+      "NodeType": "NumberInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "22692b21897842eead4558d8e0e16420",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。",
+      "InputValue": 45.0
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 40.0,
+      "Id": "897d8d3e4b4548509d31b4304b7b9d73",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "99a1a2ecb47e41e2be88989ea1343b2b",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "b214598aeef345cd98a8a8da34696971",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "0193bd57063347a8b40eb004d3b3f3e3",
+      "End": "99a1a2ecb47e41e2be88989ea1343b2b",
+      "Id": "e930ed382e214f2682b81ff39ae25ed2",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "dc65173e2b54497b8ff709388f77650b",
+      "End": "6f8106b329ae48d6abf4af17b92a3835",
+      "Id": "77ed8943f6454404803528130ffab163",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "16e0fd9906d1427c90b622298ee46c4c",
+      "End": "31ad84c569eb473081cf7430fb6daf1b",
+      "Id": "d452e788daa14f0c9119bc3792cd2573",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "8ddd06efe17545d1b9580009c3a11936",
+      "End": "2fd764dacf1d4204b3c0627557564546",
+      "Id": "47537aaa76ae494eb398506eb82066ea",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "6498d5819be34089be273b97aa1cfed8",
+      "End": "fe4596a528004fa6b46751668134f3dc",
+      "Id": "53220b8eb2b14dd5b0d5ad3a04bbf59e",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "22692b21897842eead4558d8e0e16420",
+      "End": "6304e61753e647e3a06453f255df491d",
+      "Id": "6eb0fca31bea465f911ab17eada4c9ad",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "de2d27dcb4074a9ebaf59286db7bfb63",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 574.0,
+        "Y": 139.0
+      },
+      {
+        "Id": "54408b67098d416badfc79b2cd480d52",
+        "Name": "選一個地形",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 198.0,
+        "Y": 64.0
+      },
+      {
+        "Id": "3bd81eea958944f289f76cd6f331ffb9",
+        "Name": "選一個樓板",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 196.90010091766374,
+        "Y": 246.0
+      },
+      {
+        "Id": "9e5108778eb04754a2cc090f0588d157",
+        "Name": "填土坡度",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 236.0,
+        "Y": 406.0
+      },
+      {
+        "Id": "7ed9441854634e669798472d217b194c",
+        "Name": "細分間距",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 235.0,
+        "Y": 661.0
+      },
+      {
+        "Id": "639da610151349108bb6a4fe474f44a9",
+        "Name": "開挖坡度",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 232.0,
+        "Y": 528.0
+      },
+      {
+        "Id": "897d8d3e4b4548509d31b4304b7b9d73",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 887.6831467501398,
+        "Y": 76.79414677549767
+      }
+    ],
+    "Annotations": [],
+    "X": 178.87115503707093,
+    "Y": 86.41449495816519,
+    "Zoom": 0.8887892282971559
+  }
+}

@@ -1,0 +1,365 @@
+{
+  "Uuid": "93ee61d2-164f-4a2b-afa2-f0fdc5ba708d",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "視圖-修改視圖名稱",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "9dea261e63be4db59c978ac1c3c5e646",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "在專案瀏覽器之中選你要的視圖批次修改名稱",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "a3af1765f2c94a9dbaf46040c98a090d",
+      "Name": "前面加字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "28f2166f54f2431c9f7d3c36bfd50d72",
+      "Name": "新的文字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "-二次",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "04efa8d573924b1cb551147f5915eaa7",
+      "Name": "被替換的字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": " 複製 1",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "b82c522c36a942fd878d4a1c6769bc8c",
+      "Name": "後面加字",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "",
+      "Description": "建立一個字串。"
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\n\r\n# 匯入 Revit API\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\n# 匯入 Revit UI API (為了抓取選取項)\r\nclr.AddReference('RevitAPIUI')\r\nfrom Autodesk.Revit.UI import *\r\n\r\n# 匯入 Revit 服務\r\nclr.AddReference('RevitServices')\r\nimport RevitServices\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\n\r\n# 取得目前的文檔與介面\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nuidoc = DocumentManager.Instance.CurrentUIApplication.ActiveUIDocument\r\n\r\n# 讀取輸入的字串 (如果沒有輸入或是 null，就當作空字串處理)\r\nprefix_str = IN[0] if IN[0] else \"\"\r\nsuffix_str = IN[1] if IN[1] else \"\"\r\ntarget_str = IN[2] if IN[2] else \"\"\r\nreplace_str = IN[3] if IN[3] else \"\"\r\n\r\n# 抓取目前專案瀏覽器中被選取的元素 ID\r\nselection_ids = uidoc.Selection.GetElementIds()\r\n\r\nrenamed_views = []\r\nfailed_views = []\r\n\r\n# 開啟交易 (Transaction)\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfor eid in selection_ids:\r\n    element = doc.GetElement(eid)\r\n    \r\n    # 判斷選取的是否為「視圖」(View)，並且排除掉「視圖樣板」(View Template)\r\n    if isinstance(element, View) and not element.IsTemplate:\r\n        current_name = element.Name\r\n        new_name = current_name\r\n        \r\n        # 1. 先執行字串置換 (如果有指定要被置換的字串)\r\n        if target_str != \"\":\r\n            new_name = new_name.replace(target_str, replace_str)\r\n            \r\n        # 2. 再加上前綴與後綴\r\n        new_name = prefix_str + new_name + suffix_str\r\n        \r\n        # 如果名稱有變動，才執行重新命名\r\n        if new_name != current_name:\r\n            try:\r\n                element.Name = new_name\r\n                renamed_views.append(new_name)\r\n            except Exception as e:\r\n                # Revit 不允許視圖名稱重複，如果遇到重複會報錯，這裡把它捕捉起來\r\n                failed_views.append(\"{} (錯誤: {})\".format(current_name, str(e)))\r\n\r\n# 結束交易\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\n# 輸出結果：告訴哥哥哪些成功了，哪些失敗了\r\nOUT = {\r\n    \"成功重命名的視圖\": renamed_views,\r\n    \"命名失敗的視圖 (可能名稱重複)\": failed_views\r\n}",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "c4bd06fade89440ca69c2b991a0b9ce0",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [
+        {
+          "Id": "add0d83b57ff41a9b57dea615946ba7d",
+          "Name": "IN[0]",
+          "Description": "Input #0",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "e19faa4b1ac94c7eac31a9f66b464145",
+          "Name": "IN[1]",
+          "Description": "Input #1",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "22810e8fd1ee4cb49b9c9e28fe84fb6b",
+          "Name": "IN[2]",
+          "Description": "Input #2",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "6d7d6b0bd9db4df88d33e4a000bc8d71",
+          "Name": "IN[3]",
+          "Description": "Input #3",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "3130c275236b4168b23df0f58bd2194b",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "9dea261e63be4db59c978ac1c3c5e646",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "b4f76d4bb4dd4f5c936f61541ba9261c",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "在專案瀏覽器之中選你要的視圖批次修改名稱"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "a3af1765f2c94a9dbaf46040c98a090d",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "486259c2826d4b31b800d01997b4afd5",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": ""
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "28f2166f54f2431c9f7d3c36bfd50d72",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "0010ed75853c4bcdaa3bec1d285e857d",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "-二次"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "04efa8d573924b1cb551147f5915eaa7",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "743532d2cbd4440a920d79b803de4bec",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": " 複製 1"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 0.0,
+      "SerializedHeight": 0.0,
+      "Id": "b82c522c36a942fd878d4a1c6769bc8c",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "791319de66e44d1e9200bed43bd25a10",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": ""
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "486259c2826d4b31b800d01997b4afd5",
+      "End": "add0d83b57ff41a9b57dea615946ba7d",
+      "Id": "67892a994c434ca8b1e19cfd6843a8e6",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "0010ed75853c4bcdaa3bec1d285e857d",
+      "End": "6d7d6b0bd9db4df88d33e4a000bc8d71",
+      "Id": "5c0f347dcab74a9dbe6751db098dfaa9",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "743532d2cbd4440a920d79b803de4bec",
+      "End": "22810e8fd1ee4cb49b9c9e28fe84fb6b",
+      "Id": "5a61c23e664442b6be8c1f70843158ef",
+      "IsHidden": "False"
+    },
+    {
+      "Start": "791319de66e44d1e9200bed43bd25a10",
+      "End": "e19faa4b1ac94c7eac31a9f66b464145",
+      "Id": "fe9649dfbb1643798151ec0894a90a02",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.1.9895",
+      "RunType": "Automatic",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "c4bd06fade89440ca69c2b991a0b9ce0",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 732.0,
+        "Y": 426.4
+      },
+      {
+        "Id": "9dea261e63be4db59c978ac1c3c5e646",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 143.19999999999993,
+        "Y": 188.79999999999998
+      },
+      {
+        "Id": "a3af1765f2c94a9dbaf46040c98a090d",
+        "Name": "前面加字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 361.04636117034835,
+        "Y": 371.9155134330372
+      },
+      {
+        "Id": "28f2166f54f2431c9f7d3c36bfd50d72",
+        "Name": "新的文字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 365.81370733689715,
+        "Y": 782.612659533532
+      },
+      {
+        "Id": "04efa8d573924b1cb551147f5915eaa7",
+        "Name": "被替換的字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 367.8463611703484,
+        "Y": 646.7155134330371
+      },
+      {
+        "Id": "b82c522c36a942fd878d4a1c6769bc8c",
+        "Name": "後面加字",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 367.8447303706311,
+        "Y": 517.9497980662055
+      }
+    ],
+    "Annotations": [],
+    "X": 93.36818374344034,
+    "Y": 52.21600822910801,
+    "Zoom": 0.8277025704411903
+  }
+}

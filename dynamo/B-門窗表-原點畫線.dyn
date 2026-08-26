@@ -1,0 +1,536 @@
+{
+  "Uuid": "1296cd13-c5ba-4494-90ae-afed4f2aa324",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "B-門窗表-原點畫線",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "600ad68d55d74619bbc4ad65a1e96f82",
+      "Name": "Number",
+      "Type": "number",
+      "Value": "-1000",
+      "NumberType": "Double",
+      "Description": "建立一個數字。",
+      "SelectedIndex": 0
+    }
+  ],
+  "Outputs": [],
+  "Nodes": [
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.DesignScript.Geometry.Point.ByCoordinates@double,double,double",
+      "Id": "23e80a2b5a37460b9941174579c0de73",
+      "Inputs": [
+        {
+          "Id": "528e9f0a550e45f1ad2b168c496ee260",
+          "Name": "x",
+          "Description": "X coordinate\n\ndouble\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "3b4fc11a06a54448b327c7459e2dcacf",
+          "Name": "y",
+          "Description": "Y coordinate\n\ndouble\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "00e5952b41924a63966684e2b15fa2a5",
+          "Name": "z",
+          "Description": "Z coordinate\n\ndouble\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "9c9f53eb683249e3b473322c0219af65",
+          "Name": "Point",
+          "Description": "Point created by coordinates",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "給與 3 個直角座標構成一個點\n\nPoint.ByCoordinates (x: double = 0, y: double = 0, z: double = 0): Point"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.DesignScript.Geometry.Line.ByStartPointEndPoint@Autodesk.DesignScript.Geometry.Point,Autodesk.DesignScript.Geometry.Point",
+      "Id": "72fcb9079e2742dab12719ecfba202ec",
+      "Inputs": [
+        {
+          "Id": "8835e0766709498c82fccfdecb4c0981",
+          "Name": "startPoint",
+          "Description": "Line start point\n\nPoint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "a9bbc5747d3845d792b3520a177dec74",
+          "Name": "endPoint",
+          "Description": "Line end point\n\nPoint",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "b0a847cc12074feab7f57850f5d2bb71",
+          "Name": "Line",
+          "Description": "Line from start and end point",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "在兩個輸入點之間建立直線。\n\nLine.ByStartPointEndPoint (startPoint: Point, endPoint: Point): Line"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CodeBlockNodeModel, DynamoCore",
+      "NodeType": "CodeBlockNode",
+      "Code": "0;",
+      "Id": "3d04ea3f884f49fcbdb69567daf01e2e",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "38c56e332ee14fd79dd75bbe6c1474d2",
+          "Name": "",
+          "Description": "表示式在第 1 行的值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "允許直接編寫 DesignScript 程式碼"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "DSCore.List.Transpose@var[]..[]",
+      "Id": "748687a5eba145d6bb487c48ed5f1d2f",
+      "Inputs": [
+        {
+          "Id": "e08a55c65ba14e8fa990a1b875beaf97",
+          "Name": "lists",
+          "Description": "要轉置的清單的清單\n\nvar[]..[]",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "48bbf012a8fe4ecf890df584c236f846",
+          "Name": "lists",
+          "Description": "已轉置清單的清單",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "置換清單的清單中的「列和欄」。 如果有某些列短於其他列， 空值會作為預留位置在結果 陣列中插入，以便其永遠為矩形。\n\nList.Transpose (lists: var[]..[]): var[]..[]"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Revit.Elements.DetailCurve.ByCurve@Revit.Elements.Views.View,Autodesk.DesignScript.Geometry.Curve",
+      "Id": "d9f6dcf60a814e1286aa73f7d675550d",
+      "Inputs": [
+        {
+          "Id": "49b7f25ece41453d8910d469af4b2ce5",
+          "Name": "view",
+          "Description": "要放置詳圖曲線的視圖\n\nView",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "56b98176841d4f2d8b7e59fa24e56926",
+          "Name": "curve",
+          "Description": "要從中建立 detailcurve 的曲線\n\nCurve",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "a9807d41a7204d4285dbbd9bc21f8b43",
+          "Name": "DetailCurve",
+          "Description": "DetailCurve",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "從曲線建構 Revit DetailCurve 元素\n\nDetailCurve.ByCurve (view: View, curve: Curve): DetailCurve"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.ZeroTouch.DSFunction, DynamoCore",
+      "NodeType": "FunctionNode",
+      "FunctionSignature": "Autodesk.DesignScript.Geometry.Point.ByCoordinates@double,double,double",
+      "Id": "15af1263438c44388c9901873096b0b0",
+      "Inputs": [
+        {
+          "Id": "a115a8874a0a4e539ce9c92a7e92e1fd",
+          "Name": "x",
+          "Description": "X coordinate\n\ndouble\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "bc9709f158094989bbd8be759a503a86",
+          "Name": "y",
+          "Description": "Y coordinate\n\ndouble\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        },
+        {
+          "Id": "75c6153607114d8bad139247d6dc22d7",
+          "Name": "z",
+          "Description": "Z coordinate\n\ndouble\n預設值 : 0",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e64adb715d3d4d369ec76ca3fb50d722",
+          "Name": "Point",
+          "Description": "Point created by coordinates",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "給與 3 個直角座標構成一個點\n\nPoint.ByCoordinates (x: double = 0, y: double = 0, z: double = 0): Point"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.DoubleInput, CoreNodeModels",
+      "NodeType": "NumberInputNode",
+      "NumberType": "Double",
+      "InputValue": -1000.0,
+      "Id": "600ad68d55d74619bbc4ad65a1e96f82",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "46db8f2f773e492f943326945da5354c",
+          "Name": "",
+          "Description": "Double",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個數字。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "NodeType": "ExtensionNode",
+      "Id": "08daa1024d0443d6ac574920601ae69c",
+      "Inputs": [
+        {
+          "Id": "6c8f4d53441b442582f534316939a3b0",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "e30172962d714bc09792489eeb969759",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "Dynamo.Graph.Nodes.CustomNodes.Function, DynamoCore",
+      "FunctionSignature": "58849545-7510-4baf-99da-98c0b1e184fd",
+      "FunctionType": "Graph",
+      "NodeType": "FunctionNode",
+      "Id": "26fb4f03f7c04d4b8e403f2fd108ebeb",
+      "Inputs": [
+        {
+          "Id": "520b6429e0124647a1c42137fba5dbb1",
+          "Name": "refresh",
+          "Description": "bool\n預設值 : true",
+          "UsingDefaultValue": true,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "90102b55325748dcb0806e0df9ae9e6d",
+          "Name": "view",
+          "Description": "傳回值",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Auto",
+      "Description": "Selects the current document's active view. Supports more view types than the built-in option.\r\nWill be depreciated once the bult in node works with all plan types."
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "9c9f53eb683249e3b473322c0219af65",
+      "End": "8835e0766709498c82fccfdecb4c0981",
+      "Id": "3bc719ab934946b690f32a8639801362"
+    },
+    {
+      "Start": "b0a847cc12074feab7f57850f5d2bb71",
+      "End": "e08a55c65ba14e8fa990a1b875beaf97",
+      "Id": "6aaef14e85e940f2951a87065697cf7d"
+    },
+    {
+      "Start": "38c56e332ee14fd79dd75bbe6c1474d2",
+      "End": "528e9f0a550e45f1ad2b168c496ee260",
+      "Id": "78a4de79ab464a8895c016cc3eae4fcb"
+    },
+    {
+      "Start": "38c56e332ee14fd79dd75bbe6c1474d2",
+      "End": "3b4fc11a06a54448b327c7459e2dcacf",
+      "Id": "67ab9b1adf794ba197637a4a6ab54ff4"
+    },
+    {
+      "Start": "48bbf012a8fe4ecf890df584c236f846",
+      "End": "56b98176841d4f2d8b7e59fa24e56926",
+      "Id": "24c077c23e3b415796f10e5be8e61bf6"
+    },
+    {
+      "Start": "e64adb715d3d4d369ec76ca3fb50d722",
+      "End": "a9bbc5747d3845d792b3520a177dec74",
+      "Id": "3d16dbd291ac464b9cf55d6a28b93097"
+    },
+    {
+      "Start": "46db8f2f773e492f943326945da5354c",
+      "End": "a115a8874a0a4e539ce9c92a7e92e1fd",
+      "Id": "9fd2e377d48a4938a3ed05de15b57310"
+    },
+    {
+      "Start": "46db8f2f773e492f943326945da5354c",
+      "End": "bc9709f158094989bbd8be759a503a86",
+      "Id": "55f1edc2b0154d2385b9a915d5e72fba"
+    },
+    {
+      "Start": "90102b55325748dcb0806e0df9ae9e6d",
+      "End": "6c8f4d53441b442582f534316939a3b0",
+      "Id": "1dfa4a6174c64714ad87adee7259dc56"
+    },
+    {
+      "Start": "90102b55325748dcb0806e0df9ae9e6d",
+      "End": "49b7f25ece41453d8910d469af4b2ce5",
+      "Id": "5e61f3be75624f8ba561261f1b4b81b6"
+    }
+  ],
+  "Dependencies": [
+    "58849545-7510-4baf-99da-98c0b1e184fd"
+  ],
+  "NodeLibraryDependencies": [
+    {
+      "Name": "spring nodes",
+      "Version": "210.1.1",
+      "ReferenceType": "Package",
+      "Nodes": [
+        "26fb4f03f7c04d4b8e403f2fd108ebeb"
+      ]
+    }
+  ],
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "Properties",
+      "Version": "2.12",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [
+    {
+      "NodeId": "d9f6dcf6-0a81-4e12-86aa-73f7d675550d",
+      "Binding": {
+        "ByCurve_InClassDecl-1_InFunctionScope-1_Instance0_d9f6dcf6-0a81-4e12-86aa-73f7d675550d": "PFNPQVAtRU5WOkVudmVsb3BlIHhtbG5zOnhzaT0iaHR0cDovL3d3dy53My5vcmcvMjAwMS9YTUxTY2hlbWEtaW5zdGFuY2UiIHhtbG5zOnhzZD0iaHR0cDovL3d3dy53My5vcmcvMjAwMS9YTUxTY2hlbWEiIHhtbG5zOlNPQVAtRU5DPSJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy9zb2FwL2VuY29kaW5nLyIgeG1sbnM6U09BUC1FTlY9Imh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3NvYXAvZW52ZWxvcGUvIiB4bWxuczpjbHI9Imh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vc29hcC9lbmNvZGluZy9jbHIvMS4wIiBTT0FQLUVOVjplbmNvZGluZ1N0eWxlPSJodHRwOi8vc2NoZW1hcy54bWxzb2FwLm9yZy9zb2FwL2VuY29kaW5nLyI+DQo8U09BUC1FTlY6Qm9keT4NCjxhMTpDYWxsU2l0ZV94MDAyQl9UcmFjZVNlcmlhbGlzZXJIZWxwZXIgaWQ9InJlZi0xIiB4bWxuczphMT0iaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS9jbHIvbnNhc3NlbS9Qcm90b0NvcmUvUHJvdG9Db3JlJTJDJTIwVmVyc2lvbiUzRDIuMTIuMC41NjUwJTJDJTIwQ3VsdHVyZSUzRG5ldXRyYWwlMkMlMjBQdWJsaWNLZXlUb2tlbiUzRG51bGwiPg0KPE51bWJlck9mRWxlbWVudHM+MTwvTnVtYmVyT2ZFbGVtZW50cz4NCjxCYXNlLTBfSGFzRGF0YT5mYWxzZTwvQmFzZS0wX0hhc0RhdGE+DQo8QmFzZS0wX0hhc05lc3RlZERhdGE+dHJ1ZTwvQmFzZS0wX0hhc05lc3RlZERhdGE+DQo8QmFzZS0wX05lc3RlZERhdGFDb3VudD4xPC9CYXNlLTBfTmVzdGVkRGF0YUNvdW50Pg0KPEJhc2UtMC0wX0hhc0RhdGE+dHJ1ZTwvQmFzZS0wLTBfSGFzRGF0YT4NCjxCYXNlLTAtMF9EYXRhIGlkPSJyZWYtMyI+UEZOUFFWQXRSVTVXT2tWdWRtVnNiM0JsSUhodGJHNXpPbmh6YVQwaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNUzlZVFV4VFkyaGxiV0V0YVc1emRHRnVZMlVpSUhodGJHNXpPbmh6WkQwaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNUzlZVFV4VFkyaGxiV0VpSUhodGJHNXpPbE5QUVZBdFJVNURQU0pvZEhSd09pOHZjMk5vWlcxaGN5NTRiV3h6YjJGd0xtOXlaeTl6YjJGd0wyVnVZMjlrYVc1bkx5SWdlRzFzYm5NNlUwOUJVQzFGVGxZOUltaDBkSEE2THk5elkyaGxiV0Z6TG5odGJITnZZWEF1YjNKbkwzTnZZWEF2Wlc1MlpXeHZjR1V2SWlCNGJXeHVjenBqYkhJOUltaDBkSEE2THk5elkyaGxiV0Z6TG0xcFkzSnZjMjltZEM1amIyMHZjMjloY0M5bGJtTnZaR2x1Wnk5amJISXZNUzR3SWlCVFQwRlFMVVZPVmpwbGJtTnZaR2x1WjFOMGVXeGxQU0pvZEhSd09pOHZjMk5vWlcxaGN5NTRiV3h6YjJGd0xtOXlaeTl6YjJGd0wyVnVZMjlrYVc1bkx5SStEUW84VTA5QlVDMUZUbFk2UW05a2VUNE5DanhoTVRwVFpYSnBZV3hwZW1GaWJHVkpaQ0JwWkQwaWNtVm1MVEVpSUhodGJHNXpPbUV4UFNKb2RIUndPaTh2YzJOb1pXMWhjeTV0YVdOeWIzTnZablF1WTI5dEwyTnNjaTl1YzJGemMyVnRMMUpsZG1sMFUyVnlkbWxqWlhNdVVHVnljMmx6ZEdWdVkyVXZVbVYyYVhSVFpYSjJhV05sY3lVeVF5VXlNRlpsY25OcGIyNGxNMFF5TGpFeUxqQXVOVGMwTUNVeVF5VXlNRU4xYkhSMWNtVWxNMFJ1WlhWMGNtRnNKVEpESlRJd1VIVmliR2xqUzJWNVZHOXJaVzRsTTBSdWRXeHNJajROQ2p4emRISnBibWRKUkNCcFpEMGljbVZtTFRNaVBqSmxZalEzWVRVd0xXSmpOVGd0TkdOaU1pMDVOVGcxTFRObE1EQTJPVGMyT0RCbU9DMHdNREJpWm1FME1Ud3ZjM1J5YVc1blNVUStEUW84YVc1MFNVUStOemcwT1RZeFBDOXBiblJKUkQ0TkNqd3ZZVEU2VTJWeWFXRnNhWHBoWW14bFNXUStEUW84TDFOUFFWQXRSVTVXT2tKdlpIaytEUW84TDFOUFFWQXRSVTVXT2tWdWRtVnNiM0JsUGcwSzwvQmFzZS0wLTBfRGF0YT4NCjxCYXNlLTAtMF9IYXNOZXN0ZWREYXRhPmZhbHNlPC9CYXNlLTAtMF9IYXNOZXN0ZWREYXRhPg0KPC9hMTpDYWxsU2l0ZV94MDAyQl9UcmFjZVNlcmlhbGlzZXJIZWxwZXI+DQo8L1NPQVAtRU5WOkJvZHk+DQo8L1NPQVAtRU5WOkVudmVsb3BlPg0K"
+      }
+    }
+  ],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "2.12.0.5650",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽",
+      "EyeX": -2111.510498046875,
+      "EyeY": 2293.05322265625,
+      "EyeZ": 10173.46875,
+      "LookX": 2106.510498046875,
+      "LookY": -2282.05322265625,
+      "LookZ": -10181.46875,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "NodeViews": [
+      {
+        "ShowGeometry": true,
+        "Name": "Point.ByCoordinates-1",
+        "Id": "23e80a2b5a37460b9941174579c0de73",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4453.8392152219994,
+        "Y": -1794.3195015699414
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Line.ByStartPointEndPoint",
+        "Id": "72fcb9079e2742dab12719ecfba202ec",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4788.3981949827448,
+        "Y": -1793.3749328265703
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Code Block",
+        "Id": "3d04ea3f884f49fcbdb69567daf01e2e",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4305.2370671506069,
+        "Y": -1817.1321639501841
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "List.Transpose",
+        "Id": "748687a5eba145d6bb487c48ed5f1d2f",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 5253.2924511206975,
+        "Y": -1845.7721584493479
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "DetailCurve.ByCurve",
+        "Id": "d9f6dcf60a814e1286aa73f7d675550d",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 5507.15108086562,
+        "Y": -1938.4503028067054
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Point.ByCoordinates-1",
+        "Id": "15af1263438c44388c9901873096b0b0",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4465.766562667699,
+        "Y": -1567.5323988870068
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Number",
+        "Id": "600ad68d55d74619bbc4ad65a1e96f82",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4294.7328390349739,
+        "Y": -1894.0140063030574
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "Watch",
+        "Id": "08daa1024d0443d6ac574920601ae69c",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 5214.08959036862,
+        "Y": -2180.9268691370216
+      },
+      {
+        "ShowGeometry": true,
+        "Name": "ꟿ Document.ActiveView",
+        "Id": "26fb4f03f7c04d4b8e403f2fd108ebeb",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "X": 4829.2761259823783,
+        "Y": -2041.1622285290537
+      }
+    ],
+    "Annotations": [],
+    "X": -5390.3364457786265,
+    "Y": 2612.6562140342494,
+    "Zoom": 1.150813420023056
+  }
+}

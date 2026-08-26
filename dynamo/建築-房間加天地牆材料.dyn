@@ -1,0 +1,237 @@
+{
+  "Uuid": "6152ee8d-a159-4e1e-9e7b-79e0e94ea30f",
+  "IsCustomNode": false,
+  "Description": "",
+  "Name": "建築-房間加天地牆材料",
+  "ElementResolver": {
+    "ResolutionMap": {}
+  },
+  "Inputs": [
+    {
+      "Id": "2dfa584cee2841d597dba71974b519f6",
+      "Name": "說明",
+      "Type": "string",
+      "Type2": "string",
+      "Value": "把目前視圖所有房間依照房間的塗層畫上粉刷",
+      "Description": "建立一個字串。"
+    },
+    {
+      "Id": "8421bf1dcbb34dee8d5463041e0a0928",
+      "Name": "是否刪除原有塗層",
+      "Type": "boolean",
+      "Type2": "boolean",
+      "Value": "true",
+      "Description": "啟用在 True 與 False 之間選取"
+    }
+  ],
+  "Outputs": [
+    {
+      "Id": "c9b8c084bd8c49f78c80257dbb313fcb",
+      "Name": "Watch",
+      "Type": "unknown",
+      "InitialValue": "",
+      "Description": "視覺化節點的輸出"
+    }
+  ],
+  "Nodes": [
+    {
+      "ConcreteType": "PythonNodeModels.PythonNode, PythonNodeModels",
+      "Code": "import clr\r\nimport sys\r\nimport math\r\nclr.AddReference('RevitAPI')\r\nfrom Autodesk.Revit.DB import *\r\n\r\nclr.AddReference('RevitServices')\r\nfrom RevitServices.Persistence import DocumentManager\r\nfrom RevitServices.Transactions import TransactionManager\r\nfrom System.Collections.Generic import List \r\n\r\n# ==========================================\r\n# Ver 12.2 - 無縫頂天・終極完美版\r\n# 1. 牆高修正：無樑處牆壁恢復 rel_ceil_h (不扣2cm)，有樑處維持 rel_beam_h。\r\n# 2. 智慧過濾：當塗層為「無」、「未設定」或空白時略過。\r\n# 3. 樑側外移：精準往「房間空間」外推 1cm 並下緣包底。\r\n# 4. 門窗接合：JoinGeometry 完美運作，洞口自動生成。\r\n# ==========================================\r\n__version__ = \"12.2.FlawlessVictory\"\r\n\r\ndoc = DocumentManager.Instance.CurrentDBDocument\r\nactive_view = doc.ActiveView\r\n\r\ndef get_fixed_thickness():\r\n    return 0.02 / 0.3048 # 統一厚度 2cm\r\n\r\ndef get_material_id(mat_name):\r\n    if not mat_name or mat_name == \"未設定\": return ElementId.InvalidElementId\r\n    for m in FilteredElementCollector(doc).OfClass(Material).ToElements():\r\n        if m.Name == mat_name: return m.Id\r\n    return ElementId.InvalidElementId \r\n\r\ndef get_or_create_type(base_type, mat_name, mat_id, thickness, is_wall=True, is_beamside=False):\r\n    safe_mat_name = mat_name.replace(\":\", \"-\").replace(\"/\", \"-\").replace(\"\\\\\", \"-\")\r\n    prefix = \"牆面塗層_\" if is_wall else \"樓板塗層_\"\r\n    if is_beamside: prefix = \"樑側塗層_\"\r\n    type_name = prefix + safe_mat_name + \"_2cm\"\r\n    \r\n    collector = FilteredElementCollector(doc).OfClass(WallType if is_wall else FloorType).ToElements()\r\n    for t in collector:\r\n        if is_wall and t.Kind != WallKind.Basic: continue\r\n        try:\r\n            if t.get_Parameter(BuiltInParameter.SYMBOL_NAME_PARAM).AsString() == type_name: return t\r\n        except: pass\r\n            \r\n    new_type = base_type.Duplicate(type_name)\r\n    cs = new_type.GetCompoundStructure()\r\n    if cs:\r\n        layer = CompoundStructureLayer(thickness, MaterialFunctionAssignment.Structure, mat_id)\r\n        new_layers = List[CompoundStructureLayer](); new_layers.Add(layer)\r\n        try: cs.SetLayers(new_layers); new_type.SetCompoundStructure(cs)\r\n        except: pass \r\n    return new_type\r\n\r\ndef flatten_to_z0(curve):\r\n    p0, p1 = curve.GetEndPoint(0), curve.GetEndPoint(1)\r\n    if isinstance(curve, Line): return Line.CreateBound(XYZ(p0.X, p0.Y, 0), XYZ(p1.X, p1.Y, 0))\r\n    elif isinstance(curve, Arc):\r\n        try: mid = curve.Evaluate(0.5, True); return Arc.Create(XYZ(p0.X, p0.Y, 0), XYZ(p1.X, p1.Y, 0), XYZ(mid.X, mid.Y, 0))\r\n        except: return Line.CreateBound(XYZ(p0.X, p0.Y, 0), XYZ(p1.X, p1.Y, 0))\r\n    return Line.CreateBound(XYZ(p0.X, p0.Y, 0), XYZ(p1.X, p1.Y, 0))\r\n\r\ndef to_z0(loop):\r\n    new_loop = CurveLoop()\r\n    for c in loop: new_loop.Append(flatten_to_z0(c))\r\n    if not new_loop.IsCounterclockwise(XYZ.BasisZ): \r\n        try: new_loop.Flip()\r\n        except: pass\r\n    return new_loop\r\n\r\ndef is_pt_in_polygon(pt, loops):\r\n    crossings = 0\r\n    for loop in loops:\r\n        for curve in loop:\r\n            pts = curve.Tessellate()\r\n            for i in range(len(pts)-1):\r\n                p0, p1 = pts[i], pts[i+1]\r\n                if p0.Y > p1.Y: p0, p1 = p1, p0\r\n                if pt.Y > p0.Y and pt.Y <= p1.Y:\r\n                    if p1.Y != p0.Y:\r\n                        x_int = p0.X + (pt.Y - p0.Y) * (p1.X - p0.X) / (p1.Y - p0.Y)\r\n                        if pt.X < x_int: crossings += 1\r\n    return (crossings % 2) != 0\r\n\r\ndef is_beam_side(curve, room_mold_loops):\r\n    mid_pt = curve.Evaluate(0.5, True)\r\n    min_dist = 9999\r\n    for loop in room_mold_loops:\r\n        for c in loop:\r\n            dist = c.Distance(mid_pt)\r\n            if dist < min_dist: min_dist = dist\r\n    return min_dist > 0.01 / 0.3048\r\n\r\ndef should_create_coating(mat_name):\r\n    if not mat_name: return False\r\n    val = mat_name.strip()\r\n    if val == \"\" or val == \"未設定\" or val == \"無\": return False\r\n    return True\r\n\r\nTransactionManager.Instance.EnsureInTransaction(doc)\r\n\r\nfixed_thk = get_fixed_thickness() # 2cm\r\nhalf_thk = fixed_thk / 2 # 1cm\r\nbase_wall_type = next((wt for wt in FilteredElementCollector(doc).OfClass(WallType).ToElements() if wt.Kind == WallKind.Basic), None)\r\nbase_floor_type = FilteredElementCollector(doc).OfClass(FloorType).FirstElement()\r\nrooms = FilteredElementCollector(doc, active_view.Id).OfCategory(BuiltInCategory.OST_Rooms).ToElements()\r\nall_levels = sorted(FilteredElementCollector(doc).OfClass(Level).ToElements(), key=lambda l: l.Elevation)\r\n\r\nopt = Options(); opt.DetailLevel = ViewDetailLevel.Fine\r\nw_cnt, f_cnt, c_cnt, b_cnt, bs_cnt = 0, 0, 0, 0, 0\r\n\r\nif base_wall_type and base_floor_type:\r\n    for room in rooms:\r\n        if room.Area <= 0: continue\r\n        \r\n        mat_wall_str = room.LookupParameter(\"牆面塗層\").AsString()\r\n        mat_floor_str = room.LookupParameter(\"樓板塗層\").AsString()\r\n        mat_ceil_str = room.LookupParameter(\"天花板塗層\").AsString()\r\n        \r\n        do_wall = should_create_coating(mat_wall_str)\r\n        do_floor = should_create_coating(mat_floor_str)\r\n        do_ceil = should_create_coating(mat_ceil_str)\r\n        \r\n        if do_wall:\r\n            t_wall = get_or_create_type(base_wall_type, mat_wall_str, get_material_id(mat_wall_str), fixed_thk, True, False)\r\n        if do_ceil:\r\n            t_beamside = get_or_create_type(base_wall_type, mat_ceil_str, get_material_id(mat_ceil_str), fixed_thk, True, True)\r\n            t_ceiling = get_or_create_type(base_floor_type, mat_ceil_str, get_material_id(mat_ceil_str), fixed_thk, False)\r\n        if do_floor:\r\n            t_floor = get_or_create_type(base_floor_type, mat_floor_str, get_material_id(mat_floor_str), fixed_thk, False)\r\n        \r\n        level_id = room.LevelId\r\n        abs_level_z = doc.GetElement(level_id).Elevation\r\n        next_level = next((lvl for lvl in all_levels if lvl.Elevation > abs_level_z + 0.1), None)\r\n        rel_ceil_h = (next_level.Elevation - abs_level_z - 0.15/0.3048) if next_level else 3.0/0.3048\r\n        \r\n        # 1. 建立房間母體 \r\n        room_mold = List[CurveLoop]()\r\n        room_raw_loops = List[CurveLoop]()\r\n        boundaries = room.GetBoundarySegments(SpatialElementBoundaryOptions())\r\n        if not boundaries: continue\r\n        for seg_list in boundaries:\r\n            curves = List[Curve]()\r\n            for seg in seg_list: curves.Add(seg.GetCurve())\r\n            raw_l = to_z0(CurveLoop.Create(curves))\r\n            room_raw_loops.Add(raw_l)\r\n            try: room_mold.Add(CurveLoop.CreateViaOffset(raw_l, -fixed_thk, XYZ.BasisZ))\r\n            except: pass\r\n            \r\n        if room_mold.Count == 0: continue\r\n\r\n        if do_floor:\r\n            Floor.Create(doc, room_mold, t_floor.Id, level_id).get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM).Set(fixed_thk)\r\n            f_cnt += 1\r\n\r\n        # 2. 抓原始混凝土樑投影 \r\n        room_bbox = room.get_BoundingBox(None)\r\n        outline = Outline(XYZ(room_bbox.Min.X - 0.5/0.3048, room_bbox.Min.Y - 0.5/0.3048, room_bbox.Min.Z + 1.0/0.3048), \r\n                          XYZ(room_bbox.Max.X + 0.5/0.3048, room_bbox.Max.Y + 0.5/0.3048, room_bbox.Min.Z + 5.0/0.3048))\r\n        local_beams = FilteredElementCollector(doc).WherePasses(BoundingBoxIntersectsFilter(outline)).WherePasses(ElementMulticategoryFilter(List[BuiltInCategory]([BuiltInCategory.OST_StructuralFraming, BuiltInCategory.OST_GenericModel]))).ToElements()\r\n        \r\n        beam_footprints = []\r\n        room_beams_info = []\r\n        for beam in local_beams:\r\n            geom = beam.get_Geometry(opt)\r\n            solids = [obj for obj in geom if isinstance(obj, Solid) and obj.Volume > 0]\r\n            if geom:\r\n                for obj in geom:\r\n                    if isinstance(obj, GeometryInstance): solids.extend([s for s in obj.GetInstanceGeometry() if isinstance(s, Solid) and s.Volume > 0])\r\n            for solid in solids:\r\n                for face in solid.Faces:\r\n                    if isinstance(face, PlanarFace) and face.FaceNormal.Z < -0.9:\r\n                        beam_footprints.append(to_z0(face.GetEdgesAsCurveLoops()[0]))\r\n                        room_beams_info.append(face.Origin.Z)\r\n\r\n        rel_beam_h = (min(room_beams_info) - abs_level_z) if room_beams_info else rel_ceil_h\r\n\r\n        # 3. 3D 碰撞生成紫黃塗層\r\n        room_solid = None\r\n        for loop in room_mold:\r\n            s = GeometryCreationUtilities.CreateExtrusionGeometry(List[CurveLoop]([loop]), XYZ.BasisZ, 1.0)\r\n            if room_solid is None: room_solid = s\r\n            else: room_solid = BooleanOperationsUtils.ExecuteBooleanOperation(room_solid, s, BooleanOperationsType.Union)\r\n\r\n        if do_ceil and room_solid:\r\n            merged_beam_solid = None\r\n            for b_loop in beam_footprints:\r\n                b_s = GeometryCreationUtilities.CreateExtrusionGeometry(List[CurveLoop]([b_loop]), XYZ.BasisZ, 1.0)\r\n                if merged_beam_solid is None: merged_beam_solid = b_s\r\n                else: merged_beam_solid = BooleanOperationsUtils.ExecuteBooleanOperation(merged_beam_solid, b_s, BooleanOperationsType.Union)\r\n            \r\n            if merged_beam_solid:\r\n                p_solid = BooleanOperationsUtils.ExecuteBooleanOperation(room_solid, merged_beam_solid, BooleanOperationsType.Intersect)\r\n                if p_solid and p_solid.Volume > 0:\r\n                    for face in p_solid.Faces:\r\n                        if isinstance(face, PlanarFace) and face.FaceNormal.Z < -0.9:\r\n                            loops = face.GetEdgesAsCurveLoops()\r\n                            Floor.Create(doc, loops, t_ceiling.Id, level_id).get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM).Set(rel_beam_h)\r\n                            b_cnt += 1\r\n                            \r\n                            bs_bottom_z = rel_beam_h - fixed_thk\r\n                            bs_h = rel_ceil_h - bs_bottom_z\r\n                            for p_loop in loops:\r\n                                for c in p_loop:\r\n                                    if is_beam_side(c, room_mold):\r\n                                        p0, p1 = c.GetEndPoint(0), c.GetEndPoint(1)\r\n                                        v = XYZ(p1.X-p0.X, p1.Y-p0.Y, 0).Normalize()\r\n                                        n = XYZ(-v.Y, v.X, 0)\r\n                                        mid_pt = XYZ((p0.X+p1.X)/2, (p0.Y+p1.Y)/2, 0)\r\n                                        test_p = XYZ(mid_pt.X + n.X*0.05, mid_pt.Y + n.Y*0.05, 0)\r\n                                        if is_pt_in_polygon(test_p, List[CurveLoop]([p_loop])): \r\n                                            n = XYZ(-n.X, -n.Y, 0) \r\n                                            \r\n                                        final_c = Line.CreateBound(XYZ(p0.X+n.X*half_thk, p0.Y+n.Y*half_thk, 0), XYZ(p1.X+n.X*half_thk, p1.Y+n.Y*half_thk, 0))\r\n                                        Wall.Create(doc, final_c, t_beamside.Id, level_id, bs_h, bs_bottom_z, False, False)\r\n                                        bs_cnt += 1\r\n\r\n                y_solid = BooleanOperationsUtils.ExecuteBooleanOperation(room_solid, merged_beam_solid, BooleanOperationsType.Difference)\r\n                if y_solid and y_solid.Volume > 0:\r\n                    for face in y_solid.Faces:\r\n                        if isinstance(face, PlanarFace) and face.FaceNormal.Z < -0.9:\r\n                            Floor.Create(doc, face.GetEdgesAsCurveLoops(), t_ceiling.Id, level_id).get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM).Set(rel_ceil_h)\r\n                            c_cnt += 1\r\n            else:\r\n                Floor.Create(doc, room_mold, t_ceiling.Id, level_id).get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM).Set(rel_ceil_h)\r\n                c_cnt += 1\r\n\r\n        # 🚀 5. 牆面生成 \r\n        if do_wall:\r\n            for seg_list in boundaries:\r\n                for seg in seg_list:\r\n                    c = seg.GetCurve()\r\n                    host_id = seg.ElementId\r\n                    \r\n                    p0, p1 = c.GetEndPoint(0), c.GetEndPoint(1)\r\n                    v = XYZ(p1.X-p0.X, p1.Y-p0.Y, 0).Normalize()\r\n                    n = XYZ(-v.Y, v.X, 0) # 指向房間內\r\n                    \r\n                    w_curve = Line.CreateBound(XYZ(p0.X+n.X*half_thk, p0.Y+n.Y*half_thk, 0), XYZ(p1.X+n.X*half_thk, p1.Y+n.Y*half_thk, 0))\r\n                    \r\n                    mid_pt = w_curve.Evaluate(0.5, True)\r\n                    \r\n                    # ✨ 修正：一般牆壁直接頂天到 rel_ceil_h (不扣 2cm了！)\r\n                    wall_h = rel_ceil_h \r\n                    \r\n                    # ✨ 只有在「頭上有樑」的時候，才降高到 rel_beam_h\r\n                    if is_pt_in_polygon(mid_pt, beam_footprints):\r\n                        wall_h = rel_beam_h \r\n                    \r\n                    try:\r\n                        w1 = Wall.Create(doc, w_curve, t_wall.Id, level_id, wall_h, 0.0, False, False)\r\n                        w_cnt += 1\r\n                        \r\n                        if host_id != ElementId.InvalidElementId:\r\n                            host_wall = doc.GetElement(host_id)\r\n                            if isinstance(host_wall, Wall):\r\n                                JoinGeometryUtils.JoinGeometry(doc, w1, host_wall)\r\n                    except: pass\r\n\r\nTransactionManager.Instance.TransactionTaskDone()\r\n\r\nOUT = {\r\n    \"🏆 狀態\": \"Ver 12.2 無縫頂天版！牆高缺口已完美修復！\",\r\n    \"牆面 (無縫接頂)\": w_cnt,\r\n    \"天花與樑塗層\": b_cnt + bs_cnt + c_cnt,\r\n    \"地板\": f_cnt\r\n}",
+      "Engine": "CPython3",
+      "VariableInputPorts": true,
+      "Id": "96f90c7774844c808e7c0cbdd4d78509",
+      "NodeType": "PythonScriptNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "913cc66caa154337b467f4b2018ba082",
+          "Name": "OUT",
+          "Description": "Python 指令碼的結果",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "執行嵌入的 Python 指令碼。"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Watch, CoreNodeModels",
+      "WatchWidth": 200.0,
+      "WatchHeight": 40.0,
+      "Id": "c9b8c084bd8c49f78c80257dbb313fcb",
+      "NodeType": "ExtensionNode",
+      "Inputs": [
+        {
+          "Id": "6bee7deb1a7342f9a491df92fa3eac88",
+          "Name": "",
+          "Description": "要顯示其輸出的節點",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Outputs": [
+        {
+          "Id": "2ca1b6526b3b4734bbdec6d4fba59041",
+          "Name": "",
+          "Description": "節點輸出",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "視覺化節點的輸出"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.StringInput, CoreNodeModels",
+      "SerializedWidth": 262.3999999999999,
+      "SerializedHeight": 59.2,
+      "Id": "2dfa584cee2841d597dba71974b519f6",
+      "NodeType": "StringInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "d3ac557bc8eb461495c9839d63d11226",
+          "Name": "",
+          "Description": "String",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "建立一個字串。",
+      "InputValue": "把目前視圖所有房間依照房間的塗層畫上粉刷"
+    },
+    {
+      "ConcreteType": "CoreNodeModels.Input.BoolSelector, CoreNodeModels",
+      "Id": "8421bf1dcbb34dee8d5463041e0a0928",
+      "NodeType": "BooleanInputNode",
+      "Inputs": [],
+      "Outputs": [
+        {
+          "Id": "1a2d1e47d14a40418b4b2849beb55621",
+          "Name": "",
+          "Description": "Boolean",
+          "UsingDefaultValue": false,
+          "Level": 2,
+          "UseLevels": false,
+          "KeepListStructure": false
+        }
+      ],
+      "Replication": "Disabled",
+      "Description": "啟用在 True 與 False 之間選取",
+      "InputValue": true
+    }
+  ],
+  "Connectors": [
+    {
+      "Start": "913cc66caa154337b467f4b2018ba082",
+      "End": "6bee7deb1a7342f9a491df92fa3eac88",
+      "Id": "62991ee7642d4d63b901afad86dc5a4d",
+      "IsHidden": "False"
+    }
+  ],
+  "Dependencies": [],
+  "NodeLibraryDependencies": [],
+  "EnableLegacyPolyCurveBehavior": true,
+  "Thumbnail": "",
+  "GraphDocumentationURL": null,
+  "ExtensionWorkspaceData": [
+    {
+      "ExtensionGuid": "28992e1d-abb9-417f-8b1b-05e053bee670",
+      "Name": "性質",
+      "Version": "3.6",
+      "Data": {}
+    },
+    {
+      "ExtensionGuid": "DFBD9CC0-DB40-457A-939E-8C8555555A9D",
+      "Name": "Generative Design",
+      "Version": "9.1",
+      "Data": {}
+    }
+  ],
+  "Author": "",
+  "Linting": {
+    "activeLinter": "無",
+    "activeLinterId": "7b75fb44-43fd-4631-a878-29f4d5d8399a",
+    "warningCount": 0,
+    "errorCount": 0
+  },
+  "Bindings": [],
+  "View": {
+    "Dynamo": {
+      "ScaleFactor": 1.0,
+      "HasRunWithoutCrash": true,
+      "IsVisibleInDynamoLibrary": true,
+      "Version": "3.6.2.11575",
+      "RunType": "Manual",
+      "RunPeriod": "1000"
+    },
+    "Camera": {
+      "Name": "背景預覽(_B)",
+      "EyeX": -17.0,
+      "EyeY": 24.0,
+      "EyeZ": 50.0,
+      "LookX": 12.0,
+      "LookY": -13.0,
+      "LookZ": -58.0,
+      "UpX": 0.0,
+      "UpY": 1.0,
+      "UpZ": 0.0
+    },
+    "ConnectorPins": [],
+    "NodeViews": [
+      {
+        "Id": "96f90c7774844c808e7c0cbdd4d78509",
+        "Name": "Python Script",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 624.0,
+        "Y": 143.0
+      },
+      {
+        "Id": "c9b8c084bd8c49f78c80257dbb313fcb",
+        "Name": "Watch",
+        "IsSetAsInput": false,
+        "IsSetAsOutput": true,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 866.132804218632,
+        "Y": 8.343731276907533
+      },
+      {
+        "Id": "2dfa584cee2841d597dba71974b519f6",
+        "Name": "說明",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 156.80000000000007,
+        "Y": 322.4000000000001
+      },
+      {
+        "Id": "8421bf1dcbb34dee8d5463041e0a0928",
+        "Name": "是否刪除原有塗層",
+        "IsSetAsInput": true,
+        "IsSetAsOutput": false,
+        "Excluded": false,
+        "ShowGeometry": true,
+        "X": 351.95428453247536,
+        "Y": 136.79999999999998
+      }
+    ],
+    "Annotations": [],
+    "X": -168.35124073581596,
+    "Y": 331.3770007824561,
+    "Zoom": 0.926652175244368
+  }
+}
