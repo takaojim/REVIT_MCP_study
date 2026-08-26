@@ -255,7 +255,6 @@ metadata:
   2. 在現代本機環境中，傳輸 1,000 ~ 10,000 筆圖元 JSON 僅需約 20ms，效能與記憶體負擔極低。
   3. AI 執行批次視圖或圖元處理前，必須確保查詢無上限，絕不可基於截斷的 partial list 作出「專案不存在該圖元」的錯誤推論。
 
-<<<<<<< HEAD
 ## [L-032] 標註型式 (DimensionType) 前置動態查詢與降級防呆原則
 
 - **規則**：執行任何尺寸標註（平面柱心、立面標註、房間標註）前，**嚴禁在程式碼中寫死 (Hardcode) 任何靜態 TypeId**（如 `2240793`、`2240801`、`2110318` 等），亦不可未經查詢即假設專案必定存在 `TABC-DIM_*` 標註型式。執行標註前必須先查詢專案既有 `DimensionTypes`。
@@ -324,6 +323,26 @@ metadata:
   5. **標註型式語意分明**：
      - 柱心尺寸（斜線 Slash）：`TABC-DIM_*/ S 2.5-柱心-上右`（ID: `2240793`）。
      - 牆心尺寸（實心圓點 Dot）：`TABC-DIM_dot 牆心`（ID: `2251126`）。
->>>>>>> feature/grid-dimension-step-wip
+
+## [L-037] 建築立面 2D 計算幾何 Silhouette 外輪廓提取 (Clipper2)、GL 基準釘死與階梯整列標準工作流
+
+- **規則**：
+  1. **2D 計算幾何投影與多邊形布林融合 (Clipper2 Silhouette)**：
+     - 嚴禁依賴粗糙的 `BoundingBoxXYZ`（無法辨別屋突、階梯退縮、雨遮出挑）或由 AI 人工看截圖猜測輪廓。
+     - 正確做法：透過 Revit API 取得可見實體建築圖元（外牆、樓板、屋頂、柱、樑、女兒牆、樓梯、帷幕），將幾何面三角化（`Face.Triangulate()`），投影至立面局部座標系 $u = \mathbf{D} \cdot \mathbf{Right}, v = \mathbf{D} \cdot \mathbf{Up}$，並透過 **`Clipper.Union`** 融合所有三角形，自動消解內部接縫與遮擋面，精準萃取最外層建築輪廓（Exterior Ring / PrimaryContour）。
+  2. **視圖局部投影座標唯一黃金公式**：
+     - 將局部立面座標 $(u, v)$ 轉回 Revit 3D 世界座標時，**嚴禁將 $u$ 當作世界 $X$**，必須嚴格採用：
+       $$\mathbf{P}_{world} = \mathbf{View.Origin} + \mathbf{RightDirection} \cdot u + \mathbf{UpDirection} \cdot v$$
+     - 徹底消除視圖原點 `View.Origin` 偏移或向度旋轉（如北向 $\mathbf{Right} = (-1, 0, 0)$）所造成的幾何平移與鏡射錯位。
+  3. **GL 設計地面線基準對齊 (Ground Level Anchoring)**：
+     - 立面圖下緣基準面必須以 `Level GL` 絕對高程換算局部高度 $v_{GL} = (\text{glLevel.Elevation} - \text{Origin.Z}) \times 304.8$。
+     - **Step 0 實體外框**：下緣釘死於 $v_{GL}$，上緣鎖定屋突最高女兒牆頂點，左右鎖定實體外牆最外皮。
+     - **Step 5 齊頭藍線**：四向對稱外擴 5 個模矩間隔（$5 \times 650\text{ mm} = 3,250\text{ mm}$），下緣延伸至 $v_{GL} - 3,250\text{ mm}$。
+  4. **專屬紅藍線條樣式與雙層標準標註**：
+     - **Step 0 外框**：綁定純紅色樣式 `Step0-外牆輪廓紅線`（RGB 230, 30, 30，線寬 4）。
+     - **Step 5 外框**：綁定純藍色樣式 `Step5-齊頭藍線`（RGB 30, 100, 240，線寬 2）。
+     - **頂部雙層柱心標註**：Tier 1 總跨（Step 4）+ Tier 2 連續柱間距（Step 3），型式 `TABC-DIM_*/ S 2.5-柱心-上右`（短輔助線朝向建築內側向下）。
+     - **左側雙層樓層標註**：Tier 1 總高（Step 4）+ Tier 2 各層層高（Step 3），型式 `TABC-DIM_*/ S 2.5-柱心-下右`（短輔助線朝向建築內側向右）。
+
 
 

@@ -578,6 +578,17 @@ namespace RevitMCP.Core
                     case "auto_dimension_plan_grids":
                         result = AutoDimensionPlanGrids(parameters);
                         break;
+                    case "get_elevation_outer_contour":
+                    case "get_elevation_silhouette":
+                        result = GetElevationOuterContour(parameters);
+                        break;
+                    case "draw_elevation_outer_contour":
+                    case "draw_elevation_silhouette":
+                        result = DrawElevationOuterContour(parameters);
+                        break;
+                    case "draw_elevation_envelope_boxes":
+                        result = DrawElevationEnvelopeBoxes(parameters);
+                        break;
 
                     // === 從屬視圖模組 ===
                     case "calculate_grid_bounds":
