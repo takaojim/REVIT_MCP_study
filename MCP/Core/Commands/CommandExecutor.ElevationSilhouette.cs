@@ -300,9 +300,13 @@ namespace RevitMCP.Core
             if (view == null)
                 throw new Exception($"找不到視圖 ID={viewIdParam}");
 
-            int stepModules = parameters["stepModules"]?.Value<int>() ?? 5;
-            double spacingMm = parameters["spacingMm"]?.Value<double>() ?? 650.0;
-            double totalOffsetMm = stepModules * spacingMm;
+            int baseModules = parameters["stepModules"]?.Value<int>() ?? 5;
+            int stepLeft = parameters["stepModulesLeft"]?.Value<int>() ?? (baseModules + 3); // 律定核心規則：左側樓層線一律為 N + 3 模矩（如 5+3=8、7+3=10），使標註與外牆剛好保持 2 格間距
+            int stepTop = parameters["stepModulesTop"]?.Value<int>() ?? baseModules;
+            int stepRight = parameters["stepModulesRight"]?.Value<int>() ?? baseModules;
+            int stepBottom = parameters["stepModulesBottom"]?.Value<int>() ?? baseModules;
+
+            double spacingMm = parameters["spacingMm"]?.Value<double>() ?? (view.Scale * 6.5);
             bool cleanExisting = parameters["cleanExisting"]?.Value<bool>() ?? true;
             bool alignDatum = parameters["alignDatum"]?.Value<bool>() ?? true;
 
@@ -320,31 +324,20 @@ namespace RevitMCP.Core
 
             double minU = bounds["minU"].Value<double>();
             double maxU = bounds["maxU"].Value<double>();
+            double minV = bounds["minV"].Value<double>();
             double maxV = bounds["maxV"].Value<double>();
 
-            // 2. 獲取 GL Level 的真實幾何投影高度 (vGL)
-            var glLevel = new FilteredElementCollector(doc)
-                .OfClass(typeof(Level))
-                .Cast<Level>()
-                .FirstOrDefault(l => l.Name.Equals("GL", StringComparison.OrdinalIgnoreCase))
-                ?? new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().FirstOrDefault(l => Math.Abs(l.Elevation) < 1e-3);
-
-            double glElevationFt = glLevel != null ? glLevel.Elevation : 0.0;
-            XYZ glSamplePt = new XYZ(origin.X, origin.Y, glElevationFt);
-            double vGlFt = (glSamplePt - origin).DotProduct(up); // 真實 GL 在視圖中的 V 座標 (英呎)
-
-            // Step 0 紅色方形 (GL 至 屋突最高頂點)
+            // 2. Step 0 紅色方形 (建築實體外輪廓底界 minV 至 屋突最高頂點 maxV)
             double uMinFt = minU / 304.8;
             double uMaxFt = maxU / 304.8;
-            double vBottomRedFt = vGlFt;
+            double vBottomRedFt = minV / 304.8; // 100% 釘死於建築實體幾何外輪廓底界 (GL 地面線)
             double vTopRedFt = maxV / 304.8;
 
-            // Step 5 藍色齊頭線 (四向外擴 5 個間隔 = 3,250 mm)
-            double totalOffsetFt = (totalOffsetMm / 304.8);
-            double uLeftBlueFt = uMinFt - totalOffsetFt;
-            double uRightBlueFt = uMaxFt + totalOffsetFt;
-            double vTopBlueFt = vTopRedFt + totalOffsetFt;
-            double vBottomBlueFt = vGlFt - totalOffsetFt; // 真正從 GL 往下延伸 5 個間隔！
+            // 3. Step 5/8 藍色齊頭線 (左側 N+3 模矩避開樓層文字、頂/右/底 N 模矩)
+            double uLeftBlueFt = uMinFt - ((stepLeft * spacingMm) / 304.8);
+            double uRightBlueFt = uMaxFt + ((stepRight * spacingMm) / 304.8);
+            double vTopBlueFt = vTopRedFt + ((stepTop * spacingMm) / 304.8);
+            double vBottomBlueFt = vBottomRedFt - ((stepBottom * spacingMm) / 304.8); // 真正從建物底界往下延伸 N 個間隔
 
             int linesDrawn = 0;
 
@@ -489,17 +482,17 @@ namespace RevitMCP.Core
                 {
                     minU = Math.Round(minU, 2),
                     maxU = Math.Round(maxU, 2),
-                    vGL = Math.Round(vGlFt * 304.8, 2),
+                    vGL = Math.Round(minV, 2),
                     vRoof = Math.Round(maxV, 2),
                     widthMm = Math.Round(maxU - minU, 2),
-                    heightMm = Math.Round(maxV - (vGlFt * 304.8), 2)
+                    heightMm = Math.Round(maxV - minV, 2)
                 },
                 blueBox = new
                 {
-                    uLeft = Math.Round((uMinFt - totalOffsetFt) * 304.8, 2),
-                    uRight = Math.Round((uMaxFt + totalOffsetFt) * 304.8, 2),
-                    vTop = Math.Round((vTopRedFt + totalOffsetFt) * 304.8, 2),
-                    vBottom = Math.Round((vGlFt - totalOffsetFt) * 304.8, 2)
+                    uLeft = Math.Round(uLeftBlueFt * 304.8, 2),
+                    uRight = Math.Round(uRightBlueFt * 304.8, 2),
+                    vTop = Math.Round(vTopBlueFt * 304.8, 2),
+                    vBottom = Math.Round(vBottomBlueFt * 304.8, 2)
                 },
                 linesDrawn = linesDrawn
             };

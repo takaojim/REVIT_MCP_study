@@ -324,7 +324,7 @@ metadata:
      - 柱心尺寸（斜線 Slash）：`TABC-DIM_*/ S 2.5-柱心-上右`（ID: `2240793`）。
      - 牆心尺寸（實心圓點 Dot）：`TABC-DIM_dot 牆心`（ID: `2251126`）。
 
-## [L-037] 建築立面 2D 計算幾何 Silhouette 外輪廓提取 (Clipper2)、GL 基準釘死與階梯整列標準工作流
+## [L-037] 建築立面與剖面 2D 計算幾何 Silhouette 外輪廓提取 (Clipper2)、GL 基準釘死、Silhouette 絕對錨定與左側 N+3 階梯整列標準工作流
 
 - **規則**：
   1. **2D 計算幾何投影與多邊形布林融合 (Clipper2 Silhouette)**：
@@ -334,15 +334,24 @@ metadata:
      - 將局部立面座標 $(u, v)$ 轉回 Revit 3D 世界座標時，**嚴禁將 $u$ 當作世界 $X$**，必須嚴格採用：
        $$\mathbf{P}_{world} = \mathbf{View.Origin} + \mathbf{RightDirection} \cdot u + \mathbf{UpDirection} \cdot v$$
      - 徹底消除視圖原點 `View.Origin` 偏移或向度旋轉（如北向 $\mathbf{Right} = (-1, 0, 0)$）所造成的幾何平移與鏡射錯位。
-  3. **GL 設計地面線基準對齊 (Ground Level Anchoring)**：
-     - 立面圖下緣基準面必須以 `Level GL` 絕對高程換算局部高度 $v_{GL} = (\text{glLevel.Elevation} - \text{Origin.Z}) \times 304.8$。
-     - **Step 0 實體外框**：下緣釘死於 $v_{GL}$，上緣鎖定屋突最高女兒牆頂點，左右鎖定實體外牆最外皮。
-     - **Step 5 齊頭藍線**：四向對稱外擴 5 個模矩間隔（$5 \times 650\text{ mm} = 3,250\text{ mm}$），下緣延伸至 $v_{GL} - 3,250\text{ mm}$。
-  4. **專屬紅藍線條樣式與雙層標準標註**：
+  3. **GL 設計地面線基準對齊與 Survey 高程防呆 (Ground Level Anchoring)**：
+     - Step 0 紅線底界一律取建築外輪廓實體底界 $V_{\text{bottom}} = \text{minV}$（消除專案世界測量高程 $Z=95.5\text{m}$ 造成的巨大偏移），Step 5 藍線底界為 $\text{minV} - 5 \times \text{Spacing}$。
+     - **Step 0 實體外框**：下緣釘死於 $\text{minV}$，上緣鎖定屋突最高女兒牆頂點 $\text{maxV}$，左右鎖定實體外牆最外皮 $\text{minU}, \text{maxU}$。
+  4. **左側樓層線專屬 $N+3$ 模矩避讓法則（頂部與左側完全對稱 2 個間隔）**：
+     - 基準模矩 $N$（如 $N=5$ 時，頂/右/底 = 5 個模矩）。
+     - **左側樓層線專屬公式**：**$N+3$ 個模矩**（如 $N=5 \to 5+3=8$；$N=7 \to 7+3=10$）。
+     - 藍線齊頭（Step 8）與 Tier 1 總尺寸線（Step 4）之間保留 3 個模矩（Step 7~5）作為樓層標高文字專屬保護區，零重疊、無干擾。
+     - 頂部與左側最內層尺寸線（Tier 2 柱心 / 連續層高）均落於 Step 3，距建築外皮紅線（Step 0）**完全一致保持 2 個留白間隔（Step 2 與 Step 1）**！
+  5. **尺寸線 Silhouette 幾何外框絕對錨定（免疫 Crop Box 漂移）**：
+     - 頂部尺寸線直接鎖定在 $V = \text{maxV} + 4 \times \text{Spacing}$（Step 4）與 $\text{maxV} + 3 \times \text{Spacing}$（Step 3）。
+     - 左側尺寸線直接鎖定在 $U = \text{minU} - 4 \times \text{Spacing}$（Step 4）與 $\text{minU} - 3 \times \text{Spacing}$（Step 3）。
+     - 徹底杜絕剖面圖中因寬大裁減框（Crop Box）導致未裁修的軸線/樓層線端點將尺寸線誤導至空中或遠處的幾何痛點。
+  6. **專屬紅藍線條樣式與雙層標準標註**：
      - **Step 0 外框**：綁定純紅色樣式 `Step0-外牆輪廓紅線`（RGB 230, 30, 30，線寬 4）。
-     - **Step 5 外框**：綁定純藍色樣式 `Step5-齊頭藍線`（RGB 30, 100, 240，線寬 2）。
+     - **Step 5/8 外框**：綁定純藍色樣式 `Step5-齊頭藍線`（RGB 30, 100, 240，線寬 2）。
      - **頂部雙層柱心標註**：Tier 1 總跨（Step 4）+ Tier 2 連續柱間距（Step 3），型式 `TABC-DIM_*/ S 2.5-柱心-上右`（短輔助線朝向建築內側向下）。
      - **左側雙層樓層標註**：Tier 1 總高（Step 4）+ Tier 2 各層層高（Step 3），型式 `TABC-DIM_*/ S 2.5-柱心-下右`（短輔助線朝向建築內側向右）。
+
 
 
 

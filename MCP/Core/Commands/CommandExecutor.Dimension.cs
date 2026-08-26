@@ -648,28 +648,58 @@ namespace RevitMCP.Core
             // 依照視圖水平方向（從左到右）排序 Grids
             gridInfos.Sort((a, b) => a.uProj.CompareTo(b.uProj));
 
-            // 取得頂部氣泡最高點（以 vUp 投影最大值）
-            double maxUpDot = gridInfos.Max(info => info.topPt.DotProduct(vUp));
-
             // 出圖比例換算（圖紙 mm -> 英呎）
             double scale = view.Scale;
-            double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
-            double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+            double spacingFt = (scale * 6.5) / 10.0 / 30.48; // 1 模矩 (6.5mm)
+
+            // 優先以建築實體外輪廓頂界 (vMax) 為基準放樣，杜絕不受控的 CropBox/軸線端點漂移
+            double targetUp1;
+            double targetUp2;
+
+            try
+            {
+                var contourData = GetElevationOuterContour(new JObject { ["viewId"] = view.Id.GetIdValue(), ["draw_contour"] = false });
+                var jContour = JObject.FromObject(contourData);
+                var bounds = jContour["boundsMm"];
+                if (bounds != null)
+                {
+                    double vMaxFt = bounds["maxV"].Value<double>() / 304.8;
+                    // Step 4 (Tier 1 總跨): vMax + 4 modules
+                    // Step 3 (Tier 2 柱心): vMax + 3 modules
+                    targetUp1 = vMaxFt + 4.0 * spacingFt;
+                    targetUp2 = vMaxFt + 3.0 * spacingFt;
+                }
+                else
+                {
+                    double maxUpDot = gridInfos.Max(info => info.topPt.DotProduct(vUp));
+                    double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+                    double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+                    targetUp1 = maxUpDot - offset1Ft;
+                    targetUp2 = maxUpDot - offset2Ft;
+                }
+            }
+            catch
+            {
+                double maxUpDot = gridInfos.Max(info => info.topPt.DotProduct(vUp));
+                double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+                double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+                targetUp1 = maxUpDot - offset1Ft;
+                targetUp2 = maxUpDot - offset2Ft;
+            }
 
             // 基準線定位點
             var firstInfo = gridInfos[0];
             var lastInfo = gridInfos[gridInfos.Count - 1];
 
-            // 頂部端點向內側退縮 offset1Ft (Tier 1) 與 offset2Ft (Tier 2)
-            double targetUp1 = maxUpDot - offset1Ft;
-            double targetUp2 = maxUpDot - offset2Ft;
+            double currentV_last = (lastInfo.topPt - view.Origin).DotProduct(vUp);
+            double currentV_first = (firstInfo.topPt - view.Origin).DotProduct(vUp);
 
             // 改由右至左 (lastInfo -> firstInfo)，使 5mm 固定短輔助線一律向下（朝向建築物內側）
-            XYZ p1_start = lastInfo.topPt.Add(vUp.Multiply(targetUp1 - lastInfo.topPt.DotProduct(vUp)));
-            XYZ p1_end = firstInfo.topPt.Add(vUp.Multiply(targetUp1 - firstInfo.topPt.DotProduct(vUp)));
+            XYZ p1_start = lastInfo.topPt.Add(vUp.Multiply(targetUp1 - currentV_last));
+            XYZ p1_end = firstInfo.topPt.Add(vUp.Multiply(targetUp1 - currentV_first));
 
-            XYZ p2_start = lastInfo.topPt.Add(vUp.Multiply(targetUp2 - lastInfo.topPt.DotProduct(vUp)));
-            XYZ p2_end = firstInfo.topPt.Add(vUp.Multiply(targetUp2 - firstInfo.topPt.DotProduct(vUp)));
+            XYZ p2_start = lastInfo.topPt.Add(vUp.Multiply(targetUp2 - currentV_last));
+            XYZ p2_end = firstInfo.topPt.Add(vUp.Multiply(targetUp2 - currentV_first));
 
             Line dimLine1 = Line.CreateBound(p1_start, p1_end);
             Line dimLine2 = Line.CreateBound(p2_start, p2_end);
@@ -736,8 +766,8 @@ namespace RevitMCP.Core
             Document doc = _uiApp.ActiveUIDocument.Document;
             IdType viewId = parameters["viewId"]?.Value<IdType>() ?? 0;
             IdType typeId = parameters["typeId"]?.Value<IdType>() ?? 0;
-            double paperOffsetTier1Mm = parameters["offsetTier1Mm"]?.Value<double>() ?? 5.0; // 圖紙 5mm (外層總高程)
-            double paperOffsetTier2StepMm = parameters["stepTier2Mm"]?.Value<double>() ?? 6.5; // 內層距離第1層圖紙 6.5mm (各樓層高)
+            double paperOffsetTier1Mm = parameters["offsetTier1Mm"]?.Value<double>() ?? 26.0; // 圖紙 26.0mm (4 模矩，置於 Step 3 避開樓層名稱標高文字)
+            double paperOffsetTier2StepMm = parameters["stepTier2Mm"]?.Value<double>() ?? 6.5; // 圖紙 6.5mm (1 模矩，置於 Step 2 各樓層高)
 
             View view = doc.GetElement(viewId.ToElementId()) as View;
             if (view == null)
@@ -834,23 +864,62 @@ namespace RevitMCP.Core
 
             // 出圖比例換算（圖紙 mm -> 英呎）
             double scale = view.Scale;
-            double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
-            double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+            double spacingFt = (scale * 6.5) / 10.0 / 30.48; // 1 模矩 (6.5mm)
 
             // 基準垂直線起迄點 (由頂部貫穿到底部，確保固定長度輔助線一律朝向建築物內側)
             double baseElev = levels[0].Elevation;
             double topElev = levels[levels.Count - 1].Elevation;
 
-            // Tier 1 (外層總尺寸) - 由頂至底
-            XYZ p1_base = bubblePt.Add(inwardDir.Multiply(offset1Ft));
-            XYZ p1_start = p1_base.Add(vUpDir.Multiply(topElev - p1_base.DotProduct(vUpDir)));
-            XYZ p1_end = p1_base.Add(vUpDir.Multiply(baseElev - p1_base.DotProduct(vUpDir)));
-            Line dimLine1 = Line.CreateBound(p1_start, p1_end);
+            // 優先以建築實體外輪廓左界 (uMin) 為基準放樣，杜絕不受控的 CropBox/樓層線端點漂移
+            XYZ p1_start, p1_end, p2_start, p2_end;
 
-            // Tier 2 (內層各樓層連續尺寸) - 由頂至底
-            XYZ p2_base = bubblePt.Add(inwardDir.Multiply(offset2Ft));
-            XYZ p2_start = p2_base.Add(vUpDir.Multiply(topElev - p2_base.DotProduct(vUpDir)));
-            XYZ p2_end = p2_base.Add(vUpDir.Multiply(baseElev - p2_base.DotProduct(vUpDir)));
+            try
+            {
+                var contourData = GetElevationOuterContour(new JObject { ["viewId"] = view.Id.GetIdValue(), ["draw_contour"] = false });
+                var jContour = JObject.FromObject(contourData);
+                var bounds = jContour["boundsMm"];
+                if (bounds != null)
+                {
+                    double uMinFt = bounds["minU"].Value<double>() / 304.8;
+                    // Step 4 (Tier 1 總高): uMin - 4 modules (距外牆 4 模矩)
+                    // Step 3 (Tier 2 各層層高): uMin - 3 modules (距外牆 3 模矩，最內側尺寸線與外牆紅線剛好 2 格留白！)
+                    double targetU1 = uMinFt - 4.0 * spacingFt;
+                    double targetU2 = uMinFt - 3.0 * spacingFt;
+
+                    XYZ origin = view.Origin;
+                    XYZ p1_base = origin + vRightDir * targetU1;
+                    p1_start = p1_base.Add(vUpDir.Multiply(topElev - p1_base.DotProduct(vUpDir)));
+                    p1_end = p1_base.Add(vUpDir.Multiply(baseElev - p1_base.DotProduct(vUpDir)));
+
+                    XYZ p2_base = origin + vRightDir * targetU2;
+                    p2_start = p2_base.Add(vUpDir.Multiply(topElev - p2_base.DotProduct(vUpDir)));
+                    p2_end = p2_base.Add(vUpDir.Multiply(baseElev - p2_base.DotProduct(vUpDir)));
+                }
+                else
+                {
+                    double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+                    double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+                    XYZ p1_base = bubblePt.Add(inwardDir.Multiply(offset1Ft));
+                    p1_start = p1_base.Add(vUpDir.Multiply(topElev - p1_base.DotProduct(vUpDir)));
+                    p1_end = p1_base.Add(vUpDir.Multiply(baseElev - p1_base.DotProduct(vUpDir)));
+                    XYZ p2_base = bubblePt.Add(inwardDir.Multiply(offset2Ft));
+                    p2_start = p2_base.Add(vUpDir.Multiply(topElev - p2_base.DotProduct(vUpDir)));
+                    p2_end = p2_base.Add(vUpDir.Multiply(baseElev - p2_base.DotProduct(vUpDir)));
+                }
+            }
+            catch
+            {
+                double offset1Ft = (paperOffsetTier1Mm / 10.0 / 30.48) * scale;
+                double offset2Ft = offset1Ft + (paperOffsetTier2StepMm / 10.0 / 30.48) * scale;
+                XYZ p1_base = bubblePt.Add(inwardDir.Multiply(offset1Ft));
+                p1_start = p1_base.Add(vUpDir.Multiply(topElev - p1_base.DotProduct(vUpDir)));
+                p1_end = p1_base.Add(vUpDir.Multiply(baseElev - p1_base.DotProduct(vUpDir)));
+                XYZ p2_base = bubblePt.Add(inwardDir.Multiply(offset2Ft));
+                p2_start = p2_base.Add(vUpDir.Multiply(topElev - p2_base.DotProduct(vUpDir)));
+                p2_end = p2_base.Add(vUpDir.Multiply(baseElev - p2_base.DotProduct(vUpDir)));
+            }
+
+            Line dimLine1 = Line.CreateBound(p1_start, p1_end);
             Line dimLine2 = Line.CreateBound(p2_start, p2_end);
 
             // 建立 ReferenceArray (由頂至底排序，使用 l.GetPlaneReference())
