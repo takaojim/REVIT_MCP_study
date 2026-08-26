@@ -1,0 +1,3522 @@
+[
+  {
+    "id": 703004,
+    "name": "小標題4.5mm",
+    "type": "小標題4.5mm",
+    "typeId": "456564",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703006,
+    "name": "小標題4.5mm",
+    "type": "小標題4.5mm",
+    "typeId": "456564",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703008,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703018,
+    "name": "小標題4.5mm",
+    "type": "小標題4.5mm",
+    "typeId": "456564",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703020,
+    "name": "小標題4.5mm",
+    "type": "小標題4.5mm",
+    "typeId": "456564",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703027,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703028,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703030,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703032,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703036,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703038,
+    "name": "小標題4.5mm",
+    "type": "小標題4.5mm",
+    "typeId": "456564",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703039,
+    "name": "小標題4.5mm",
+    "type": "小標題4.5mm",
+    "typeId": "456564",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703040,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703041,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703047,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703048,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703049,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703050,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703052,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703053,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703054,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703055,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703056,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703057,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703058,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703059,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703060,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703063,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703064,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703065,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703066,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703067,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703068,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703069,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703070,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703071,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703072,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703073,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703074,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703078,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703079,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703080,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703084,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703085,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703086,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703087,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703088,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703089,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703090,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703091,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703092,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703093,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703094,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703095,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703096,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703097,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703099,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703100,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703101,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703104,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703105,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703107,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703112,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703113,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703114,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703115,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703116,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703121,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703122,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703123,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703124,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703125,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703126,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703127,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703128,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703129,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703130,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703131,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703132,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703133,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703136,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703137,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703139,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703144,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703145,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703146,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703147,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703148,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703153,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703154,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703155,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703156,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703157,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703158,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703159,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703160,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703161,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703162,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703163,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703164,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703165,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703168,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703169,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703171,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703176,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703177,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703178,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703179,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703180,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703184,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703185,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703186,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703187,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703188,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703189,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703190,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703191,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703192,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703195,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703196,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703198,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703203,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703204,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703205,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703206,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703207,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703211,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703212,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703213,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703214,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703215,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703216,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703218,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703219,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703220,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703221,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703223,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703224,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703225,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703226,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703227,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703228,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703229,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703230,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703231,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703233,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703234,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703235,
+    "name": "3 mm 微軟正黑體",
+    "type": "3 mm 微軟正黑體",
+    "typeId": "501966",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703236,
+    "name": "小標題4.5mm",
+    "type": "小標題4.5mm",
+    "typeId": "456564",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 703237,
+    "name": "小標題3mm",
+    "type": "小標題3mm",
+    "typeId": "695262",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711239,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711240,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711241,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711242,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711243,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711244,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711245,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711246,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711247,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711248,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711249,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711250,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711251,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711252,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711253,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711254,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711255,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711256,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711257,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711258,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711259,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711260,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711261,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711262,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711263,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711264,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711265,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711266,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711267,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711268,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711269,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711270,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711271,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711272,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711273,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711274,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711275,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711276,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711277,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711278,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711279,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711280,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711281,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711282,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711283,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711284,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711285,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711286,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711287,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711288,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711289,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711290,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711291,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711292,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711293,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711294,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711295,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711296,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711297,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711298,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711299,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711300,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711301,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711302,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711303,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711304,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711305,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711306,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711307,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711308,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711309,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711310,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711311,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711312,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711313,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711314,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711315,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711316,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711317,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711318,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711319,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711320,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711321,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711322,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711323,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711324,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711325,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711326,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711327,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711328,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711329,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711330,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711331,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711332,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711333,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711334,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711335,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711336,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711337,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711338,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711339,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711340,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711341,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711342,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711343,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711344,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711345,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711346,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711347,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711348,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711349,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711350,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711351,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711352,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711353,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711354,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711355,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711356,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711357,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711358,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711359,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711360,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711361,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711362,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711363,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711364,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711365,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711366,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711367,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711368,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711369,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711370,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711371,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711372,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711373,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711374,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711375,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711376,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711377,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711378,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711379,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711380,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711381,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711382,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711383,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711384,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711385,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711386,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711387,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711388,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711389,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711390,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711391,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711392,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711393,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711394,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711395,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711396,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711397,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711398,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711399,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711400,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711401,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711402,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711403,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711404,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711405,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711406,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711407,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711408,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711409,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711410,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711411,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711412,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711413,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711414,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711415,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711416,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711417,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711418,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711419,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711420,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711421,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711422,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711423,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711424,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711425,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711426,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711427,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711428,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711429,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711430,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711431,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711432,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711433,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711434,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711435,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711436,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711437,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711438,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711439,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  },
+  {
+    "id": 711440,
+    "name": "說明文字",
+    "type": "說明文字",
+    "typeId": "361",
+    "pos": {
+      "HasCenterline": false,
+      "Message": "此元素沒有中心線（非線性元素）"
+    }
+  }
+]
