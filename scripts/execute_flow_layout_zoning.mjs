@@ -23,8 +23,8 @@ const COL_GAP = 2.31; // 2509.38 - 2507.07
 
 const LINE_PITCH = 5.8; // 精確 Revit 3mm 正黑體安全行距 (mm)
 
-// 高級中英文全階層懸掛縮排與防破框折行演算法 (MaxWeight = 52.5)
-function wrapFormattedText(text, maxWeight = 52.5) {
+// 高級中英文全階層懸掛縮排與防破框折行演算法 (00:08 黃金穩健權重 MaxWeight = 48.5)
+function wrapFormattedText(text, maxWeight = 48.5) {
   const paragraphs = text.split('\n');
   const wrappedLines = [];
 
@@ -668,8 +668,8 @@ async function main() {
   client.clientName = 'execute-flow-layout-zoning-' + Date.now();
   await client.connect();
 
-  const viewId = 711441; // "2_都市計畫1 複製 1"
-  console.log(`\n=== 開始在圖例視圖 (ID: ${viewId}) 執行完美原稿格式排版 ===\n`);
+  const viewId = 725747; // "2_都市計畫1 測試潭子"
+  console.log(`\n=== 開始在圖例視圖 (ID: ${viewId}: 2_都市計畫1 測試潭子) 執行穩健黃金版排版 ===\n`);
 
   // Step 1: 清理既有元素
   console.log('--- Step 1: 清理舊有文字與線條 ---');
@@ -693,9 +693,9 @@ async function main() {
     try { await client.sendCommand('delete_element', { elementId: id }); } catch(e) {}
   }
 
-  // Step 2: 建立 Page 1 (第一公版: X = 3000.00 ~ 3791.90 mm)
+  // Step 2: 建立 Page 1 (第一公版: X = 2111.99 ~ 2903.89 mm)
   console.log('\n--- Step 2: 建立 Page 1 (含 Table 2 原稿合併儲存格) ---');
-  const page1BaseX = 3000.0;
+  const page1BaseX = 2111.99;
   const page1Frame = createTemplateFrame(page1BaseX);
   const page1Content = generatePage1Content(page1Frame.t1Coords, page1Frame.t2Coords);
 
@@ -727,9 +727,9 @@ async function main() {
     }
   }
 
-  // Step 3: 建立 Page 2 (第二公版: 含停車表原稿合併儲存格 ＋ 五至十一條順排無重疊)
+  // Step 3: 建立 Page 2 (第二公版: X = 3000.00 ~ 3791.90 mm，含停車表原稿合併儲存格 ＋ 五至十一條順排無重疊)
   console.log('\n--- Step 3: 建立 Page 2 (含停車表原稿合併儲存格 ＋ 五至十一條順排無重疊) ---');
-  const page2BaseX = 3900.0;
+  const page2BaseX = 3000.0;
   const page2Frame = createTemplateFrame(page2BaseX);
   const page2Content = generatePage2Content(page2Frame.t1Coords, page2Frame.t2Coords);
 
