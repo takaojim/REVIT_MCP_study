@@ -11,6 +11,7 @@ description: "專屬柱間距與柱心連續標註標準工作流：自動在平
 - **L-002**：標註必須匹配正確的視圖 ID，嚴禁在 3D 視圖建立平面標註。詳見 `domain/lessons.md`。
 - **L-031**：建築模型圖元查詢原則，`query_elements` 預設上限為 10,000 筆，批次查詢視圖/圖元時嚴禁受預設截斷影響。詳見 `domain/lessons.md`。
 - **L-032**：標註型式前置動態查詢與降級防呆原則。嚴禁寫死 TypeId，執行標註前必須先查詢專案既有 DimensionTypes。詳見 `domain/lessons.md`。
+- **L-038**：平面與立面尺寸標註多尺度自適應模矩換算體系 (Scale-Aware Formula) 與牆心正交量測原則。詳見 `domain/lessons.md`。
 
 ---
 

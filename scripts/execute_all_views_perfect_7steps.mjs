@@ -2,11 +2,11 @@ import { RevitSocketClient } from '../MCP-Server/build/socket.js';
 
 async function main() {
   const client = new RevitSocketClient('localhost', 8964);
-  client.clientName = 'perfect-7steps-' + Date.now();
+  client.clientName = 'perfect-7steps-wall-fixed-' + Date.now();
   await client.connect();
 
   console.log('================================================================');
-  console.log('=== 【樓板平面所有視圖】7 間距標準出圖放樣 (修正牆心總長與間隔) ===');
+  console.log('=== 【樓板平面所有視圖】7 間距標準出圖放樣 (牆心標註幾何修正版) ===');
   console.log('================================================================\n');
 
   // 1. 取得全區外框標準基準視圖 (2FL / 1FL)
@@ -19,7 +19,7 @@ async function main() {
 
   console.log(`📌 全區實體外框標準基準視圖: "${globalRefView.Name}" (ID: ${globalRefView.ElementId})`);
 
-  // 提取全區 7 間距基準
+  // 提取全區實體外框
   const baseAlign = await client.sendCommand('align_plan_grids', {
     viewId: globalRefView.ElementId,
     stepCount: 7.0,
@@ -31,13 +31,8 @@ async function main() {
   const globalEnv = baseAlign.data?.PhysicalEnvelopeMm || {
     MinX: 776.8, MaxX: 16026.8, MinY: -15060.4, MaxY: 1689.6
   };
-  const globalBounds7 = baseAlign.data?.AlignmentBoundsMm || {
-    TopY: globalEnv.MaxY + 4550.0, BottomY: globalEnv.MinY - 4550.0,
-    LeftX: globalEnv.MinX - 4550.0, RightX: globalEnv.MaxX + 4550.0
-  };
 
-  console.log(`✓ 全區實體外框 (紅線, Step 0): X=[${globalEnv.MinX.toFixed(1)}, ${globalEnv.MaxX.toFixed(1)}], Y=[${globalEnv.MinY.toFixed(1)}, ${globalEnv.MaxY.toFixed(1)}]`);
-  console.log(`✓ 7 間距齊頭線 (藍線, Step 7): Top=${globalBounds7.TopY.toFixed(1)}, Bottom=${globalBounds7.BottomY.toFixed(1)}, Left=${globalBounds7.LeftX.toFixed(1)}, Right=${globalBounds7.RightX.toFixed(1)} mm\n`);
+  console.log(`✓ 全區實體外框 (紅線, Step 0): X=[${globalEnv.MinX.toFixed(1)}, ${globalEnv.MaxX.toFixed(1)}], Y=[${globalEnv.MinY.toFixed(1)}, ${globalEnv.MaxY.toFixed(1)}]\n`);
 
   // 2. 標註型式解析
   const dimTypesRes = await client.sendCommand('list_dimension_types', {});
@@ -62,33 +57,6 @@ async function main() {
     }
   }
 
-  // 4. 定義 7 間距標準技能階梯放樣坐標：
-  // Step 7: 藍線 (4550mm) 氣泡圈端點
-  // Step 6: 柱心 Tier 1 總跨 (3900mm) -> 距氣泡 1 格
-  // Step 5: 柱心 Tier 2 連續 (3250mm) -> 距總跨 1 格
-  // Step 4: 留白空格 (2600mm) -> 【柱心與牆心之間空一格】！
-  // Step 3: 牆心 Layer 1 外牆總長 (1950mm) -> 距空格 1 格
-  // Step 2: 牆心 Layer 2 居室隔間 (1300mm) -> 距牆心1 1 格
-  // Step 1: 留白空格 (650mm) -> 【牆心與外牆之間空一格】！
-  // Step 0: 紅線外牆面 (0mm)
-
-  const northColTier1Y = globalEnv.MaxY + 3900.0; // Step 6: 總跨
-  const northColTier2Y = globalEnv.MaxY + 3250.0; // Step 5: 連續
-  const eastColTier1X = globalEnv.MaxX + 3900.0;
-  const eastColTier2X = globalEnv.MaxX + 3250.0;
-
-  const northWallStep1Y = globalEnv.MaxY + 1950.0; // Step 3: 牆心 Layer 1 (外牆總長)
-  const northWallStep2Y = globalEnv.MaxY + 1300.0; // Step 2: 牆心 Layer 2 (居室隔間)
-
-  const eastWallStep1X = globalEnv.MaxX + 1950.0;
-  const eastWallStep2X = globalEnv.MaxX + 1300.0;
-
-  const westWallStep1X = globalEnv.MinX - 1950.0;
-  const westWallStep2X = globalEnv.MinX - 1300.0;
-
-  const southWallStep1Y = globalEnv.MinY - 1950.0;
-  const southWallStep2Y = globalEnv.MinY - 1300.0;
-
   const northContinuousGrids = [596080, 432630, 432966, 192066];
   const northTotalGrids = [596080, 192066];
   const eastContinuousGrids = [611573, 432924, 432845, 192192];
@@ -99,15 +67,34 @@ async function main() {
   const spanYMax = globalEnv.MaxY + 2000.0;
   const spanYMin = globalEnv.MinY - 2000.0;
 
-  // 輔助函式：建立標註線
-  async function createDim(viewId, sideName, layerName, walls, isVerticalAxis, dimCoord, isTotalOnly) {
+  // 輔助函式：建立牆心標註線
+  // isVerticalDimLine = true 代表垂直標註線 (量測水平牆的 Y 座標)
+  // isVerticalDimLine = false 代表水平標註線 (量測垂直牆的 X 座標)
+  async function createWallDim(viewId, sideName, layerName, walls, isVerticalDimLine, dimCoord, isTotalOnly, sliceCoord) {
     if (!walls || walls.length < 2) return null;
-    const sortKey = isVerticalAxis ? 'centerY' : 'centerX';
-    walls.sort((a, b) => a[sortKey] - b[sortKey]);
+    const sortKey = isVerticalDimLine ? 'centerY' : 'centerX';
+    const tol = 35.0;
+
+    let candidates = [];
+    if (sliceCoord !== null && sliceCoord !== undefined) {
+      for (const w of walls) {
+        const cMin = isVerticalDimLine ? w.minX : w.minY;
+        const cMax = isVerticalDimLine ? w.maxX : w.maxY;
+        if (sliceCoord >= cMin - tol && sliceCoord <= cMax + tol) {
+          candidates.push(w);
+        }
+      }
+    } else {
+      candidates = [...walls];
+    }
+
+    if (candidates.length < 2) candidates = [...walls];
+
+    candidates.sort((a, b) => a[sortKey] - b[sortKey]);
 
     let unique = [];
-    for (const w of walls) {
-      if (unique.length === 0 || Math.abs(unique[unique.length - 1][sortKey] - w[sortKey]) > 35.0) {
+    for (const w of candidates) {
+      if (unique.length === 0 || Math.abs(unique[unique.length - 1][sortKey] - w[sortKey]) > tol) {
         unique.push(w);
       }
     }
@@ -122,7 +109,7 @@ async function main() {
     const maxC = Math.max(...unique.map(w => w[sortKey])) + 1000;
 
     let sX, sY, eX, eY;
-    if (isVerticalAxis) {
+    if (isVerticalDimLine) {
       sX = dimCoord; sY = minC; eX = dimCoord; eY = maxC;
     } else {
       sX = maxC; sY = dimCoord; eX = minC; eY = dimCoord;
@@ -140,6 +127,8 @@ async function main() {
       const desc = isTotalOnly ? '外牆總長 (單一跨距)' : `居室主隔間 (${unique.length - 1} 分段)`;
       console.log(`    ✓ [${sideName} - ${layerName}: ${desc}] ID: ${res.data.DimensionId}`);
       return res.data.DimensionId;
+    } else {
+      console.log(`    ❌ [${sideName} - ${layerName}] 建立失敗:`, res.error);
     }
     return null;
   }
@@ -148,7 +137,7 @@ async function main() {
 
   for (const v of floorPlanViews) {
     console.log(`\n----------------------------------------------------------------`);
-    console.log(`🚀 [${v.name}] (View ID: ${v.id}) 執行 7 間距精準放樣...`);
+    console.log(`🚀 [${v.name}] (View ID: ${v.id}) 執行 7 間距軸線齊頭...`);
 
     // (A) 執行 7 間距軸線齊頭 (配置 A: 上右開氣泡，下左關閉)
     let alignRes;
@@ -171,6 +160,40 @@ async function main() {
       continue;
     }
 
+    // 關鍵：從 Revit C# align_plan_grids 返回的實際 OffsetMm 直接取得本視圖真實模矩長度！
+    const actualOffsetMm = alignRes.data?.OffsetMm || 4550.0;
+    const currentStepMm = actualOffsetMm / 7.0; // 1:50 -> 325mm, 1:100 -> 650mm
+    const viewScaleRatio = currentStepMm / 650.0;
+    const calculatedScale = Math.round(100 * viewScaleRatio);
+
+    const bounds = alignRes.data?.AlignmentBoundsMm || {
+      TopY: globalEnv.MaxY + actualOffsetMm,
+      BottomY: globalEnv.MinY - actualOffsetMm,
+      LeftX: globalEnv.MinX - actualOffsetMm,
+      RightX: globalEnv.MaxX + actualOffsetMm
+    };
+
+    const topBlueY = bounds.TopY;
+    const bottomBlueY = bounds.BottomY;
+    const leftBlueX = bounds.LeftX;
+    const rightBlueX = bounds.RightX;
+
+    const northColTier1Y = globalEnv.MaxY + 6.0 * currentStepMm; // Step 6: 總跨
+    const northColTier2Y = globalEnv.MaxY + 5.0 * currentStepMm; // Step 5: 連續
+    const eastColTier1X  = globalEnv.MaxX + 6.0 * currentStepMm;
+    const eastColTier2X  = globalEnv.MaxX + 5.0 * currentStepMm;
+
+    const northWallStep1Y = globalEnv.MaxY + 3.0 * currentStepMm; // Step 3: 牆心 Layer 1 (外牆總長)
+    const northWallStep2Y = globalEnv.MaxY + 2.0 * currentStepMm; // Step 2: 牆心 Layer 2 (居室隔間)
+    const eastWallStep1X  = globalEnv.MaxX + 3.0 * currentStepMm;
+    const eastWallStep2X  = globalEnv.MaxX + 2.0 * currentStepMm;
+    const westWallStep1X  = globalEnv.MinX - 3.0 * currentStepMm;
+    const westWallStep2X  = globalEnv.MinX - 2.0 * currentStepMm;
+    const southWallStep1Y = globalEnv.MinY - 3.0 * currentStepMm;
+    const southWallStep2Y = globalEnv.MinY - 2.0 * currentStepMm;
+
+    console.log(`   📌 視圖比例 1:${calculatedScale} | 模矩間距: ${currentStepMm.toFixed(1)} mm | 7 間距藍線: Top=${topBlueY.toFixed(1)}, Right=${rightBlueX.toFixed(1)} mm`);
+
     // (B) 清理舊尺寸標註與舊線條
     const oldDims = await client.sendCommand('query_elements', { category: 'Dimensions', viewId: v.id });
     for (const d of oldDims.data?.Elements || []) {
@@ -189,18 +212,18 @@ async function main() {
       { startX: globalEnv.MaxX, startY: globalEnv.MinY, endX: globalEnv.MinX, endY: globalEnv.MinY, color: { r: 255, g: 0, b: 0 }, label: `${v.name}-外牆基準紅線-南` },
       { startX: globalEnv.MinX, startY: globalEnv.MinY, endX: globalEnv.MinX, endY: globalEnv.MaxY, color: { r: 255, g: 0, b: 0 }, label: `${v.name}-外牆基準紅線-西` },
       // 藍線 (Step 7)
-      { startX: globalBounds7.LeftX, startY: globalBounds7.TopY, endX: globalBounds7.RightX, endY: globalBounds7.TopY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-北` },
-      { startX: globalBounds7.RightX, startY: globalBounds7.TopY, endX: globalBounds7.RightX, endY: globalBounds7.BottomY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-東` },
-      { startX: globalBounds7.RightX, startY: globalBounds7.BottomY, endX: globalBounds7.LeftX, endY: globalBounds7.BottomY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-南` },
-      { startX: globalBounds7.LeftX, startY: globalBounds7.BottomY, endX: globalBounds7.LeftX, endY: globalBounds7.TopY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-西` }
+      { startX: leftBlueX, startY: topBlueY, endX: rightBlueX, endY: topBlueY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-北` },
+      { startX: rightBlueX, startY: topBlueY, endX: rightBlueX, endY: bottomBlueY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-東` },
+      { startX: rightBlueX, startY: bottomBlueY, endX: leftBlueX, endY: bottomBlueY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-南` },
+      { startX: leftBlueX, startY: bottomBlueY, endX: leftBlueX, endY: topBlueY, color: { r: 0, g: 100, b: 255 }, label: `${v.name}-7間距齊頭藍線-西` }
     ];
 
     try {
       await client.sendCommand('create_detail_lines', { viewId: v.id, lines: linesToDraw });
-      console.log(`  ✓ 🎨 成功繪製 8 條輔助線（4 紅 ＋ 4 藍）`);
+      console.log(`  ✓ 🎨 成功繪製 8 條輔助線（4 紅 ＋ 4 藍，精確貼齊氣泡圓圈）`);
     } catch (e) {}
 
-    // (D) 北側與東側 雙層柱心標註 (Step 5 總跨 3250mm, Step 4 連續 2600mm)
+    // (D) 北側與東側 雙層柱心標註 (Step 6 總跨, Step 5 連續)
     const nTotalRes = await client.sendCommand('create_dimension', {
       viewId: v.id, gridIds: northTotalGrids,
       startX: spanXMax, startY: northColTier1Y, endX: spanXMin, endY: northColTier1Y,
@@ -236,7 +259,7 @@ async function main() {
     if (eContRes.success && eContRes.data?.DimensionId) {
       await client.sendCommand('change_element_type', { elementId: eContRes.data.DimensionId, typeId: typeIdColumn });
     }
-    console.log(`  ✓ 柱心標註放樣完成 (Step 5 總跨: 3250mm, Step 4 連續: 2600mm)`);
+    console.log(`  ✓ 柱心標註放樣完成 (Step 6 總跨: ${northColTier1Y.toFixed(1)}, Step 5 連續: ${northColTier2Y.toFixed(1)})`);
 
     // (E) 收集直線牆體
     const wallsRes = await client.sendCommand('query_elements', { category: 'Walls', viewId: v.id, maxCount: 1000 });
@@ -245,61 +268,69 @@ async function main() {
       const wInfo = await client.sendCommand('get_wall_info', { wallId: w.ElementId });
       if (wInfo.success && wInfo.data) {
         const d = wInfo.data;
-        const isVert = Math.abs(d.StartX - d.EndX) < 30.0;
-        const isHoriz = Math.abs(d.StartY - d.EndY) < 30.0;
+        const isVert = Math.abs(d.StartX - d.EndX) < 35.0;
+        const isHoriz = Math.abs(d.StartY - d.EndY) < 35.0;
+        if (d.Length < 250) continue;
         wallElements.push({
-          id: d.ElementId,
-          name: d.Name,
-          startX: d.StartX, startY: d.StartY, endX: d.EndX, endY: d.EndY,
+          id: w.ElementId,
+          name: d.Name || '',
+          wallType: d.WallType || '',
+          thickness: d.Thickness,
+          length: d.Length,
+          startX: d.StartX,
+          startY: d.StartY,
+          endX: d.EndX,
+          endY: d.EndY,
+          minX: Math.min(d.StartX, d.EndX),
+          maxX: Math.max(d.StartX, d.EndX),
+          minY: Math.min(d.StartY, d.EndY),
+          maxY: Math.max(d.StartY, d.EndY),
           centerX: (d.StartX + d.EndX) / 2.0,
           centerY: (d.StartY + d.EndY) / 2.0,
-          minX: Math.min(d.StartX, d.EndX), maxX: Math.max(d.StartX, d.EndX),
-          minY: Math.min(d.StartY, d.EndY), maxY: Math.max(d.StartY, d.EndY),
-          isVert: isVert, isHoriz: isHoriz
+          isVert: isVert,
+          isHoriz: isHoriz
         });
       }
     }
 
-    const vertWalls = wallElements.filter(w => w.isVert);
-    const horizWalls = wallElements.filter(w => w.isHoriz);
+    // 嚴格過濾 >= 140mm (15cm) 主結構牆
+    const mainWalls = wallElements.filter(w => w.thickness >= 140.0);
+    const vertWalls = mainWalls.filter(w => w.isVert);
+    const horizWalls = mainWalls.filter(w => w.isHoriz);
 
-    // (F) 建立 4 向 2 層牆心標註
-    // 1. 東側: 測量東西向水平牆 Y 坐標 (Layer 1 外牆總長 isTotalOnly=true, Layer 2 居室隔間 isTotalOnly=false)
-    await createDim(v.id, '東側', 'Layer 1', horizWalls.filter(w => w.maxX > globalEnv.MaxX - 5000), true, eastWallStep1X, true);
-    await createDim(v.id, '東側', 'Layer 2', horizWalls.filter(w => w.maxX > globalEnv.MaxX - 8000), true, eastWallStep2X, false);
+    console.log(`  🔍 牆體分析 (>=15cm 主牆): 垂直牆(南北向)=${vertWalls.length}, 水平牆(東西向)=${horizWalls.length}`);
 
-    // 2. 西側
-    await createDim(v.id, '西側', 'Layer 1', horizWalls.filter(w => w.minX < globalEnv.MinX + 5000), true, westWallStep1X, true);
-    await createDim(v.id, '西側', 'Layer 2', horizWalls.filter(w => w.minX < globalEnv.MinX + 8000), true, westWallStep2X, false);
+    // (F) 四向兩層牆心標註建立
+    // 1. 北側 (North): 水平標註線 (isVerticalDimLine=false)，量測垂直牆的 X 坐標
+    await createWallDim(v.id, '北側', 'Layer 1', vertWalls, false, northWallStep1Y, true, null);
+    await createWallDim(v.id, '北側', 'Layer 2', vertWalls, false, northWallStep2Y, false, globalEnv.MaxY - 3000.0);
 
-    // 3. 北側: 測量南北向垂直牆 X 坐標
-    await createDim(v.id, '北側', 'Layer 1', vertWalls.filter(w => w.maxY > globalEnv.MaxY - 5000), false, northWallStep1Y, true);
-    await createDim(v.id, '北側', 'Layer 2', vertWalls.filter(w => w.maxY > globalEnv.MaxY - 8000), false, northWallStep2Y, false);
+    // 2. 東側 (East): 垂直標註線 (isVerticalDimLine=true)，量測水平牆的 Y 坐標
+    await createWallDim(v.id, '東側', 'Layer 1', horizWalls, true, eastWallStep1X, true, null);
+    await createWallDim(v.id, '東側', 'Layer 2', horizWalls, true, eastWallStep2X, false, globalEnv.MaxX - 3000.0);
 
-    // 4. 南側
-    await createDim(v.id, '南側', 'Layer 1', vertWalls.filter(w => w.minY < globalEnv.MinY + 5000), false, southWallStep1Y, true);
-    await createDim(v.id, '南側', 'Layer 2', vertWalls.filter(w => w.minY < globalEnv.MinY + 8000), false, southWallStep2Y, false);
+    // 3. 西側 (West): 垂直標註線 (isVerticalDimLine=true)，量測水平牆的 Y 坐標
+    await createWallDim(v.id, '西側', 'Layer 1', horizWalls, true, westWallStep1X, true, null);
+    await createWallDim(v.id, '西側', 'Layer 2', horizWalls, true, westWallStep2X, false, globalEnv.MinX + 3000.0);
+
+    // 4. 南側 (South): 水平標註線 (isVerticalDimLine=false)，量測垂直牆的 X 坐標
+    await createWallDim(v.id, '南側', 'Layer 1', vertWalls, false, southWallStep1Y, true, null);
+    await createWallDim(v.id, '南側', 'Layer 2', vertWalls, false, southWallStep2Y, false, globalEnv.MinY + 3000.0);
 
     summary.push({
       name: v.name,
       id: v.id,
-      columnDims: 'Step 5(總跨) & Step 4(連續)',
-      wallLayer1: 'Step 3(外牆總長)',
-      wallLayer2: 'Step 2(居室主隔間)',
+      scale: `1:${calculatedScale}`,
+      stepMm: `${currentStepMm.toFixed(1)}mm`,
+      blueLineOffset: `${actualOffsetMm.toFixed(1)}mm`,
       status: 'SUCCESS'
     });
   }
 
   console.log('\n================================================================');
-  console.log('=== 【樓板平面所有視圖】7 間距標準放樣全部完成！ ===');
+  console.log('=== 【樓板平面所有視圖】牆心標註修正版放樣全部完成！ ===');
   console.log('================================================================');
   console.table(summary);
-
-  await client.disconnect();
-  process.exit(0);
 }
 
-main().catch(err => {
-  console.error('執行失敗:', err);
-  process.exit(1);
-});
+main().catch(console.error);

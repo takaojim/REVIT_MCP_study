@@ -25,9 +25,13 @@ description: 標準平面階梯標註與軸線整列系統：全自動讀取視�
 
 ## 📐 1. 核心放樣幾何層級 (Datum Hierarchy)
 
-所有尺寸放樣一律以當前樓層的「**全區實體最大包絡線（Global Bounding Box）**」為基準線（基準 0），並依出圖比例 $S$（`View.Scale`，例如 1:100 時 $S=100$）進行圖紙毫米（Sheet mm）至模型公制（Model mm）的動態換算：
+所有尺寸放樣一律以當前樓層的「**全區實體最大包絡線（Global Bounding Box）**」為基準線（基準 0），並依出圖比例 $S$（`View.Scale`，例如 1:100 時 $S=100$、1:50 時 $S=50$）進行圖紙毫米（Sheet mm）至模型公制（Model mm）的動態自適應換算（**Scale-Aware**）：
 
-$$\text{模型偏移距離 (mm)} = \text{圖紙尺寸 (mm)} \times S$$
+$$\text{模型模矩 stepMm} = 6.5\text{ mm} \times S = 650.0\text{ mm} \times \left(\frac{S}{100}\right)$$
+
+- **1:100 比例**：$\text{stepMm} = 650.0\text{ mm}$（7 間距藍線 $= +4,550\text{ mm}$）
+- **1:50 比例**：$\text{stepMm} = 325.0\text{ mm}$（7 間距藍線 $= +2,275\text{ mm}$）
+- **1:200 比例**：$\text{stepMm} = 1,300.0\text{ mm}$（7 間距藍線 $= +9,100\text{ mm}$）
 
 ```
 ========================= 軸線端點 (距最外實體 40mm * S) =========================

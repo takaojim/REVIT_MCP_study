@@ -352,6 +352,31 @@ metadata:
      - **頂部雙層柱心標註**：Tier 1 總跨（Step 4）+ Tier 2 連續柱間距（Step 3），型式 `TABC-DIM_*/ S 2.5-柱心-上右`（短輔助線朝向建築內側向下）。
      - **左側雙層樓層標註**：Tier 1 總高（Step 4）+ Tier 2 各層層高（Step 3），型式 `TABC-DIM_*/ S 2.5-柱心-下右`（短輔助線朝向建築內側向右）。
 
+## [L-038] 平面與立面尺寸標註多尺度自適應模矩換算體系 (Scale-Aware Formula) 與牆心正交量測原則
 
+- **問題痛點**：
+  1. **多比例漂移陷阱 (Scale Drift)**：過去腳本或工作流寫死 1:100 的模型間距（650.0mm），當切換至 1:50 規劃平面時，Revit API (`align_plan_grids`) 已自動依比例收縮軸線至 2,275mm，但前端腳本仍將藍線與尺寸線推至 4,550mm（拉大 2 倍），導致標註飛出天際且與軸號氣泡脫節。
+  2. **正交量測方向失效 (Orthogonal Dimension Failure)**：牆心標註時若將水平牆傳入水平尺寸線（北側/南側），Revit 原生 API 無法在平行元素間生成線性尺寸，導致標註建立失敗或無任何分段。
 
+- **核心規則與三層架構職責**：
+  1. **Tool、Skill、Domain 三層職責分工 (Layering Responsibility)**：
+     - **Tool (Revit C# 外掛 / MCP Tools)**：負責底層幾何執行、取得視圖真實比例（`view.Scale`），並在 `align_plan_grids` 返回精確的 `OffsetMm` 與 `AlignmentBoundsMm`。
+     - **Skill (工作流程 SOP / Standard Plan & Elevation Dimension)**：負責律定紙面模矩標準（$6.5\text{ mm}$）、階梯層級分配（Step 0~7 / Step 0~8）、正交幾何過濾，並動態由 Tool 返回值提取 `currentStepMm = OffsetMm / 7.0` 進行各層坐標計算。
+     - **Domain (知識庫 / Lessons Learned)**：記錄通用跨技能的尺度換算公式、避坑經驗與正交幾何原理。
 
+  2. **多尺度動態自適應黃金公式 (Universal Scale-Aware Formula)**：
+     圖紙出圖固定維持 $6.5\text{ mm}$ 等距階梯美感，模型空間間距一律依比例動態換算：
+     $$\text{stepMm} = \text{PaperSpacing} \times \text{view.Scale} = 6.5\text{ mm} \times \text{view.Scale} = 650.0\text{ mm} \times \left(\frac{\text{view.Scale}}{100}\right)$$
+
+     | 視圖出圖比例 | 模矩間距 ($\text{stepMm}$) | 7 間距藍線 (Step 7) | 8 間距藍線 (Step 8, 立面左) | 適用視圖情境 |
+     | :---: | :---: | :---: | :---: | :--- |
+     | **1:30** | **$195.0\text{ mm}$** | $+1,365.0\text{ mm}$ | $+1,560.0\text{ mm}$ | 局部大樣、浴廁/梯間放大平面 |
+     | **1:50** | **$325.0\text{ mm}$** | $+2,275.0\text{ mm}$ | $+2,600.0\text{ mm}$ | 規劃樓板平面、申請建照大樣圖 |
+     | **1:60** | **$390.0\text{ mm}$** | $+2,730.0\text{ mm}$ | $+3,120.0\text{ mm}$ | 特殊出圖比例立面/剖面 |
+     | **1:100** | **$650.0\text{ mm}$** | $+4,550.0\text{ mm}$ | $+5,200.0\text{ mm}$ | 標準建築平面圖、結構平面圖、標準立面圖 |
+     | **1:200** | **$1,300.0\text{ mm}$** | $+9,100.0\text{ mm}$ | $+10,400.0\text{ mm}$ | 全區配置圖、全區立面/剖面圖 |
+     | **1:500** | **$3,250.0\text{ mm}$** | $+22,750.0\text{ mm}$ | $+26,000.0\text{ mm}$ | 敷地計畫圖、地盤分析圖 |
+
+  3. **牆心正交量測原則 (Orthogonal Dimensioning Principle)**：
+     - **北側 & 南側（水平標註線，沿 X 軸拉線）**：必須傳入**垂直牆（南北向 `vertWalls`，$\Delta X < 35\text{mm}$）**，測量其 X 坐標。
+     - **東側 & 西側（垂直標註線，沿 Y 軸拉線）**：必須傳入**水平牆（東西向 `horizWalls`，$\Delta Y < 35\text{mm}$）**，測量其 Y 坐標。
