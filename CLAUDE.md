@@ -502,3 +502,9 @@ Before answering with project-specific facts:
 3. If a domain method applies, did I read and follow the domain file?
 4. If active view/level/selection matters, did I re-anchor in this turn?
 5. If I changed docs or counts, did I run QA/QC or state why I could not?
+
+## Zoning phase-1 role routing
+
+For zoning authoring/review tasks, start with `zoning/README.md` and the selected plan's `task.md`. Canonical project skills live under `zoning/skills/`: `zoning-legend-author` for Antigravity authoring, `revit-legend-pdf-audit` for independent Codex export/transcription audit. They are project-local and can be read explicitly without a personal skill installation. The existing `zoning-compliance-legend` entrypoint routes to authoring.
+
+Reviewers must not read `execution/`, `zoning/legacy/`, authoring skills/scripts or author conversations. Use a fresh review task with minimal inputs; this instruction is not a filesystem security boundary. Phase 1 uses user-mediated sequential handoff, not automated agent triggering. Do not operate both MCP clients at once, disable the lock, or use cached IDs. See zoning/README.md for cross-computer prerequisites.

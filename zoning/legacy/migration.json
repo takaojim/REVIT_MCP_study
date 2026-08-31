@@ -1,0 +1,147 @@
+[
+  {
+    "from": "zoning/all_existing_texts.json",
+    "to": "zoning/legacy/unclassified/all_existing_texts.json",
+    "sha256": "b23d38eec673b8d3d5d5cf76db7c1784092411de40a99f7c7bb69d70e2bcfdb9"
+  },
+  {
+    "from": "zoning/existing_text_types.json",
+    "to": "zoning/legacy/unclassified/existing_text_types.json",
+    "sha256": "47fa951ba3d75aad0db4992758176bbddceb63d313b643fee49b846b473ae3d3"
+  },
+  {
+    "from": "zoning/hemei_all_pages.txt",
+    "to": "zoning/plans/和美細部計畫-土地使用分區管制要點/execution/legacy/hemei_all_pages.txt",
+    "sha256": "150bd03666f8a05f79665311a3c8ebb10570f483edc25f561597e90239025dc1"
+  },
+  {
+    "from": "zoning/hemei_raw_text.txt",
+    "to": "zoning/plans/和美細部計畫-土地使用分區管制要點/execution/legacy/hemei_raw_text.txt",
+    "sha256": "9946899a51d60cbde1427490d8f97449df29af5efb0828f8e7c2eb0cbc468273"
+  },
+  {
+    "from": "zoning/inspected_702748_notes.json",
+    "to": "zoning/legacy/unclassified/inspected_702748_notes.json",
+    "sha256": "f2c9af5d05169189dd7ed965a8401cf97292c07b307610d4bf689994bb628c6a"
+  },
+  {
+    "from": "zoning/line_details.json",
+    "to": "zoning/legacy/unclassified/line_details.json",
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "from": "zoning/raw_pdf_text.txt",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/execution/legacy/raw_pdf_text.txt",
+    "sha256": "c187345406d20bb3518a233227c7a47c4aff20c6bec3e960122a0a09c60142e9"
+  },
+  {
+    "from": "zoning/revit_view_layout.json",
+    "to": "zoning/legacy/unclassified/revit_view_layout.json",
+    "sha256": "d27c277d766191604e6c40783cc5bdf5b3d1b858f01245a4e5748e3795cbd362"
+  },
+  {
+    "from": "zoning/text_details.json",
+    "to": "zoning/legacy/unclassified/text_details.json",
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "from": "zoning/true_table_lines.json",
+    "to": "zoning/legacy/unclassified/true_table_lines.json",
+    "sha256": "d6daee25e7d3e6f0dae94b5e413e0ab817b9ba187de3850b3495b218e7a1b2be"
+  },
+  {
+    "from": "zoning/verbatim_articles.json",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/execution/legacy/verbatim_articles.json",
+    "sha256": "e5dd941616e44e3f6efaf05a883dc72232415ca07c47bf5b756306d728f9400d"
+  },
+  {
+    "from": "zoning/verbatim_full_text.txt",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/execution/legacy/verbatim_full_text.txt",
+    "sha256": "48ed4e15d8c7be8af01a1715c467c8e91dc892c42e82080e9d984761ca4122b4"
+  },
+  {
+    "from": "zoning/view1_lines.json",
+    "to": "zoning/legacy/unclassified/view1_lines.json",
+    "sha256": "3e283f02088ff0d59b22e17a41f5b03dfd31133c091c24a9e6da45c8203a2376"
+  },
+  {
+    "from": "zoning/wufeng_all_pages.txt",
+    "to": "zoning/plans/霧峰地區都市計畫細部計畫-第一次通盤檢討/execution/legacy/wufeng_all_pages.txt",
+    "sha256": "f1001d7f8a9240e6913b64e0da0885a28d88e3b509cf7c9cc59a6111543ffa70"
+  },
+  {
+    "from": "zoning/wufeng_full_raw.txt",
+    "to": "zoning/plans/霧峰地區都市計畫細部計畫-第一次通盤檢討/execution/legacy/wufeng_full_raw.txt",
+    "sha256": "32571c03d9eed49fc48190fd1c6ea6d1e49f8a76c3258889600da08cd5f754ee"
+  },
+  {
+    "from": "zoning/wufeng_normalized.txt",
+    "to": "zoning/plans/霧峰地區都市計畫細部計畫-第一次通盤檢討/execution/legacy/wufeng_normalized.txt",
+    "sha256": "8e588fc8bf3ecc68476435de51c089cc3af76e2f9dd4673a9982920eeb1c6b28"
+  },
+  {
+    "from": "zoning/wufeng_raw_pdf_text.txt",
+    "to": "zoning/plans/霧峰地區都市計畫細部計畫-第一次通盤檢討/execution/legacy/wufeng_raw_pdf_text.txt",
+    "sha256": "604a7ea979a5e7b2b1cab05488821dd24e23e64e0d78d26977c33839aa44d35e"
+  },
+  {
+    "from": "zoning/wufeng_view_extracted.json",
+    "to": "zoning/plans/霧峰地區都市計畫細部計畫-第一次通盤檢討/execution/legacy/wufeng_view_extracted.json",
+    "sha256": "5ece2287d7f9a388f4b0a1f9bc8e3b63694183eebb4acb281c1b1bdcdbb29b14"
+  },
+  {
+    "from": "zoning/zoning_articles_clean.json",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/execution/legacy/zoning_articles_clean.json",
+    "sha256": "4c5694cdd13589df860bb385a8463b17f2732bce7dc313b4f5a2e20ea9456882"
+  },
+  {
+    "from": "zoning/zoning_articles_clean.md",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/execution/legacy/zoning_articles_clean.md",
+    "sha256": "d6a384899841d6522f65daaca4efc6213c4d0bc3f5c1dffd58ac079d81bdad60"
+  },
+  {
+    "from": "zoning/zoning_parsed.json",
+    "to": "zoning/legacy/unclassified/zoning_parsed.json",
+    "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  {
+    "from": "zoning/zoning_preview.md",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/execution/legacy/zoning_preview.md",
+    "sha256": "8f495b6b533bba6c4f7bba00e047822983a92025eed538f0b77af6ef7d62df07"
+  },
+  {
+    "from": "zoning/和美細部計畫-土地使用分區管制要點.pdf",
+    "to": "zoning/plans/和美細部計畫-土地使用分區管制要點/source/和美細部計畫-土地使用分區管制要點.pdf",
+    "sha256": "6af7f59349e01de2f8856e004bbc9d541a0eaa978b4dd153088f8effda7a8fcd"
+  },
+  {
+    "from": "zoning/和美細部計畫-土地使用分區管制要點_unlocked - 土管.pdf",
+    "to": "zoning/plans/和美細部計畫-土地使用分區管制要點/source/和美細部計畫-土地使用分區管制要點_unlocked - 土管.pdf",
+    "sha256": "6af7f59349e01de2f8856e004bbc9d541a0eaa978b4dd153088f8effda7a8fcd"
+  },
+  {
+    "from": "zoning/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制.pdf",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/source/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制.pdf",
+    "sha256": "66f66c07b7515fea3639e146987b3213b4229d6e69a1a6be8c5e718bcdf64007"
+  },
+  {
+    "from": "zoning/法規文字校稿報告-潭子.md",
+    "to": "zoning/plans/擬定臺中市潭子地區都市計畫細部計畫-土地使用管制/reviews/legacy/法規文字校稿報告-潭子.md",
+    "sha256": "90875a49a9ecc778c400dbdb7547457e347484d986272476c122d3654db8de8c"
+  },
+  {
+    "from": "zoning/測試和美_修正交接.md",
+    "to": "zoning/plans/和美細部計畫-土地使用分區管制要點/reviews/round-01/測試和美_修正交接.md",
+    "sha256": "30bbff8fc385b01646592fb71b6e80a2c6334f332927f13da2432a2337b78d88"
+  },
+  {
+    "from": "zoning/測試和美_錯誤螢光註記版.pdf",
+    "to": "zoning/plans/和美細部計畫-土地使用分區管制要點/reviews/round-01/測試和美_錯誤螢光註記版.pdf",
+    "sha256": "02f347c2531f57bc12308e03d4b798139e6cd586a29ed68c5a3b39c4bc1a83de"
+  },
+  {
+    "from": "zoning/霧峰地區都市計畫細部計畫-第一次通盤檢討.pdf",
+    "to": "zoning/plans/霧峰地區都市計畫細部計畫-第一次通盤檢討/source/霧峰地區都市計畫細部計畫-第一次通盤檢討.pdf",
+    "sha256": "bc9751fb9ce56a1f1b8eca641b966e62e81d9f80b54d65a1005dd516096ec830"
+  }
+]

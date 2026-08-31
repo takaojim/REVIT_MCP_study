@@ -30,6 +30,7 @@ These should be English-first.
 | `GEMINI.md` | redirect | Must contain only `CLAUDE.md` |
 | `.claude/commands/*.md` | command docs | Slash-command behavior |
 | `.claude/skills/*/SKILL.md` | skill docs | AI orchestration; migrate gradually to English while preserving exact local BIM terms |
+| `zoning/skills/*/SKILL.md` | project-local skill docs | Independent author and reviewer roles; English instructions, explicitly loadable on another computer |
 | `.github/copilot-instructions.md` | AI rules if present | Must align with `CLAUDE.md` |
 | `.mcp.json` | machine config | Project-level MCP server config |
 | `.vscode/mcp.json` | machine config | VS Code MCP server config |
@@ -47,6 +48,9 @@ These must remain understandable by both sides.
 | `domain/references/*.md` | regulatory reference | Keep source-language legal terms where needed |
 | `domain/README.md` | domain catalog | Bilingual preferred |
 | `log/README.md` | logging policy | Bilingual acceptable |
+| `zoning/README.md`, `zoning/plans/*/task.md` | workflow and neutral task inputs | Traditional Chinese; manual handoff and source selection, no author conclusions in task inputs |
+| `zoning/plans/*/reviews/**` | review evidence and correction handoff | Traditional Chinese; immutable export and annotated copy, actionable findings in one handoff |
+| `zoning/legacy/**`, `zoning/plans/*/execution/**` | historical and author-only materials | Preserve provenance; excluded from independent reviewer input |
 | `log/YYYY-MM.md` | append-only history | Preserve existing entries; new entries should be UTF-8 readable |
 
 ## Human-Facing Documents

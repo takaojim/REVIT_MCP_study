@@ -64,7 +64,7 @@ async function main() {
   console.log(`\n--- 在視圖 ${viewId} 還原左側原始雙欄（X: 2114 ~ 2904）線條與文字 ---`);
   
   // 1. 還原 89 條原始線條
-  const lines = JSON.parse(fs.readFileSync('./zoning/view1_lines.json', 'utf8'));
+  const lines = JSON.parse(fs.readFileSync(new URL('../zoning/legacy/unclassified/view1_lines.json', import.meta.url), 'utf8'));
   const origLines = lines.filter(l => l.StartX < 2990);
   const linePayload = origLines.map(l => ({
     startX: l.StartX,
