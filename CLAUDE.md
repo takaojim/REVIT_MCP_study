@@ -27,15 +27,17 @@ Revit Add-in (C#)
 
 There is also an optional embedded-chat direction where a Revit WPF window can call an AI API directly. That embedded option is separate from the MCP stdio server path.
 
+A second, unrelated stdio MCP server ships in the repo: `scripts/monstrare_mcp_server.py` exposes the Monstrare kanban cards (`tools/kanban/cards/*.json`) as MCP tools. It does not talk to Revit and is not part of the bridge above. See "Monstrare" below.
+
 ## Current Source-of-Truth Counts
 
 These counts must be derived from source, not copied by memory.
 
 | Item | Current Count | Source of Truth |
 |---|---:|---|
-| Runtime MCP tools | 180 | `registerRevitTools()` from `MCP-Server/src/tools/index.ts` |
-| Domain SOP files | 79 | `domain/*.md` except `domain/README.md`, plus `domain/references/*.md` |
-| Claude skills | 54 | `.claude/skills/*/SKILL.md` |
+| Runtime MCP tools | 192 | `registerRevitTools()` from `MCP-Server/src/tools/index.ts` |
+| Domain SOP files | 83 | `domain/*.md` except `domain/README.md`, plus `domain/references/*.md` |
+| Claude skills | 61 | `.claude/skills/*/SKILL.md` |
 
 When these numbers change, update `CLAUDE.md`, `README.md`, `README.zh-TW.md`, `docs/DOCUMENT_AUDIENCE_INVENTORY.md`, and any public site copy that makes grand-total claims. Then run `scripts/verify-qaqc.ps1 -SkipBuild -SkipDeploy`.
 
@@ -123,6 +125,8 @@ If pulling the 2026-07-17 cleanup commit fails with "local changes would be over
 | `MCP-Server/src/apps/clash-viewer/` | The first MCP App: `app.ts` (ext-apps client) + `template.html`, bundled by `scripts/build-apps.mjs` into a self-contained `ui://clash-viewer/index.html` served for `detect_clashes` |
 | `MCP-Server/scripts/build-apps.mjs` | esbuild single-file bundler that produces `MCP-Server/build/apps/*/index.html` for each MCP App |
 | `bridge/python/skills/ezdxf_worker.py` | Optional Python subprocess (spawned by `DwgColumnExecutor`) that reads DXF/DWG text for column-number mapping (`dwg-column-import` mode C). Needs system Python + `ezdxf`; DWG additionally needs ODA File Converter. Deployed to `%APPDATA%\RevitMCP` by `install-addon.ps1`. |
+| `scripts/monstrare_mcp_server.py` | Optional second stdio MCP server exposing the Monstrare kanban (`tools/kanban/cards/*.json`). Independent of the Revit bridge; protocol `2024-11-05`, not covered by the dual-era posture below |
+| `.agents/AGENTS.md` | Monstrare entry point. Carries a governance-precedence banner stating `CLAUDE.md` wins on any conflict. **Not** the root `AGENTS.md`, which is a redirect to this file |
 | `scripts/verify-qaqc.ps1` | Repository QA/QC gate |
 | `docs/BIM_MCP/reference/mep-playbook.html` | Hub page for the MEP design playbook (`docs/mep-design-playbook-ch1..ch3` + the model guide). The chapters are teaching material derived from an Autodesk certification course model — **not a client project**; the page states that provenance up front. Method definition stays in `domain/mep-space-demand-matrix.md` |
 | `docs/BIM_MCP/reference/tools-index.html` | Generated index of every runtime tool (one card each, badge = `readOnlyHint`/`destructiveHint`). Regenerate from `registerRevitTools()`; `7-14` fails on hand-edits that drift |
@@ -333,6 +337,10 @@ Read the matching file before applying a workflow or calculation.
 | threshold opening, 門檻開口, 門窗統計, door count, window count, get_room_door_counts, get_room_window_counts | `domain/threshold-opening-takeoff.md` |
 | RC filled region, RC 填充區域, 批次填充, batch fill region, batch_create_rc_filled_region, create_rc_filled_region | `domain/rc-filled-region-workflow.md` |
 | curtain wall elevation, 帷幕立面, 帷幕外立面, curtain elevation, create_curtain_wall_elevations | `domain/curtain-wall-elevation-workflow.md` |
+| green building material, green material, 綠建材, 綠建材標章, TABC, 綠建材採購指南, 健康綠建材, 高性能綠建材, 再生綠建材, 生態綠建材 | `domain/GM_catalog.md` |
+| green material parameter, 綠建材參數, GreenMaterial_ 共享參數, 綠建材標註, 六槽位, Mat1, layerComposition, materialSlotAssignment | `domain/GM_parameter-schema.md` |
+| green material search, 綠建材關鍵字, 關鍵字檢索, 同義擴充, DATA Engine, GBM 證號查詢 | `domain/GM_keyword-search.md` |
+| RFA family injection, 門窗綠建材, 獨立元件, RFA 導入, loadable family, 防音門窗, Low-E玻璃, 遮陽係數, 隔音Rw | `domain/GM_rfa-family-injection.md` |
 | opening candidate, 開孔候選, opening scan, 開孔預掃, scan_opening_candidates, 套管前置檢核, clearanceMm | `domain/mep-opening-candidate-scan.md` |
 | cad 圖塊放置, block 轉族群, 灑水頭建模, 閥件建模, point placement from CAD block, INSERT to FamilyInstance, get_dwg_block_instances, preview_family_instances_from_dwg_blocks, create_family_instances_from_dwg_blocks | `domain/cad-block-point-placement.md` |
 | space centroid, 空間中心點, 代表點, centroid, 批次放置, 逐室放置, 風口放置, air terminal, place_family_instances, get_space_centroid, IsPointInSpace | `domain/space-centroid-placement.md` |
@@ -357,9 +365,18 @@ Meta and governance domain files:
 
 ## Skills
 
-The canonical skill catalog is the .claude/skills/ directory itself (54 skills; count table above is the gate).
+The canonical skill catalog is the .claude/skills/ directory itself (61 skills; count table above is the gate).
 
 Use the smallest relevant skill set. If a skill and a domain file conflict on the method, the domain file wins.
+
+## Monstrare (Opt-In Process Layer)
+
+`ai/` (35 files), `tools/kanban/` (25 files), `.agents/AGENTS.md`, and `scripts/monstrare_mcp_server.py` are **Monstrare** — a gate-based spec/plan/verify/review workflow contributed with PR #116 (@CWLin0518) and harvested 2026-08-31.
+
+- **It is opt-in, not the project default.** Nothing requires you to follow it unless explicitly asked.
+- **`CLAUDE.md` wins on any conflict.** `.agents/AGENTS.md` carries this precedence banner explicitly.
+- **`ai/skills/*.md` are not Claude Code skills.** They do not live in `.claude/skills/`, are not counted in the 61, and are not bound by `domain/skill-authoring-standard.md`.
+- An audit against this file's AI Guard Rails, Deployment Rules, and Logging Protocol found no contradicting rule — only unstated precedence, now stated.
 
 ## Skill Packaging & Upstream Watch
 

@@ -61,11 +61,11 @@ ${legend}
 const skills = grainsSVG({
   title: 'Skills · 編排層',
   sub: 'AI WORKFLOW ORCHESTRATION · 5 CATEGORIES',
-  cols: 9,
+  cols: 10,
   groups: [
     { label: '法規', count: 6, color: '#ef4444' },
-    { label: '流程', count: 36, color: '#60a5fa' },
-    { label: '維運', count: 7, color: '#fbbf24' },
+    { label: '流程', count: 40, color: '#60a5fa' },
+    { label: '維運', count: 10, color: '#fbbf24' },
     { label: 'MEP', count: 3, color: '#4ade80' },
     { label: '外部', count: 2, color: '#a78bfa' },
   ],
@@ -78,7 +78,7 @@ const domain = grainsSVG({
   cols: 10,
   groups: [
     { label: '法規', count: 11, color: '#ef4444' },
-    { label: '流程', count: 38, color: '#60a5fa' },
+    { label: '流程', count: 42, color: '#60a5fa' },
     { label: '維運', count: 11, color: '#fbbf24' },
     { label: 'MEP', count: 18, color: '#4ade80' },
     { label: '外部', count: 1, color: '#a78bfa' },
@@ -87,4 +87,4 @@ const domain = grainsSVG({
 
 writeFileSync(new URL('skills__hero__grains.svg', OUT), skills);
 writeFileSync(new URL('domain__hero__grains.svg', OUT), domain);
-console.log('generated: skills__hero__grains.svg (54), domain__hero__grains.svg (79)');
+console.log('generated: skills__hero__grains.svg (61), domain__hero__grains.svg (83)');

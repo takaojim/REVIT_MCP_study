@@ -425,6 +425,118 @@ Write-Check "Each pathScanSkip entry excludes exactly 1 tracked file ($($pathSca
     $(if ($pathScanSkipBadEntries.Count -gt 0) { $pathScanSkipBadEntries -join ' | ' } else { "" })
 if ($pathScanSkipBadEntries.Count -gt 0) { $pathScanSkipBadEntries | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow } }
 
+# 3-5: Third-party TABC green-material data must not enter version control.
+# TABC (財團法人臺灣建築中心) green-material certificate data is a third-party database, not this
+# project's own content; this repo is MIT-licensed and must not become a redistribution channel for
+# it. Reuses $trackedForPaths from 3-4 (same `git ls-files` snapshot) rather than re-invoking git -
+# same floor-on-scan-universe reasoning as 3-4: if the scan universe is empty, SKIP, never a false
+# PASS on zero files scanned.
+# Two independent FAIL conditions:
+#   A) Path pattern: a tracked file whose PATH matches tabc_master_database, real_*_data.json,
+#      tabc_search, raw_tabc_search, a green-material/archive/ path, or a scrape_tabc /
+#      fetch_all_tabc script name is bulk third-party data (a full local mirror, a website page
+#      snapshot, a one-shot scraper's raw output, or the scraper tool itself) by construction,
+#      regardless of content. The last three patterns were added after a read-only RED test against
+#      the 37 files cwlin/main excluded during the 2026-08 gm-monstrare harvest: the original four
+#      patterns matched only 6 of the 37 by path (Condition A alone); the full old rule (Condition A
+#      path patterns union Condition B's 20+ threshold) blocked 9, with a 3-file overlap. The gap
+#      included archive/reports/wall_summary.txt (11 distinct certificate numbers - under the
+#      Condition B threshold, so path-pattern coverage is the only backstop) and 21 of the 22
+#      archive/scripts/**/*.py scraper scripts (0 certificate numbers each except one with 2, so
+#      Condition B cannot see them at all; filenames such as scrape_tabc.py / fetch_all_tabc_master.py
+#      did not match any prior pattern either). green-material/archive/ covers the whole archive tree
+#      by directory prefix; scrape_tabc / fetch_all_tabc cover the scraper tools by name so a future
+#      copy of one outside that directory is still caught.
+#   B) Citation volume: any tracked, non-domain/*.md file citing 20+ DISTINCT `GBM\d{7}` certificate
+#      numbers is bulk re-publication, not citation. domain/*.md is exempted outright per this
+#      project's hard rule that SOP method files may cite individual certificate numbers as worked
+#      examples. The 20 threshold is sourced, not a bare magic number: domain/GM_keyword-search.md
+#      legitimately cites 22 distinct GBM numbers as a keyword-to-material SOP lookup table (verified
+#      via `grep -oE 'GBM[0-9]{7}' domain/GM_keyword-search.md | sort -u | wc -l` during the 2026-08
+#      gm-monstrare harvest), and the next-highest non-domain file in that same harvest (GM_kanban.html
+#      / tools/kanban/index.html) cites 11. 20 sits strictly between those two observed values - below
+#      the one known legitimate large SOP table (so a future copy of that table into a non-domain file
+#      would still be caught) and comfortably above ordinary worked-example counts (2-11) seen
+#      elsewhere in this project.
+Write-Host ""
+Write-Host "  3-5. Third-party TABC data must not enter version control:" -ForegroundColor Cyan
+
+if ($trackedForPaths.Count -eq 0) {
+    Write-Skip "No tracked file path matches bulk TABC data patterns" "git ls-files returned nothing - scan universe empty, cannot verify (not a git repo, or run outside one)"
+    Write-Skip "No non-domain file cites 20+ distinct TABC certificate numbers" "git ls-files returned nothing - scan universe empty, cannot verify (not a git repo, or run outside one)"
+}
+else {
+    # Condition A: forbidden bulk-data filename patterns. See rationale above for the three patterns
+    # added past the original four (green-material/archive/, scrape_tabc, fetch_all_tabc).
+    $tabcPathRx = [regex]'tabc_master_database|real_.*_data\.json|tabc_search|raw_tabc_search|green-material/archive/|scrape_tabc|fetch_all_tabc'
+    $tabcPathHits = @($trackedForPaths | Where-Object { $_ -and $tabcPathRx.IsMatch($_) })
+    Write-Check "No tracked file path matches bulk TABC data patterns" ($tabcPathHits.Count -eq 0) `
+        $(if ($tabcPathHits.Count -gt 0) { "Forbidden path(s): $($tabcPathHits -join ', ')" } else { "" })
+    if ($tabcPathHits.Count -gt 0) { $tabcPathHits | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow } }
+
+    # Condition B: per-file distinct-certificate-number ceiling (non-domain/*.md files only).
+    # NOTE (index vs working tree): this loop reads DISK content via Read-FileText, not the
+    # staged index blob. That is the same gap as this Stage's own S1 blocker -
+    # assets/green-material-showcase.template.html sat staged with the OLD (real-certificate)
+    # blob while its worktree copy had already been redacted, so a disk-only read would have
+    # reported Condition B PASS on a still-dirty index. Considered switching to `git show ":$rel"`
+    # per file to read the index blob directly, but measured: ~625 non-domain tracked files x
+    # ~0.27s per `git show` subprocess (benchmarked directly, 20 calls = 5.43s) is roughly 170s
+    # added to every QA/QC run for one condition - not acceptable, and a `git cat-file --batch`
+    # single-process alternative needs a hand-rolled binary-safe stream parser (header line then
+    # exact byte-count content, repeated per blob) that is itself new, unverified surface area in
+    # a script whose whole point is checks that are provably correct. Chose the cheaper fix instead
+    # (2026-08 gm-monstrare harvest, Correction round 3): keep reading disk, but make the gap
+    # visible rather than silent - see the index/working-tree agreement check after Condition B
+    # below. It is a Write-Warn, not a Write-Check FAIL: an uncommitted edit is normal mid-session
+    # (this Stage's own 3 pre-existing baseline diffs are exactly that, and are explicitly out of
+    # scope to touch), so treating "index and disk differ" as a hard gate failure would make 3-5
+    # noisy on completely ordinary work. The warning still gives full visibility: which tracked,
+    # non-domain files disagree, so a reviewer can judge whether Condition B's result for THIS run
+    # reflects what `git add` actually staged.
+    # $tabcScanned / $tabcUnreadable give this loop the same visibility 3-4 already has via
+    # $pathScanned: same defect class as 3-4's own header comment (a cp950 console silently
+    # mis-decoding 3 tracked CJK filenames, which Test-Path then saw as garbled paths and skipped
+    # with no FAIL, no WARN, no record it was ever skipped) - a `continue` with no counter makes an
+    # unscanned file indistinguishable from a scanned-and-clean file in the PASS/FAIL output alone.
+    $gbmRx = [regex]'GBM\d{7}'
+    $overCiteHits = @()
+    $tabcScanned = 0
+    $tabcUnreadable = @()
+    foreach ($rel in $trackedForPaths) {
+        if (-not $rel) { continue }
+        if ($rel -like 'domain/*.md') { continue }
+        $full = Join-Path $projectRoot ($rel -replace '/', '\')
+        if (-not (Test-Path -LiteralPath $full)) { $tabcUnreadable += "$rel (not on disk)"; continue }
+        $content = Read-FileText $full
+        # $null -eq $content, not -not $content: an empty (0-byte) file reads back as "", which
+        # -not treats as falsy and would wrongly record a genuinely-scanned empty file as unreadable.
+        if ($null -eq $content) { $tabcUnreadable += "$rel (unreadable)"; continue }
+        $tabcScanned++
+        $distinct = @($gbmRx.Matches($content) | ForEach-Object { $_.Value } | Sort-Object -Unique)
+        if ($distinct.Count -ge 20) {
+            $overCiteHits += "$rel : $($distinct.Count) distinct GBM certificate numbers"
+        }
+    }
+    Write-Check "No non-domain file cites 20+ distinct TABC certificate numbers ($tabcScanned scanned)" ($overCiteHits.Count -eq 0) `
+        $(if ($overCiteHits.Count -gt 0) { "Likely bulk redistribution, not citation: $($overCiteHits -join ' | ')" } else { "" })
+    if ($overCiteHits.Count -gt 0) { $overCiteHits | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkYellow } }
+    Write-Check "Every non-domain tracked file was readable by 3-5" ($tabcUnreadable.Count -eq 0) `
+        $(if ($tabcUnreadable.Count -gt 0) { "Unscanned: $($tabcUnreadable -join ', ')" } else { "" })
+
+    # Index vs working-tree agreement, scoped to Condition B's own candidate set (tracked,
+    # non-domain/*.md files) - see the NOTE above Condition B for why this is a Write-Warn, not a
+    # Write-Check FAIL.
+    Push-Location $projectRoot
+    $dirtyTrackedAll = @(& git diff --name-only 2>$null)
+    Pop-Location
+    $dirtyTrackedInScope = @($dirtyTrackedAll | Where-Object { $_ -and ($_ -notlike 'domain/*.md') })
+    if ($dirtyTrackedInScope.Count -gt 0) {
+        Write-Warn "3-5 Condition B reflects the working tree, not the staged index, for $($dirtyTrackedInScope.Count) file(s)" `
+            "Index and disk differ for: $($dirtyTrackedInScope -join ', ') - if one of these is staged later (git add) with different certificate content than what 3-5 just scanned on disk, re-run 3-5 after staging"
+    }
+}
+
 # ─────────────────────────────────────────────
 # Phase 4: Build Verification (Windows only)
 # ─────────────────────────────────────────────
