@@ -188,10 +188,6 @@ namespace RevitMCP.Core
                         result = GetRoomsByLevel(parameters);
                         break;
 
-                    case "renumber_rooms_by_level":
-                        result = RenumberRoomsByLevel(parameters);
-                        break;
-
                     case "get_room_surface_areas":
                         result = GetRoomSurfaceAreas(parameters);
                         break;
@@ -596,6 +592,17 @@ namespace RevitMCP.Core
                         break;
                     case "draw_elevation_envelope_boxes":
                         result = DrawElevationEnvelopeBoxes(parameters);
+                        break;
+
+                    // === 區域面積與邊界線模組 ===
+                    case "generate_area_boundaries":
+                        result = GenerateAreaBoundaries(parameters);
+                        break;
+                    case "place_areas_in_view":
+                        result = PlaceAreasInView(parameters);
+                        break;
+                    case "center_area_tags":
+                        result = CenterAreaTags(parameters);
                         break;
 
                     // === 從屬視圖模組 ===
