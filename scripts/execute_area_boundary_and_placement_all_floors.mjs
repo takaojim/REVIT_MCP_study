@@ -59,6 +59,9 @@ async function main() {
         viewId: tv.id,
         minThicknessMm: 45.0,     // 包含 5cm 庫板 (50mm)
         includePanels: true,      // 開啟庫板白名單
+        includeRailings: true,    // 陽台欄杆路徑
+        snapToSlabEdge: true,     // 依建築技術規則吸附陽台樓板外緣
+        viewTemplate: '計入容積', // 律定視圖樣板
         clearExisting: true,      // 清除舊區域線以確保完全乾淨
         mergeToleranceMm: 2.5,    // 2.5mm 平行線合併
         snapGapToleranceMm: 5.0   // 5mm 端點吸附縫合
@@ -70,15 +73,18 @@ async function main() {
       continue;
     }
 
-    // C. 自動放置區域面積標籤 (方案 A)
+    // C. 自動放置區域面積標籤 (方案 B 純幾何拓撲掃描)
     let areaResult = null;
     try {
       areaResult = await client.sendCommand('place_areas_in_view', {
         viewId: tv.id,
+        useTopology: true,
+        clearExisting: true,
         defaultName: '居室',
         defaultUsage: '宿舍',
         countInGross: true,
-        countInFloorArea: true
+        countInFloorArea: true,
+        viewTemplate: '計入容積'
       });
       console.log(`  ✓ 區域面積 (Area) 放置完成: ${areaResult.data?.CreatedAreasCount} 個`);
       if (areaResult.data?.Areas && areaResult.data.Areas.length > 0) {

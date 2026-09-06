@@ -67,7 +67,31 @@ namespace RevitMCP.Core
                     .ToList();
             }
 
-            double targetZ = viewPlan.GenLevel != null ? viewPlan.GenLevel.Elevation : viewPlan.Origin.Z;
+            // 樓層解析 (支援國土署命名標準 R1FL / RFL 等)
+            Level viewLevel = viewPlan.GenLevel;
+            if (viewLevel == null)
+            {
+                Parameter pLevel = viewPlan.get_Parameter(BuiltInParameter.PLAN_VIEW_LEVEL);
+                if (pLevel != null && pLevel.AsElementId() != ElementId.InvalidElementId)
+                {
+                    viewLevel = doc.GetElement(pLevel.AsElementId()) as Level;
+                }
+            }
+            if (viewLevel == null)
+            {
+                Parameter pAssoc = viewPlan.LookupParameter("關聯的樓層");
+                if (pAssoc != null && pAssoc.AsElementId() != ElementId.InvalidElementId)
+                {
+                    viewLevel = doc.GetElement(pAssoc.AsElementId()) as Level;
+                }
+            }
+            if (viewLevel == null)
+            {
+                var allLevels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().ToList();
+                viewLevel = allLevels.FirstOrDefault(l => viewPlan.Name.StartsWith(l.Name, StringComparison.OrdinalIgnoreCase) || viewPlan.Name.Contains(l.Name));
+            }
+
+            double targetZ = viewLevel != null ? viewLevel.Elevation : (viewPlan.GenLevel != null ? viewPlan.GenLevel.Elevation : viewPlan.Origin.Z);
             double mergeToleranceFt = mergeToleranceMm / 304.8;
             double snapGapToleranceFt = snapGapToleranceMm / 304.8;
 
@@ -87,8 +111,8 @@ namespace RevitMCP.Core
                 string typeName = w.Name ?? "";
                 string typeUpper = typeName.ToUpper();
 
-                // 黑名單排除
-                if (typeUpper.Contains("粉刷") || typeUpper.Contains("磁磚") || typeUpper.Contains("FINISH") || typeUpper.Contains("TILE"))
+                // 黑名單排除：粉刷、磁磚、裝修飾面與廁所搗擺隔牆
+                if (typeUpper.Contains("粉刷") || typeUpper.Contains("磁磚") || typeUpper.Contains("FINISH") || typeUpper.Contains("TILE") || typeUpper.Contains("廁所隔牆") || typeUpper.Contains("搗擺"))
                 {
                     skippedWallsCount++;
                     continue;
@@ -101,10 +125,26 @@ namespace RevitMCP.Core
                     continue;
                 }
 
-                // 白名單：若含庫板、Panel、隔間，即使小於 minThickness 仍強制保留
-                bool isPanel = includePanels && (typeUpper.Contains("庫板") || typeUpper.Contains("PANEL") || typeUpper.Contains("SANDWICH") || typeUpper.Contains("隔間"));
+                // 白名單：僅保留 5cm 庫板/庫版 (Panel/Sandwich)
+                bool isPanel = includePanels && (typeUpper.Contains("庫板") || typeUpper.Contains("庫版") || typeUpper.Contains("PANEL") || typeUpper.Contains("SANDWICH"));
 
-                if (!isPanel && thicknessMm < minThicknessMm)
+                // 女兒牆 (110~120cm) 與防水矮牆 (>=200mm) 納入保護
+                bool isParapetOrCurb = false;
+                Parameter unconnParam = w.get_Parameter(BuiltInParameter.WALL_USER_HEIGHT_PARAM);
+                if (unconnParam != null && unconnParam.HasValue)
+                {
+                    double hMm = unconnParam.AsDouble() * 304.8;
+                    if (hMm >= 200.0 && hMm <= 1600.0)
+                    {
+                        isParapetOrCurb = true;
+                    }
+                }
+                if (typeUpper.Contains("女兒牆") || typeUpper.Contains("矮牆") || typeUpper.Contains("PARAPET"))
+                {
+                    isParapetOrCurb = true;
+                }
+
+                if (!isPanel && !isParapetOrCurb && thicknessMm < minThicknessMm)
                 {
                     skippedWallsCount++;
                     continue;
@@ -124,11 +164,11 @@ namespace RevitMCP.Core
             {
                 // 若開啟陽台樓板外緣計算，預先提取該樓層所有樓板頂面輪廓線
                 List<Curve> allSlabEdges = new List<Curve>();
-                if (snapToSlabEdge && viewPlan.GenLevel != null)
+                if (snapToSlabEdge && viewLevel != null)
                 {
                     var floorList = new FilteredElementCollector(doc)
                         .OfClass(typeof(Floor))
-                        .WherePasses(new ElementLevelFilter(viewPlan.GenLevel.Id))
+                        .WherePasses(new ElementLevelFilter(viewLevel.Id))
                         .WhereElementIsNotElementType()
                         .Cast<Floor>()
                         .ToList();
@@ -233,12 +273,52 @@ namespace RevitMCP.Core
                 }
             }
 
-            if (rawCurves.Count == 0)
+            // 3. 提取房間分隔線 (Room Separation Lines) 作為區域邊界
+            // 依國土署與建築實務規範：梯口、陽台/露台、開敞式動線之房間分隔線一併納入區域邊界線
+            bool includeRoomSeparation = parameters["includeRoomSeparation"]?.Value<bool>() ?? true;
+            int roomSepCurvesCount = 0;
+            if (includeRoomSeparation && viewLevel != null)
             {
-                throw new Exception("在當前視圖中沒有找到符合厚度或關鍵字條件的有效直線牆心或欄杆。");
+                var allSep = new FilteredElementCollector(doc)
+                    .OfCategory(BuiltInCategory.OST_RoomSeparationLines)
+                    .WhereElementIsNotElementType()
+                    .Cast<ModelCurve>()
+                    .ToList();
+
+                foreach (var mc in allSep)
+                {
+                    bool levelMatch = false;
+                    if (mc.LevelId != ElementId.InvalidElementId && mc.LevelId == viewLevel.Id)
+                    {
+                        levelMatch = true;
+                    }
+                    else if (mc.GeometryCurve != null)
+                    {
+                        double zMid = (mc.GeometryCurve.GetEndPoint(0).Z + mc.GeometryCurve.GetEndPoint(1).Z) / 2.0;
+                        if (Math.Abs(zMid - targetZ) < 500.0 / 304.8) // 50cm 範圍內
+                        {
+                            levelMatch = true;
+                        }
+                    }
+
+                    if (levelMatch && mc.GeometryCurve != null)
+                    {
+                        Curve flat = FlattenCurveToZ(mc.GeometryCurve, targetZ);
+                        if (flat != null && flat.Length > 0.001)
+                        {
+                            rawCurves.Add(flat);
+                            roomSepCurvesCount++;
+                        }
+                    }
+                }
             }
 
-            // 3. 幾何演算法：平行重疊線合併與端點吸附縫合
+            if (rawCurves.Count == 0)
+            {
+                throw new Exception("在當前視圖中沒有找到符合厚度或關鍵字條件的有效直線牆心、房間分隔線或欄杆。");
+            }
+
+            // 4. 幾何演算法：平行重疊線合併與端點吸附縫合
             List<Curve> cleanCurves = OptimizeCurves(rawCurves, targetZ, mergeToleranceFt, snapGapToleranceFt);
 
             int deletedExistingCount = 0;
@@ -253,7 +333,7 @@ namespace RevitMCP.Core
                 SketchPlane sketchPlane = viewPlan.SketchPlane;
                 if (sketchPlane == null)
                 {
-                    Level level = viewPlan.GenLevel;
+                    Level level = viewLevel ?? viewPlan.GenLevel;
                     XYZ origin = level != null ? new XYZ(0, 0, level.Elevation) : new XYZ(0, 0, targetZ);
                     Plane plane = Plane.CreateByNormalAndOrigin(XYZ.BasisZ, origin);
                     sketchPlane = SketchPlane.Create(doc, plane);
@@ -355,16 +435,39 @@ namespace RevitMCP.Core
                 {
                     double x = (pt["x"] ?? pt[0])?.Value<double>() ?? 0;
                     double y = (pt["y"] ?? pt[1])?.Value<double>() ?? 0;
+                    string ptName = pt["name"]?.Value<string>();
                     candidates.Add(new AreaCandidateSeed
                     {
                         Point = new UV(x / 304.8, y / 304.8),
-                        Name = defaultName
+                        Name = !string.IsNullOrEmpty(ptName) ? ptName : defaultName
                     });
                 }
             }
             else
             {
                 Level viewLevel = viewPlan.GenLevel;
+                if (viewLevel == null)
+                {
+                    Parameter pLevel = viewPlan.get_Parameter(BuiltInParameter.PLAN_VIEW_LEVEL);
+                    if (pLevel != null && pLevel.AsElementId() != ElementId.InvalidElementId)
+                    {
+                        viewLevel = doc.GetElement(pLevel.AsElementId()) as Level;
+                    }
+                }
+                if (viewLevel == null)
+                {
+                    Parameter pAssoc = viewPlan.LookupParameter("關聯的樓層");
+                    if (pAssoc != null && pAssoc.AsElementId() != ElementId.InvalidElementId)
+                    {
+                        viewLevel = doc.GetElement(pAssoc.AsElementId()) as Level;
+                    }
+                }
+                if (viewLevel == null)
+                {
+                    var allLevels = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().ToList();
+                    viewLevel = allLevels.FirstOrDefault(l => viewPlan.Name.StartsWith(l.Name) || viewPlan.Name.Contains(l.Name));
+                }
+
                 List<Room> levelRooms = new List<Room>();
                 if (viewLevel != null)
                 {
@@ -383,6 +486,7 @@ namespace RevitMCP.Core
                     foreach (var face in planarFaces)
                     {
                         string matchedName = defaultName;
+                        string matchedNumber = null;
                         // 檢查是否有房間落在此封閉面內（包含 Area 為 0 之未閉合房間，只要其座標在內即可關聯）
                         foreach (var r in levelRooms)
                         {
@@ -393,6 +497,7 @@ namespace RevitMCP.Core
                                     if (!string.IsNullOrEmpty(r.Name))
                                     {
                                         matchedName = r.Name;
+                                        matchedNumber = r.Number;
                                         break;
                                     }
                                 }
@@ -403,23 +508,25 @@ namespace RevitMCP.Core
                         {
                             Point = face.SeedPoint,
                             Name = matchedName,
+                            Number = matchedNumber,
                             Polygon = face.Polygon
                         });
                     }
                 }
 
-                // 2. 雙重保險：檢查未被拓撲面覆蓋的既有房間中心
+                // 2. 雙重保險：將所有既有房間中心點納入放置種子（若尚未被覆蓋或加入）
                 foreach (var r in levelRooms)
                 {
                     if (r.Location is LocationPoint lp)
                     {
-                        bool covered = candidates.Any(c => c.Polygon != null && IsPointInPolygon(lp.Point.X, lp.Point.Y, c.Polygon));
-                        if (!covered)
+                        bool alreadyInCandidates = candidates.Any(c => Math.Abs(c.Point.U - lp.Point.X) < 0.1 && Math.Abs(c.Point.V - lp.Point.Y) < 0.1);
+                        if (!alreadyInCandidates)
                         {
                             candidates.Add(new AreaCandidateSeed
                             {
                                 Point = new UV(lp.Point.X, lp.Point.Y),
-                                Name = !string.IsNullOrEmpty(r.Name) ? r.Name : defaultName
+                                Name = !string.IsNullOrEmpty(r.Name) ? r.Name : defaultName,
+                                Number = r.Number
                             });
                         }
                     }
@@ -522,6 +629,10 @@ namespace RevitMCP.Core
                                 if (!string.IsNullOrEmpty(cand.Name))
                                 {
                                     area.Name = cand.Name;
+                                }
+                                if (!string.IsNullOrEmpty(cand.Number))
+                                {
+                                    SetParameterValue(area, "編號", cand.Number);
                                 }
 
                                 SetParameterValue(area, "用途", defaultUsage);
@@ -1069,6 +1180,7 @@ namespace RevitMCP.Core
         {
             public UV Point { get; set; }
             public string Name { get; set; }
+            public string Number { get; set; }
             public List<XYZ> Polygon { get; set; }
         }
 
