@@ -51,6 +51,7 @@ import { legendTools } from "./legend-tools.js";
 import { scaffoldTools } from "./scaffold-tools.js";
 import { viewDuplicateTools } from "./view-duplicate-tools.js";
 import { fillRegionTools } from "./fill-region-tools.js";
+import { ifcStructuralSyncTools } from "./ifc-structural-sync-tools.js";
 import { areaTools } from "./area-tools.js";
 import { tagsTools } from "./tags-tools.js";
 import { gridTools } from "./grid-tools.js";

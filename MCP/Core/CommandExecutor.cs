@@ -274,10 +274,6 @@ namespace RevitMCP.Core
                         result = GetRoomsByLevel(parameters);
                         break;
 
-                    case "renumber_rooms_by_level":
-                        result = RenumberRoomsByLevel(parameters);
-                        break;
-
                     case "renumber_parking_spaces":
                         result = RenumberParkingSpaces(parameters);
                         break;
