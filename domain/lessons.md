@@ -243,16 +243,25 @@ metadata:
 
 - **規則**：判斷 native 指令（dotnet/npm/winget/net 等外部程式）是否成功，唯一可靠依據是 `$LASTEXITCODE`，**不是** stderr 有沒有輸出。在 `$ErrorActionPreference = "Stop"` 下對 native 指令用 `2>&1` 重導向，PowerShell 5.1 會把 stderr 上的一般進度/警告行升級成終止例外，即使該指令實際 0 錯誤退出。
 - **避坑經驗**：`setup.ps1` 半年來對 8 個 native 呼叫點都用了 `2>&1` + 全域 EAP Stop，`dotnet build` 明明 0 error 卻被腳本誤報「編譯例外」。issue #89 由首次貢獻者 @ray92chiu-png 在乾淨 Windows + stock PowerShell 5.1 環境上首度踩到並精準定位根因，修法是新增 `Invoke-ExternalCommand` helper，在呼叫 native 指令前後暫時把 EAP 切回 Continue，事後仍靠 `$LASTEXITCODE` 判斷成敗（commit `1b5a71e`）。橫向掃描後發現 `scripts/release-port.ps1` 的 `net stop`/`net start http` 同款地雷，一併修正（commit `33f1a44`）。
-- **根因（為何半年沒事）**：CI 一律用 `-SkipBuild -SkipDeploy` 跑 `verify-qaqc.ps1`，setup.ps1 的 native 呼叫路徑從未被實際執行過；早期部署者剛好用 PowerShell 7（無此行為）或工具鏈已預裝、繞過了 native 安裝分支。**「半年沒事」是倖存者偏差，不是腳本沒問題**——CI 覆蓋率的空洞，會被下一個踩線的使用者（而非測試）發現。
-- **實踐**：任何跨版本執行環境（PS 5.1 vs PS 7、cmd vs bash）的腳本，涉及 native 指令 stderr 重導向時，一律用 exit code 判斷成敗，不要讓 stderr 存在與否影響控制流；CI gate 若刻意 skip 某段路徑（如 `-SkipBuild -SkipDeploy`），必須在文件或 log 中明確標記「此路徑未被 CI 覆蓋」，避免長期零覆蓋卻被誤認為已驗證。
+- **根因（為何半年沒事）**：CI 一律用 `-SkipBuild -SkipDeploy` 跑 `verify-qaqc.ps1`，setup.ps1 的 native 呼叫路徑從未被實際執行過；早期部署者剛好用 PowerShell 7（無此行為）或工具鏈已預裝、繞過了 native 安裝分支。**「半年沒事」是倖存者偏差，不是腳本沒問題**�   3. **牆心正交量測原則 (Orthogonal Dimensioning Principle)**：
+      - **北側 & 南側（水平標註線，沿 X 軸拉線）**：必須傳入**垂直牆（南北向 `vertWalls`，$\Delta X < 35\text{mm}$）**，測量其 X 坐標。
+      - **東側 & 西側（垂直標註線，沿 Y 軸拉線）**：必須傳入**水平牆（東西向 `horizWalls`，$\Delta Y < 35\text{mm}$）**，測量其 Y 坐標。
 
-## [L-031] 「Set() 不拋例外」不等於「寫入真的生效」——Type/Instance 參數範疇因族群而異
+## [L-040] (原 L-032) PowerShell 5.1 讀寫無 BOM 的 UTF-8 原始碼會把中文變亂碼——而未追蹤檔沒有 git 可救
 
-- **規則**：對 Revit 元素呼叫 `Parameter.Set()` 沒有拋例外，**不代表值真的被寫入**。當一個參數在族群定義裡被關聯到公式、或被作者設為 Instance 範疇而非 Type 範疇時，對該 Type（`FamilySymbol`）的 `Set()` 呼叫可能靜默無效——`IsReadOnly` 也可能回報 `false`（不是唯讀問題），純粹是「這個 Type 物件不是這份資料真正的儲存位置」。任何 Type 層級寫入工具，都必須在同一個 Transaction 內、`Set()` 之後立刻讀回比對，而不是只憑「沒拋例外」判定成功。
-- **避坑經驗**：TASK-005.12（Column/Beam 結構材質指派）中，`assign_existing_material` 對「混凝土樑-矩形」族群的 `STRUCTURAL_MATERIAL_PARAM` 呼叫 `Set()`，回報成功、`ErrorCount: 0`，但 `get_types_by_category`/`get_element_info` 驗證材質根本沒套上。加入診斷（`ParamUsed`/`VerifiedImmediatelyAfterSet`：`Set()` 後立即 `AsElementId()` 讀回比對）才抓到根因——該族群把材質參數設計成 Instance 範疇，Type 層級的寫入被 Revit 靜默忽略。同族群的柱（無此設計）完全正常，證明不是 Scenario 邏輯錯，是單一族群的參數範疇選擇。使用者自行在族群編輯器把該參數的 Instance 核取方塊取消勾選、轉為 Type 範疇後，同一套工具鏈立刻正常運作。
+- **規則**：本 repo 的 C#／Markdown 原始檔是 **UTF-8 無 BOM**。Windows PowerShell 5.1 的 `Get-Content`／`Set-Content`（不指定 `-Encoding`）會用系統 ANSI 字碼頁（繁中環境＝Big5/cp950）讀寫，讀進來的中文就已經壞了，寫回去即永久損毀。修改原始檔一律用 Edit/Write 工具、或 Python 明確 `encoding='utf-8'`；PowerShell 只拿來跑建置、部署等指令。
+- **避坑經驗**：2026-09-25 相機管理面板開發中，一個子代理用 PowerShell 讀改寫 `MCP/Core/CameraKeyPlanService.cs`（約 20 萬位元組、上萬中文字），整檔中文變亂碼。該檔**還沒 commit、是 untracked**，git 救不回來；只能從先前 session 的對話紀錄逐段重建，並以「把重建檔同樣弄亂、逐字比對損毀檔」驗證，仍有一行註解只能手寫補回。
+- **實踐**：(a) 交辦包裡的限制條款寫明「不准用 PowerShell Get-Content/Set-Content 改原始檔」；(b) 大量新程式長時間停在 untracked 狀態是單點故障——功能告一段落就 commit（至少在功能分支上），不要讓 git 只剩「看得到但救不回」；(c) 事後可用「U+FFFD 替換字元數＝0、無 BOM、中文字數合理」快速自檢檔案完整性。
+
+## [L-041] (原 L-033) 剖面「範圍對」不等於「方向對」——ViewSection.CreateSection 會建成反方向，後檢要驗剖切面位置
+
+- **規則**：用 `ViewSection.CreateSection(doc, typeId, box)` 建剖面後，**必須讀回 `CropBox.Transform.BasisX` 並確認「意圖剖切面（意圖框 Max.Z 面）」落在實際剖切面（實際 Max.Z）上**。只比對 8 個角點的世界範圍不夠——剖面整個繞鉛直軸轉 180° 時，框佔的空間一模一樣，範圍偏差是 0 mm，但剖切面跑到了遠裁剪面、看的方向也反了。
+- **避坑經驗**：2026-09-27 相機管理面板的 Key Plan：意圖是「剖切面通過相機、往前看 60 m」，讀回卻是 BasisX＝−意圖軸、剖切面在 60 m 外回頭看相機。範圍後檢一直報 0 mm，所以好幾輪都去修「平面看不到剖面線」的表面原因（比例門檻、篩選器、線型、裁剪框），真正原因是方向。最後靠兩個證據定案：用讀回的 Transform 把眼睛換算成剖面座標，得到 Z＝−60000（等於遠裁剪）；截剖面圖發現整棟建築只有投影線、沒有被剖到。實測室外（沿視線）和室內（對齊房間長邊）兩台相機，`CreateSection` 都建成反方向；改用「同一實體框、座標系轉 180°」重新請求後才正確。
+- **實踐**：(a) 幾何後檢要涵蓋**範圍＋方向＋關鍵面位置**三件事，缺一就可能出現「數字全綠、圖是錯的」；(b) 參數 `Set()` 回傳 true 也要讀回——本案「在比例粗於…時隱藏」遇到不在下拉選項內的值，Set 回 true 但讀回 −1（同 L-031 的哲學）；(c) 「看不到」類問題先截圖＋用讀回座標算關鍵點落在哪，再去調表現法。是單一族群的參數範疇選擇。使用者自行在族群編輯器把該參數的 Instance 核取方塊取消勾選、轉為 Type 範疇後，同一套工具鏈立刻正常運作。
 - **實踐**：(a) 任何「複製 Type → 指派 Type 層級參數」的寫入鏈，把「`Set()` 後立即讀回驗證」做成標準步驟，讀回不符就拋例外，讓上層呼叫端（如 `AssignExistingMaterial`）正確計入失敗、不誤把 Type 排進成功清單；(b) 錯誤訊息裡帶上足夠診斷資訊（用了哪個 `BuiltInParameter`、儲存型別、讀回結果），讓下一個排查的人不用重新從頭加 log；(c) 遇到「回報成功但驗證對不上」時，優先懷疑該元素/族群定義本身的參數範疇（Type vs Instance）或公式關聯，而不是懷疑呼叫端邏輯——先用另一個沒有這類設計的同品類元素/族群對照測試，快速判斷是通用 bug 還是單一族群的問題。
 - **警告**：不要把「工具回報 `Success: true`」直接當作「Revit 模型真的改了」——尤其是牽涉族群自訂關聯、公式驅動、或參數範疇可能因族群作者設計而異的欄位。跟 Tool Call Data Honesty 是同一哲學延伸到「寫入端」：讀取端不可用記憶捏造數據，寫入端同樣不可用「沒報錯」捏造成功。
 
+<<<<<<< HEAD
 ## [L-032] 建築設計模型圖元量級與 MCP 查詢上限（maxCount 10,000）原則
 
 - **規則**：在建築設計專案（LOD 200 ~ LOD 350）中，單一品類（如視圖、房間、牆體、門窗、尺寸）的數量級通常在 30 ~ 3,000 筆以內，絕不會達到數萬筆（數萬筆僅見於機電 MEP 灑水頭/管件或鋼構深化螺栓）。MCP 的 `query_elements` 預設查詢上限應設定為 **`10,000` 筆**（或 <= 0 不設上限），嚴禁使用 Web API 常見的 100 筆保守預設值。
@@ -262,7 +271,7 @@ metadata:
   2. 在現代本機環境中，傳輸 1,000 ~ 10,000 筆圖元 JSON 僅需約 20ms，效能與記憶體負擔極低。
   3. AI 執行批次視圖或圖元處理前，必須確保查詢無上限，絕不可基於截斷的 partial list 作出「專案不存在該圖元」的錯誤推論。
 
-## [L-033] 標註型式 (DimensionType) 前置動態查詢與降級防呆原則
+## [L-041] (原 L-033) 標註型式 (DimensionType) 前置動態查詢與降級防呆原則
 
 - **規則**：執行任何尺寸標註（平面柱心、立面標註、房間標註）前，**嚴禁在程式碼中寫死 (Hardcode) 任何靜態 TypeId**（如 `2240793`、`2240801`、`2110318` 等），亦不可未經查詢即假設專案必定存在 `TABC-DIM_*` 標註型式。執行標註前必須先查詢專案既有 `DimensionTypes`。
 - **避坑經驗**：在不同 Revit 專案檔案中，若專案未載入 TABC 標準樣板，寫死特定專案的 TypeId 或未經存在性檢查便呼叫 `create_dimension` / `change_element_type`，會導致指令失敗、型式無效、或尺寸標註完全無法顯示（無聲失敗）。
@@ -387,3 +396,15 @@ metadata:
   3. **牆心正交量測原則 (Orthogonal Dimensioning Principle)**：
      - **北側 & 南側（水平標註線，沿 X 軸拉線）**：必須傳入**垂直牆（南北向 `vertWalls`，$\Delta X < 35\text{mm}$）**，測量其 X 坐標。
      - **東側 & 西側（垂直標註線，沿 Y 軸拉線）**：必須傳入**水平牆（東西向 `horizWalls`，$\Delta Y < 35\text{mm}$）**，測量其 Y 坐標。
+
+## [L-040] (原 L-032) PowerShell 5.1 讀寫無 BOM 的 UTF-8 原始碼會把中文變亂碼——而未追蹤檔沒有 git 可救
+
+- **規則**：本 repo 的 C#／Markdown 原始檔是 **UTF-8 無 BOM**。Windows PowerShell 5.1 的 `Get-Content`／`Set-Content`（不指定 `-Encoding`）會用系統 ANSI 字碼頁（繁中環境＝Big5/cp950）讀寫，讀進來的中文就已經壞了，寫回去即永久損毀。修改原始檔一律用 Edit/Write 工具、或 Python 明確 `encoding='utf-8'`；PowerShell 只拿來跑建置、部署等指令。
+- **避坑經驗**：2026-09-25 相機管理面板開發中，一個子代理用 PowerShell 讀改寫 `MCP/Core/CameraKeyPlanService.cs`（約 20 萬位元組、上萬中文字），整檔中文變亂碼。該檔**還沒 commit、是 untracked**，git 救不回來；只能從先前 session 的對話紀錄逐段重建，並以「把重建檔同樣弄亂、逐字比對損毀檔」驗證，仍有一行註解只能手寫補回。
+- **實踐**：(a) 交辦包裡的限制條款寫明「不准用 PowerShell Get-Content/Set-Content 改原始檔」；(b) 大量新程式長時間停在 untracked 狀態是單點故障——功能告一段落就 commit（至少在功能分支上），不要讓 git 只剩「看得到但救不回」；(c) 事後可用「U+FFFD 替換字元數＝0、無 BOM、中文字數合理」快速自檢檔案完整性。
+
+## [L-033] 剖面「範圍對」不等於「方向對」——ViewSection.CreateSection 會建成反方向，後檢要驗剖切面位置
+
+- **規則**：用 `ViewSection.CreateSection(doc, typeId, box)` 建剖面後，**必須讀回 `CropBox.Transform.BasisX` 並確認「意圖剖切面（意圖框 Max.Z 面）」落在實際剖切面（實際 Max.Z）上**。只比對 8 個角點的世界範圍不夠——剖面整個繞鉛直軸轉 180° 時，框佔的空間一模一樣，範圍偏差是 0 mm，但剖切面跑到了遠裁剪面、看的方向也反了。
+- **避坑經驗**：2026-09-27 相機管理面板的 Key Plan：意圖是「剖切面通過相機、往前看 60 m」，讀回卻是 BasisX＝−意圖軸、剖切面在 60 m 外回頭看相機。範圍後檢一直報 0 mm，所以好幾輪都去修「平面看不到剖面線」的表面原因（比例門檻、篩選器、線型、裁剪框），真正原因是方向。最後靠兩個證據定案：用讀回的 Transform 把眼睛換算成剖面座標，得到 Z＝−60000（等於遠裁剪）；截剖面圖發現整棟建築只有投影線、沒有被剖到。實測室外（沿視線）和室內（對齊房間長邊）兩台相機，`CreateSection` 都建成反方向；改用「同一實體框、座標系轉 180°」重新請求後才正確。
+- **實踐**：(a) 幾何後檢要涵蓋**範圍＋方向＋關鍵面位置**三件事，缺一就可能出現「數字全綠、圖是錯的」；(b) 參數 `Set()` 回傳 true 也要讀回——本案「在比例粗於…時隱藏」遇到不在下拉選項內的值，Set 回 true 但讀回 −1（同 L-031 的哲學）；(c) 「看不到」類問題先截圖＋用讀回座標算關鍵點落在哪，再去調表現法。

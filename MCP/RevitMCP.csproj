@@ -23,4 +23,9 @@
     <PackageReference Include="Clipper2" Version="1.4.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Resources\icon-32-on.png" />
+    <Resource Include="Resources\icon-32-off.png" />
+  </ItemGroup>
+
 </Project>
