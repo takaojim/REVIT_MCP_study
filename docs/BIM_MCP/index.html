@@ -3,16 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(localStorage.getItem("bim-theme")==="light")document.documentElement.setAttribute("data-theme","light")}catch(e){}</script>
 <title>BIM_MCP Reference Hub</title>
 <meta property="og:title" content="BIM_MCP Reference Hub">
 <meta property="og:description" content="安裝 Revit MCP、做第一次只讀查詢，再依任務找方法的入口。">
+<meta name="description" content="安裝 Revit MCP、做第一次只讀查詢，再依任務找方法的入口。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://shuotao.github.io/REVIT_MCP_study/docs/BIM_MCP/index.html">
+<meta property="og:site_name" content="BIM_MCP">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:image" content="https://shuotao.github.io/REVIT_MCP_study/docs/BIM_MCP/images/index__og__hub.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="BIM_MCP 首頁：用自然語言查詢與操作 Revit，認識、安裝、第一次查詢、找方法、貢獻五步">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BIM_MCP Reference Hub">
+<meta name="twitter:description" content="安裝 Revit MCP、做第一次只讀查詢，再依任務找方法的入口。">
+<meta name="twitter:image" content="https://shuotao.github.io/REVIT_MCP_study/docs/BIM_MCP/images/index__og__hub.jpg">
+<meta name="twitter:image:alt" content="BIM_MCP 首頁：用自然語言查詢與操作 Revit，認識、安裝、第一次查詢、找方法、貢獻五步">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@300;400;600;700;800&display=swap">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="nav.css">
 <style>
-  .bim-hero-figure,.bim-figure{margin:var(--gap-lg) 0 0;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;background:#000}
+  .bim-hero-figure,.bim-figure{margin:var(--gap-lg) 0 0;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;background:var(--figure-bg)}
   .bim-hero-figure img,.bim-figure img{display:block;width:100%;height:auto}
   .hub-card{min-height:190px;display:flex;flex-direction:column;justify-content:space-between;border-bottom:none;color:inherit}
   .hub-card:hover{border-color:var(--accent-border)}
@@ -34,7 +50,7 @@
      兩條匝道刻意不對稱 —— 請勿為了「補齊互指」而給本頁補上 prev 屬性，
      那會讓站點入口長出「上一篇」卡片，且 ← 鍵會跳進導覽末頁。
      （此註解刻意不寫出屬性的完整字面形式，以免被掃描 data-* 的工具誤讀。） -->
-<body data-next="reference/deployment-guide.html">
+<body>
 <nav class="bim-topnav">
   <div class="bim-topnav-left">
     <a href="index.html" class="bim-topnav-home">BIM_MCP</a>
@@ -49,7 +65,7 @@
     <a href="reference/deployment-guide.html" class="bim-topnav-btn">安裝</a>
     <a href="reference/domain-index.html" class="bim-topnav-btn">Domain</a>
     <a href="reference/contributor-template.html" class="bim-topnav-btn">Contribute</a>
-    <a data-meetup-link class="bim-topnav-btn bim-topnav-btn-primary" title="本月小聚報名表單（每月更新）">📝 報名小聚</a>
+    <a data-meetup-link class="bim-topnav-btn bim-topnav-btn-primary" title="小聚報名（開放時才可點）">📝 小聚報名</a>
   </div>
 </nav>
 
@@ -224,7 +240,7 @@
     <a class="bim-footer-btn" href="reference/domain-index.html">找方法</a>
     <a class="bim-footer-btn" href="reference/contributor-template.html">貢獻</a>
     <a class="bim-footer-btn" href="https://github.com/shuotao/REVIT_MCP_study" target="_blank" rel="noopener">GitHub 原始碼</a>
-    <a data-meetup-link class="bim-footer-btn" title="本月小聚報名（表單每月更新）">📝 本月小聚報名</a>
+    <a data-meetup-link class="bim-footer-btn" title="小聚報名（開放時才可點）">📝 小聚報名</a>
   </div>
   <p>BIM_MCP / hub / 最後審閱 2026-10-23</p>
 </footer>

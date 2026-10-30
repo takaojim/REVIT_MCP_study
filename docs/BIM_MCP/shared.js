@@ -3,16 +3,62 @@
   function qsa(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
 
   // ============================================================
-  // MEETUP_SIGNUP_URL — 月小聚報名表單，每月更新一次
-  // ⚠ MONTHLY: 換月時只改這一行，所有 [data-meetup-link] 元素自動套用
+  // MEETUP_SIGNUP — 月小聚報名設定（url + eventDate 成對維護）
+  // 開放報名：兩個欄位都填。url = 報名表單網址；eventDate = 活動日期 YYYY-MM-DD（台北時間）。
+  // 自動關閉：活動當天（含）之前按鈕可按；台北時間過了 eventDate 就自動停用，不必記得回來改。
+  // 沒有新連結時：url 與 eventDate 都留空字串，所有 [data-meetup-link] 按鈕會顯示「目前未開放報名」且按不下去。
+  // QA 7-17 會檢查：url 有填但 eventDate 缺漏／格式錯誤／已過期 → FAIL（逼你換下一場的連結＋日期，或清空 url）。
+  // 格式：必須是單一一行 var MEETUP_SIGNUP = { url: "…", eventDate: "…" }; —— url 與 eventDate 都要用單引號或雙引號的純字串寫在這一行（不可用樣板字串、不可串接、值前後不可有空白），兩個鍵順序不拘、可有尾逗號，也不要另外對它重新賦值。
+  // QA 7-17 會實際執行本檔，只信 window.__meetupSignupEffective() 回傳的 url / eventDate（即訪客實際看到的設定），並要求上面那一行原文含有同樣的純字串。
+  // 舊的八月表單連結可從 git 歷史 e805fac 找回，不要再填回來。
   // ============================================================
-  var MEETUP_SIGNUP_URL = "https://forms.gle/TFKZuxLyoWrtykoP6";
+  var MEETUP_SIGNUP = { url: "https://forms.gle/B27MLgRv5EWYdp5s6", eventDate: "2026-10-24" };  // url = 報名表單；eventDate = 活動日期 YYYY-MM-DD（台北時間），活動當天結束後自動停用
+  // 唯讀 getter：執行期與 QA 7-17 都讀這個物件，所以閘門檢查的就是訪客實際看到的設定。
+  window.__meetupSignupEffective = function () { return { url: MEETUP_SIGNUP.url, eventDate: MEETUP_SIGNUP.eventDate }; };
+
+  // 今天的日期（台北時間）YYYY-MM-DD；Intl 不可用時退回本機時間
+  function taipeiToday() {
+    try {
+      var s = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Taipei", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    } catch (e) { /* 落到下面的本機時間 */ }
+    var d = new Date();
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+
+  function isRealDate(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
+    if (!m) return false;
+    var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3];
+  }
+
+  // 只讀 getter 一次；url 必須是 https:// 開頭且不含空白，日期必須是真實日期且台北時間今天 <= eventDate，否則回傳 null（＝關閉）
+  function meetupConfig() {
+    var c = window.__meetupSignupEffective();
+    if (!(c && typeof c.url === "string" && /^https:\/\/\S+$/.test(c.url) && isRealDate(c.eventDate) && taipeiToday() <= c.eventDate)) return null;
+    return { url: c.url, eventDate: c.eventDate };
+  }
 
   window.initMeetupLinks = function initMeetupLinks() {
+    var c = meetupConfig();
     qsa("[data-meetup-link]").forEach(function (el) {
-      el.href = MEETUP_SIGNUP_URL;
-      if (!el.getAttribute("target")) el.setAttribute("target", "_blank");
-      if (!el.getAttribute("rel")) el.setAttribute("rel", "noopener");
+      if (c) {
+        el.href = c.url;
+        if (!el.getAttribute("target")) el.setAttribute("target", "_blank");
+        if (!el.getAttribute("rel")) el.setAttribute("rel", "noopener");
+        el.removeAttribute("aria-disabled");
+        el.classList.remove("is-disabled");
+      } else {
+        el.removeAttribute("href");
+        el.removeAttribute("target");
+        el.removeAttribute("rel");
+        el.setAttribute("aria-disabled", "true");
+        el.classList.add("is-disabled");
+        el.textContent = "\uD83D\uDCDD 目前未開放報名";
+        el.title = "下一場小聚的報名連結尚未公布";
+      }
     });
   };
 
@@ -151,13 +197,100 @@
     "reference/tools-index": { title: "Tools 索引", desc: "239 個執行層工具，依用途分八類。" },
     "reference/domain-index": { title: "Domain 索引（94）", desc: "知識層：法規 / SOP / lessons。" },
     "reference/deployment-guide": { title: "部署指南", desc: "安裝到你的 Revit，完成第一次唯讀查詢。" },
-    "reference/troubleshooting": { title: "Troubleshooting", desc: "5 經典 + 4 個 5/18 demo 修復。" },
-    "reference/contributor-template": { title: "Contributor Template", desc: "新增 Domain / Skill / Tool 的順序。" },
+    "reference/troubleshooting": { title: "排錯指南", desc: "三種症狀分流：看不到外掛、無法連線、結果不符預期。" },
+    "reference/contributor-template": { title: "貢獻範本", desc: "新增 Domain / Skill / Tool 的順序。" },
     "reference/personal-llm-wiki": { title: "個人 LLM Wiki", desc: "把 Domain pull 回家，長成個人知識庫。" },
     "reference/contributors": { title: "貢獻者致謝", desc: "27 位建置協助人：GitHub handle + PR／commit。" },
-    "reference/architecture-v2": { title: "三層架構 V2", desc: "Skill / Domain / Tool 的分工，以及軟體連線。" }
+    "reference/architecture-v2": { title: "三層架構 V2", desc: "Skill / Domain / Tool 的分工，以及軟體連線。" },
+    "reference/kanban-index": { title: "看板卡索引", desc: "Monstrare 看板卡的歷史紀錄，不是現行方法。" }
     // 新增 reference/ 頁時，只加一筆帶 "reference/" 前綴的項目：metaFor() 會自動退一步補上前綴。
     // 同一頁若同時有裸鍵與帶前綴鍵，就會有兩份各自漂移的描述（architecture 頁曾因此自相矛盾）。
+  };
+
+  // ============================================================
+  // BIM_ROUTES — 站內閱讀順序（單一來源）。鍵 = "index" 或 "reference/<頁名>"（不含 .html）
+  // initRoutes() 依此補 body 的 data-prev/data-next，並填入 [data-route-nav] 容器
+  // ============================================================
+  window.BIM_ROUTES = {
+    "index":                                { next: "reference/deployment-guide" },
+    "reference/deployment-guide":           { prev: "index", next: "reference/domain-index" },
+    "reference/troubleshooting":            { prev: "reference/deployment-guide", next: "reference/domain-index" },
+    "reference/domain-index":               { prev: "reference/deployment-guide", next: "reference/skills-index" },
+    "reference/mep-playbook":               { prev: "reference/domain-index", next: "reference/skills-index" },
+    "reference/skills-index":               { prev: "reference/domain-index", next: "reference/tools-index" },
+    "reference/tools-index":                { prev: "reference/skills-index", next: "reference/contributor-template" },
+    "reference/contributor-template":       { prev: "reference/tools-index", next: "reference/contributors" },
+    "reference/contributors":               { prev: "reference/contributor-template", next: "index" },
+    "reference/kanban-index":               { prev: "reference/contributors", next: "reference/personal-llm-wiki" },
+    "reference/personal-llm-wiki":          { prev: "reference/kanban-index", next: "index" },
+    "reference/architecture-v2":            { prev: "index", next: "reference/industry-evidence" },
+    "reference/industry-evidence":          { prev: "reference/architecture-v2", next: "reference/philosophy-22-propositions" },
+    "reference/philosophy-22-propositions": { prev: "reference/industry-evidence", next: "reference/three-constitutions" },
+    "reference/three-constitutions":        { prev: "reference/philosophy-22-propositions", next: "reference/spectrum-decision" },
+    "reference/spectrum-decision":          { prev: "reference/three-constitutions", next: "reference/domain-index" }
+  };
+
+  // 由 location.pathname 推出路由鍵；凍結頁（YYYY-MM/…）與未登錄頁回傳 ""
+  function routeKey() {
+    var path = (window.location && window.location.pathname) || "";
+    var segs = path.split("/").filter(function (x) { return x; });
+    var raw = segs.length ? segs[segs.length - 1] : "";
+    var parent, last;
+    if (raw.indexOf(".") === -1) {
+      // 目錄 URL（…/BIM_MCP/）視為該目錄的 index
+      parent = raw; last = "index";
+    } else {
+      parent = segs.length > 1 ? segs[segs.length - 2] : "";
+      last = raw.replace(/\.html$/, "");
+    }
+    if (/^\d{4}-\d{2}$/.test(parent)) return "";
+    var key = last === "index" ? "index" : parent + "/" + last;
+    return Object.prototype.hasOwnProperty.call(window.BIM_ROUTES, key) ? key : "";
+  }
+
+  // 從 fromKey 頁面指向 toKey 頁面的相對 href
+  function routeHref(fromKey, toKey) {
+    var fromHub = fromKey === "index";
+    if (toKey === "index") return fromHub ? "index.html" : "../index.html";
+    var name = toKey.replace(/^reference\//, "") + ".html";
+    return fromHub ? "reference/" + name : name;
+  }
+
+  window.initRoutes = function initRoutes() {
+    var key = routeKey();
+    if (!key) return;
+    var route = window.BIM_ROUTES[key];
+    var body = document.body;
+    var prevHref = route.prev ? routeHref(key, route.prev) : "";
+    var nextHref = route.next ? routeHref(key, route.next) : "";
+    // 舊頁仍帶 body 屬性時不覆寫
+    if (!body.getAttribute("data-prev") && !body.getAttribute("data-next")) {
+      if (prevHref) body.setAttribute("data-prev", prevHref);
+      if (nextHref) body.setAttribute("data-next", nextHref);
+    }
+    function link(cls, href, text) {
+      var a = document.createElement("a");
+      a.className = cls;
+      a.setAttribute("href", href);
+      a.textContent = text;
+      return a;
+    }
+    var nextMeta = route.next ? (PAGE_META[route.next] || PAGE_META["reference/" + route.next] || { title: route.next }) : null;
+    qsa('[data-route-nav="top"]').forEach(function (box) {
+      if (box.getAttribute("data-route-filled")) return;
+      box.setAttribute("data-route-filled", "1");
+      if (prevHref) box.insertBefore(link("bim-topnav-btn", prevHref, "← 上一篇"), box.firstChild);
+      if (nextHref) box.appendChild(link("bim-topnav-btn", nextHref, "下一篇 →"));
+    });
+    qsa('[data-route-nav="foot"]').forEach(function (box) {
+      if (box.getAttribute("data-route-filled")) return;
+      box.setAttribute("data-route-filled", "1");
+      var first = box.firstChild;
+      if (prevHref) box.insertBefore(link("bim-footer-btn", prevHref, "← 上一篇"), first);
+      // 頁面自己已有主要動作（如「複製建置說明」「開啟看板 ↗」）時，下一篇改用一般按鈕，避免一列兩顆主按鈕
+      var hasPrimary = !!box.querySelector(".bim-footer-btn.primary");
+      if (nextHref) box.insertBefore(link(hasPrimary ? "bim-footer-btn" : "bim-footer-btn primary", nextHref, "下一篇 → " + nextMeta.title), first);
+    });
   };
 
   window.initFooterPreview = function initFooterPreview() {
@@ -215,7 +348,7 @@
         return;
       }
       // 抽屜開啟時，方向鍵與 g+h 不翻頁（避免閱讀抽屜時被帶離本頁）
-      if (qs(".bim-drawer.open")) return;
+      if (qs(".bim-drawer.open") || qs(".bim-toc.open")) return;
       if (event.key === "ArrowLeft" && prev) window.location.href = prev;
       if (event.key === "ArrowRight" && next) window.location.href = next;
       if (event.key.toLowerCase() === "g") {
@@ -437,7 +570,10 @@
       });
 
       var haystacks = items.map(function (el) {
-        return ((el.textContent || "") + " " + (el.getAttribute("data-search-keys") || "")).toLowerCase();
+        // [data-search-ignore] 是每張卡都有的介面字（「方法原文 ↗」「展開摘要」），不列入比對
+        var clone = el.cloneNode(true);
+        Array.prototype.forEach.call(clone.querySelectorAll("[data-search-ignore]"), function (n) { n.parentNode.removeChild(n); });
+        return ((clone.textContent || "") + " " + (el.getAttribute("data-search-keys") || "")).toLowerCase();
       });
 
       function passesGroups(el) {
@@ -574,12 +710,135 @@
     }
   };
 
+  // ============================================================
+  // initTheme — 淺色／深色主題（預設深色；不跟隨系統偏好）
+  // 快照頁（body > div[data-snapshot]）固定深色：直接返回，不加切換鈕、不改 data-theme
+  // ============================================================
+  window.initTheme = function initTheme() {
+    if (qs("body > div[data-snapshot]")) return;
+    var root = document.documentElement;
+    var KEY = "bim-theme";
+    function readStored() {
+      try { return window.localStorage.getItem(KEY); } catch (e) { return null; }
+    }
+    function writeStored(v) {
+      try { window.localStorage.setItem(KEY, v); } catch (e) { /* 無痕或停用儲存時略過 */ }
+    }
+    function apply(light) {
+      if (light) root.setAttribute("data-theme", "light");
+      else root.removeAttribute("data-theme");
+    }
+    var light = readStored() === "light";
+    apply(light);
+
+    var host = qs(".bim-topnav-actions") || qs(".bim-topnav");
+    if (!host || qs(".bim-theme-toggle")) return;
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bim-theme-toggle";
+    btn.setAttribute("aria-label", "切換淺色／深色主題");
+    function render() {
+      btn.setAttribute("aria-pressed", light ? "true" : "false");
+      btn.textContent = light ? "深色" : "淺色";
+    }
+    render();
+    btn.addEventListener("click", function () {
+      light = !light;
+      apply(light);
+      writeStored(light ? "light" : "dark");
+      render();
+    });
+    host.appendChild(btn);
+  };
+
+  // ============================================================
+  // initMobileToc — 手機目錄按鈕 + 任務列（≤900px 由 styles.css 控制顯示）
+  // 凍結頁只有行為（切換鈕），不注入路由連結（T32）
+  // ============================================================
+  window.initMobileToc = function initMobileToc(opts) {
+    opts = opts || {};
+    var toc = qs(".bim-toc");
+    var bar = qs(".bim-context-bar");
+    if (!toc || !bar) return;
+    if (qs(".bim-toc-toggle", bar)) return;
+    if (!toc.id) toc.id = "bim-toc";
+
+    var btn = document.createElement("button");
+    btn.className = "bim-toc-toggle";
+    btn.type = "button";
+    btn.setAttribute("aria-expanded", "false");
+    btn.setAttribute("aria-controls", toc.id);
+    btn.textContent = "目錄";
+    bar.appendChild(btn);
+
+    var key = routeKey();
+    if (key && !qs(".bim-toc-tasks", toc)) {
+      var tasks = document.createElement("div");
+      tasks.className = "bim-toc-tasks";
+      var add = function (href, text, src) {
+        var a = document.createElement("a");
+        a.setAttribute("href", href);
+        a.textContent = text;
+        if (src) {
+          if (src.getAttribute("target")) a.setAttribute("target", src.getAttribute("target"));
+          if (src.getAttribute("rel")) a.setAttribute("rel", src.getAttribute("rel"));
+        }
+        tasks.appendChild(a);
+      };
+      var prev = document.body.getAttribute("data-prev");
+      var next = document.body.getAttribute("data-next");
+      if (prev) add(prev, "← 上一篇");
+      if (next) add(next, "下一篇 →");
+      var homeHref = opts.home || (key === "index" ? "index.html" : "../index.html");
+      if (key !== "index" && homeHref !== next && homeHref !== prev) add(homeHref, "回首頁");
+      var meetup = qs("[data-meetup-link]");
+      if (meetup && !meetup.classList.contains("is-disabled") && meetup.getAttribute("aria-disabled") !== "true" && meetup.getAttribute("href")) {
+        add(meetup.getAttribute("href"), (meetup.textContent || "").trim() || "小聚報名", meetup);
+      }
+      toc.appendChild(tasks);
+    }
+
+    function isOpen() { return toc.classList.contains("open"); }
+    function setOpen(open, restoreFocus) {
+      if (open === isOpen()) return;
+      if (open) {
+        toc.classList.add("open");
+        btn.setAttribute("aria-expanded", "true");
+        var first = qs("a", toc);
+        if (!toc.hasAttribute("tabindex")) toc.setAttribute("tabindex", "-1");
+        (first || toc).focus();
+      } else {
+        toc.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+        if (restoreFocus) btn.focus();
+      }
+    }
+    btn.addEventListener("click", function () { setOpen(!isOpen(), true); });
+    toc.addEventListener("click", function (e) {
+      var t = e.target;
+      while (t && t !== toc && t.tagName !== "A") t = t.parentNode;
+      if (t && t.tagName === "A") setOpen(false, false);
+    });
+    // capture 階段：先於 initKeyNav 的 Escape 處理，確保焦點回到切換鈕
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && isOpen()) setOpen(false, true);
+    }, true);
+    document.addEventListener("click", function (e) {
+      if (!isOpen()) return;
+      var t = e.target;
+      if (t && (toc.contains(t) || btn.contains(t))) return;
+      setOpen(false, false);
+    });
+  };
+
   var hashBound = false;
 
   // ============================================================
   // initAll — 一次啟用所有
   // ============================================================
   window.initAll = function initAll(opts) {
+    window.initRoutes();
+    window.initTheme();
     window.initProgress();
     window.initSectionDrawers();   // 必須在 initDrawer 之前（產生 trigger）
     window.initTOC();
@@ -588,6 +847,7 @@
     window.initDrawer();
     window.initKeyNav(opts);
     window.initMeetupLinks();
+    window.initMobileToc(opts);   // 必須在 initMeetupLinks 之後（報名連結的 href 由它寫入）
     window.initSearch();
     window.revealHash();
     if (!hashBound) {
